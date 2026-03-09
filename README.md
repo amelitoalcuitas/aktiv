@@ -60,11 +60,11 @@ The core booking interface.
 
 #### 🏆 Tournaments
 
-- Hub admins or verified users can register a tournament
+- Hub admins can register a tournament
 - Tournament card shows: sport, format (single/double elim, round robin), date range, registration deadline, entry fee, prize info
 - Once started, a live **match bracket** is displayed
   - Bracket updates in real time as scores are submitted
-  - Players submit scores; hub staff or a designated referee confirms
+  - Players submit scores; hub admins confirm
 - Leaderboard within the tournament shows standings (for round robin)
 
 #### 🥇 Leaderboard
@@ -263,16 +263,17 @@ hub_reviews
 
 **Goal:** Users can discover hubs.
 
-- [ ] Project setup: Nuxt 3 + Nuxt UI 4 (frontend), Laravel (backend API), PostgreSQL on Hetzner VPS, Docker Compose
+- [ ] Project setup: Nuxt 3 + Nuxt UI 4 (frontend), Laravel (backend API), PostgreSQL, Docker Compose
 - [ ] Auth: Sign up / login via Laravel Sanctum (email + Google OAuth)
 - [ ] Database: `users`, `hubs`, `courts`, `court_sports`, `hub_sports`, `app_settings` tables
 - [ ] Hub listing: auto-approved on creation (`is_approved = true`), `is_verified = false` by default
-- [ ] Explore page: hub cards with search + filters (OpenStreetMap/Leaflet for map view)
+- [ ] Explore page: hub cards with search + filters
+- [ ] Map view using MapLibre GL JS + OpenFreeMap Bright tiles
 - [ ] Hub profile shell (tabs: Scheduler, Open Play, Tournaments, Leaderboard)
 - [ ] Hub owner dashboard: create and manage hub, courts, and court sports
 - [ ] Design system: `#004e89` primary, `#f9fdf2` background, flat UI components
 
-**Deliverables:** Browsable hub directory, hub detail page
+**Deliverables:** Browsable hub directory, hub detail page with map
 
 ---
 
@@ -365,28 +366,35 @@ hub_reviews
 
 ## Tech Stack
 
-| Layer           | Choice                                                              |
-| --------------- | ------------------------------------------------------------------- |
-| Frontend        | Nuxt 3 + Nuxt UI 4 + Tailwind CSS + Pinia                           |
-| Backend         | Laravel (PHP)                                                       |
-| Auth            | Laravel Sanctum (API token auth)                                    |
-| Database        | PostgreSQL (local Docker) → PostgreSQL on Hetzner VPS pre-launch    |
-| File Storage    | Local storage (dev) → VPS storage or Cloudflare R2 free tier (prod) |
-| Maps            | OpenStreetMap + Leaflet.js (free)                                   |
-| Email           | Resend free tier (3,000 emails/mo)                                  |
-| Dev Environment | WSL Ubuntu + Docker Compose                                         |
-| Hosting         | ⏳ Hetzner VPS — to be configured before Phase 6 launch             |
-| Payments        | ⏳ To be added in a future phase                                    |
-| Mobile          | ⏳ PWA / native app to be added in a future phase                   |
+| Layer           | Choice                                                                |
+| --------------- | --------------------------------------------------------------------- |
+| Frontend        | Nuxt 3 + Nuxt UI 4 + Tailwind CSS + Pinia                             |
+| Backend         | Laravel (PHP)                                                         |
+| Auth            | Laravel Sanctum (API token auth)                                      |
+| Database        | PostgreSQL (local Docker) → PostgreSQL on Hetzner VPS pre-launch      |
+| File Storage    | Local storage (dev) → VPS storage or Cloudflare R2 free tier (prod)   |
+| Maps            | OpenFreeMap (Bright tiles) + MapLibre GL JS (free, no API key needed) |
+| Email           | Resend free tier (3,000 emails/mo)                                    |
+| Dev Environment | WSL Ubuntu + Docker Compose                                           |
+| Hosting         | ⏳ Hetzner VPS — to be configured before Phase 6 launch               |
+| Payments        | ⏳ To be added in a future phase                                      |
+| Mobile          | ⏳ PWA / native app to be added in a future phase                     |
 
-### Environments
+### Maps Setup
 
-| Stage                    | Setup                                                                       |
-| ------------------------ | --------------------------------------------------------------------------- |
-| **Local (current)**      | WSL Ubuntu, Docker Compose — all containers run locally                     |
-| **Staging / Production** | Hetzner VPS, same Docker Compose config — provisioned before Phase 6 launch |
+Map tiles are served by [OpenFreeMap](https://openfreemap.org) using the **Bright** style, rendered with **MapLibre GL JS**. No API key is required — tiles are free and open.
 
-> Since WSL Ubuntu and the Hetzner VPS are both Linux, the environments are nearly identical. The same `docker-compose.yml` works in both places with only `.env` variable changes.
+```js
+// nuxt.config.ts — install maplibre-gl via pnpm
+// pnpm add maplibre-gl
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://tiles.openfreemap.org/styles/bright',
+  center: [125.6, 7.07], // default: Davao City
+  zoom: 12
+});
+```
 
 ---
 
@@ -396,29 +404,50 @@ hub_reviews
 
 | Container  | Image                   | Purpose                                                            |
 | ---------- | ----------------------- | ------------------------------------------------------------------ |
-| `frontend` | `node:20-alpine`        | Next.js 14 dev server                                              |
+| `frontend` | `node:20-alpine`        | Nuxt 3 dev server                                                  |
 | `backend`  | `php:8.3-fpm` + Laravel | Laravel REST API                                                   |
 | `db`       | `postgres:16-alpine`    | Main PostgreSQL database                                           |
 | `redis`    | `redis:alpine`          | Queue driver + API response caching                                |
-| `nginx`    | `nginx:alpine`          | Reverse proxy — routes `/api/*` → Laravel, `/*` → Next.js          |
+| `nginx`    | `nginx:alpine`          | Reverse proxy — routes `/api/*` → Laravel, `/*` → Nuxt             |
 | `mailpit`  | `axllent/mailpit`       | Local email catcher for dev (replaces Resend during local testing) |
 
 ### Port Map (Local)
 
-| Service         | Local URL                                                |
-| --------------- | -------------------------------------------------------- |
-| App (via Nginx) | `http://localhost:8080`                                  |
-| Mailpit UI      | `http://localhost:8025`                                  |
-| PostgreSQL      | `localhost:5432` (direct, for DB clients like TablePlus) |
-| Redis           | `localhost:6379` (direct, for debugging)                 |
+| Service         | Local URL                                                        |
+| --------------- | ---------------------------------------------------------------- |
+| App (via Nginx) | `http://localhost:8080`                                          |
+| Mailpit UI      | `http://localhost:8025`                                          |
+| PostgreSQL      | `localhost:5433` (direct, for DB clients like TablePlus/DBeaver) |
+| Redis           | `localhost:6379` (direct, for debugging)                         |
 
-> **WSL note:** Use `localhost` from your Windows browser — WSL 2 automatically forwards ports to Windows. No extra config needed. If ports don't resolve, run `wsl hostname -I` to get the WSL IP as a fallback.
+> **Note:** PostgreSQL is on host port `5433` (not `5432`) to avoid conflict with other projects running on the default port.
+
+> **WSL note:** Use `localhost` from your Windows browser — WSL 2 automatically forwards ports to Windows. If ports don't resolve, run `wsl hostname -I` to get the WSL IP as a fallback.
 
 ### WSL-Specific Tips
 
-- Store the project inside the WSL filesystem (`~/projects/aktiv`) **not** on the Windows mount (`/mnt/c/...`). File I/O on Windows mounts is significantly slower and will make Laravel and Next.js noticeably sluggish.
-- Docker Desktop for Windows with the WSL 2 backend is the recommended setup. Alternatively, install Docker Engine directly inside WSL (no Docker Desktop needed).
-- Mailpit replaces Resend in local dev — Laravel's `MAIL_MAILER` is set to `smtp` pointing at the Mailpit container. All outgoing emails are caught and viewable at `http://localhost:8025`. No emails actually send during local development.
+- Store the project inside the WSL filesystem (`~/projects/aktiv`) **not** on the Windows mount (`/mnt/c/...`). File I/O on Windows mounts is significantly slower.
+- Docker Desktop for Windows with the WSL 2 backend is the recommended setup. Alternatively, install Docker Engine directly inside WSL.
+- `vendor/` and `node_modules/` live on your local WSL filesystem and are mounted into the containers. This means VS Code IntelliSense and autocomplete work natively — run `composer install` and `pnpm install` in WSL once to set them up locally.
+- Mailpit replaces Resend in local dev — all outgoing emails are caught at `http://localhost:8025`. No emails actually send during local development.
+
+### Common Commands
+
+```bash
+# Start all containers
+docker compose up -d
+
+# View logs
+docker compose logs -f frontend
+docker compose logs -f backend
+
+# Laravel artisan
+docker compose exec backend php artisan migrate
+docker compose exec backend php artisan make:controller ExampleController
+
+# Nuxt / pnpm (adding packages)
+docker compose exec frontend pnpm add maplibre-gl
+```
 
 ---
 
@@ -432,6 +461,6 @@ hub_reviews
 | Mobile app                    | ⏳ Website only for now; PWA/native planned post-launch                                                |
 | Hub listing approval          | ✅ Auto-approved (`is_approved = true`) for now; `is_verified` flag reserved for future Verified badge |
 | Payments                      | ⏳ Deferred to future phase; all price fields stored in DB now to ease future integration              |
-| Free API services             | ✅ OpenStreetMap + Leaflet (maps), Laravel Sanctum (auth), Resend free tier (email)                    |
+| Maps                          | ✅ OpenFreeMap (Bright tiles) + MapLibre GL JS — fully free, no API key needed                         |
 | Frontend framework            | ✅ Nuxt 3 + Nuxt UI 4 + Pinia (uses pnpm)                                                              |
 | Hosting                       | Local dev on WSL Ubuntu + Docker Compose; Hetzner VPS provisioned before Phase 6 launch                |

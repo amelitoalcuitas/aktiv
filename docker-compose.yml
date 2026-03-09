@@ -1,0 +1,130 @@
+services:
+
+  # ─── Nginx reverse proxy ───────────────────────────────────────────────────
+  # Routes /api/* and /sanctum/* to the Laravel backend.
+  # All other requests go to the Nuxt frontend.
+  # Binds to host port 8080 to avoid conflict with port 80 on WSL.
+  nginx:
+    image: nginx:alpine
+    container_name: aktiv_nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+  # ─── Nuxt 3 frontend ───────────────────────────────────────────────────────
+  frontend:
+    image: node:20-alpine
+    container_name: aktiv_frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      # node_modules and .nuxt are on your local WSL filesystem.
+      # This means VS Code IntelliSense and autocomplete work natively.
+      # Run `pnpm install` in WSL inside frontend/ to install locally too.
+      - pnpm_store:/root/.local/share/pnpm/store
+    environment:
+      - NODE_ENV=development
+      - NUXT_PUBLIC_API_BASE=http://localhost:8080/api
+      # Bind to all interfaces inside the container so Nginx can reach it
+      - NUXT_HOST=0.0.0.0
+      - NUXT_PORT=3000
+      # Required for pnpm to work in Docker (no TTY available)
+      - CI=true
+    command: sh -c "npm install -g pnpm && pnpm install && pnpm run dev"
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  # ─── Laravel backend ───────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aktiv_backend
+    working_dir: /var/www
+    volumes:
+      - ./backend:/var/www
+      # vendor/ is on your local WSL filesystem.
+      # This means VS Code IntelliSense and autocomplete work natively.
+      # Run `composer install` in WSL inside backend/ to install locally too.
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_URL=http://localhost:8080
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-aktiv}
+      - DB_USERNAME=${DB_USERNAME:-aktiv_user}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+      - MAIL_MAILER=smtp
+      - MAIL_HOST=mailpit
+      - MAIL_PORT=1025
+      - MAIL_USERNAME=null
+      - MAIL_PASSWORD=null
+      - MAIL_ENCRYPTION=null
+      - MAIL_FROM_ADDRESS=hello@aktiv.local
+      - MAIL_FROM_NAME=Aktiv
+    expose:
+      - "9000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  # ─── PostgreSQL database ───────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: aktiv_db
+    ports:
+      - "5433:5432"           # Using 5433 on host to avoid conflict with other projects on 5432
+    environment:
+      - POSTGRES_DB=${DB_DATABASE:-aktiv}
+      - POSTGRES_USER=${DB_USERNAME:-aktiv_user}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-secret}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-aktiv_user} -d ${DB_DATABASE:-aktiv}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ─── Redis ─────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:alpine
+    container_name: aktiv_redis
+    ports:
+      - "6379:6379"           # Exposed for local debugging
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  # ─── Mailpit (local email catcher) ────────────────────────────────────────
+  # Catches all outgoing mail from Laravel in dev.
+  # View caught emails at http://localhost:8025
+  # No emails are actually sent during local development.
+  mailpit:
+    image: axllent/mailpit
+    container_name: aktiv_mailpit
+    ports:
+      - "8025:8025"           # Web UI
+      - "1025:1025"           # SMTP (Laravel points here)
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  redis_data:
+  pnpm_store:

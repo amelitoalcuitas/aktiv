@@ -1,6 +1,6 @@
 # Aktiv — Sports Hub Scheduler
 
-> **Primary Color:** `#004e89` · **Background:** `#f9fdf2` · **Style:** Flat, minimal, no gradients
+> **Primary Color:** `#004e89` · **Background:** `#f9fdf2` · **Style:** Flat, minimal, no gradients, use Nuxt UI components as much as possible
 
 ---
 
@@ -448,6 +448,127 @@ docker compose exec backend php artisan make:controller ExampleController
 # Nuxt / pnpm (adding packages)
 docker compose exec frontend pnpm add maplibre-gl
 ```
+
+---
+
+## Frontend Folder Structure
+
+> This is the recommended structure for the `frontend/` directory. Follow this as a guide when creating new files.
+
+```
+frontend/
+├── assets/
+│   ├── css/
+│   │   └── main.css              # Tailwind base + custom global styles
+│   └── images/                   # Static images (logos, placeholders)
+│
+├── components/
+│   ├── app/
+│   │   ├── AppHeader.vue
+│   │   ├── AppFooter.vue
+│   │   └── AppSidebar.vue
+│   ├── hub/
+│   │   ├── HubCard.vue           # Used on Explore page
+│   │   ├── HubMap.vue            # MapLibre map component
+│   │   ├── HubBadge.vue          # Verified badge, sport tags
+│   │   └── HubReviewCard.vue
+│   ├── scheduler/
+│   │   ├── SchedulerCalendar.vue
+│   │   ├── SchedulerSlot.vue
+│   │   └── BookingModal.vue
+│   ├── open-play/
+│   │   ├── OpenPlayCard.vue
+│   │   └── OpenPlayJoinModal.vue
+│   ├── tournament/
+│   │   ├── TournamentCard.vue
+│   │   ├── TournamentBracket.vue
+│   │   └── TournamentRegisterModal.vue
+│   ├── leaderboard/
+│   │   └── LeaderboardRow.vue
+│   └── ui/                       # Reusable primitives on top of Nuxt UI
+│       ├── BaseAvatar.vue
+│       ├── BaseBadge.vue
+│       └── BaseEmptyState.vue
+│
+├── composables/
+│   ├── useAuth.ts                # Login, logout, current user
+│   ├── useHubs.ts                # Fetch/search hubs
+│   ├── useBooking.ts             # Create/cancel bookings
+│   ├── useOpenPlay.ts            # Sessions, join/leave
+│   ├── useTournament.ts          # Tournament data + bracket
+│   ├── useLeaderboard.ts         # Fetch leaderboard stats
+│   └── useMap.ts                 # MapLibre GL JS setup + helpers
+│
+├── layouts/
+│   ├── default.vue               # Main layout (header + footer)
+│   ├── hub.vue                   # Hub profile layout (tabs)
+│   └── auth.vue                  # Auth pages (no header/footer)
+│
+├── middleware/
+│   ├── auth.ts                   # Redirect to login if not authenticated
+│   └── hub-owner.ts              # Restrict hub dashboard to owners only
+│
+├── pages/
+│   ├── index.vue                 # Landing / home
+│   ├── explore.vue               # Explore hubs page
+│   ├── auth/
+│   │   ├── login.vue
+│   │   └── register.vue
+│   ├── hubs/
+│   │   ├── [id]/
+│   │   │   ├── index.vue         # Hub profile (redirects to scheduler tab)
+│   │   │   ├── scheduler.vue
+│   │   │   ├── open-play.vue
+│   │   │   ├── tournaments.vue
+│   │   │   └── leaderboard.vue
+│   │   └── create.vue            # Create new hub (hub owners)
+│   ├── dashboard/
+│   │   ├── index.vue             # Hub owner dashboard
+│   │   ├── bookings.vue
+│   │   ├── courts.vue
+│   │   └── tournaments.vue
+│   └── profile/
+│       └── index.vue             # User profile + stats
+│
+├── plugins/
+│   └── maplibre.client.ts        # MapLibre GL JS (client-only, needs window)
+│
+├── stores/
+│   ├── auth.ts                   # Current user, token, login state
+│   ├── hub.ts                    # Active hub, hub list
+│   ├── booking.ts                # Scheduler state, selected slot
+│   ├── openPlay.ts               # Open play session state
+│   └── tournament.ts             # Active tournament, bracket state
+│
+├── types/
+│   ├── hub.ts                    # Hub, Court, CourtSport interfaces
+│   ├── booking.ts                # Booking, SessionType interfaces
+│   ├── open-play.ts              # OpenPlaySession, Participant interfaces
+│   ├── tournament.ts             # Tournament, Team, Match interfaces
+│   ├── user.ts                   # User, PlayerStats interfaces
+│   └── api.ts                    # Generic API response wrapper types
+│
+├── utils/
+│   ├── api.ts                    # $fetch wrapper with Sanctum token + base URL
+│   ├── date.ts                   # Date formatting helpers (slots, schedules)
+│   ├── price.ts                  # Format ₱ currency
+│   └── bracket.ts                # Tournament bracket generation logic
+│
+├── app.vue
+├── nuxt.config.ts
+├── tailwind.config.ts
+└── tsconfig.json
+```
+
+### Key Notes
+
+**`utils/api.ts`** — configure `$fetch` here with your Laravel base URL and attach the Sanctum token on every request automatically. This keeps API calls clean and consistent across all composables.
+
+**`plugins/maplibre.client.ts`** — the `.client` suffix tells Nuxt to only load MapLibre in the browser, never during SSR. Required because MapLibre depends on `window` and `document`.
+
+**`composables/` vs `stores/`** — composables handle API calls and business logic; Pinia stores hold shared reactive state. For example, `useBooking.ts` makes the API call, but `stores/booking.ts` holds the currently selected time slot so the calendar and booking modal stay in sync without prop drilling.
+
+**`components/ui/`** — put any custom wrapper components around Nuxt UI here (e.g. a `BaseBadge` that always uses your brand color). Keeps Nuxt UI overrides in one place.
 
 ---
 

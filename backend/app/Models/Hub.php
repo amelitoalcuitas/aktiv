@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Hub extends Model
+{
+    use HasFactory;
+
+    /**
+     * @var list<string>
+     */
+    protected $fillable = [
+        'owner_id',
+        'name',
+        'description',
+        'city',
+        'address',
+        'lat',
+        'lng',
+        'cover_image_url',
+        'is_approved',
+        'is_verified',
+    ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'lat' => 'decimal:7',
+            'lng' => 'decimal:7',
+            'is_approved' => 'boolean',
+            'is_verified' => 'boolean',
+        ];
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'owner_id');
+    }
+
+    public function courts(): HasMany
+    {
+        return $this->hasMany(Court::class);
+    }
+
+    public function sports(): HasMany
+    {
+        return $this->hasMany(HubSport::class);
+    }
+}

@@ -8,6 +8,7 @@ definePageMeta({ layout: 'dashboard', middleware: 'auth' });
 const hubStore = useHubStore();
 const { fetchCourts, createCourt, updateCourt, deleteCourt } = useHubs();
 const toast = useToast();
+const route = useRoute();
 
 // ── Hub selector ──────────────────────────────────────────────────────────────
 
@@ -25,7 +26,15 @@ const selectedHub = computed<Hub | undefined>(() =>
 onMounted(async () => {
   await hubStore.fetchMyHubs();
   if (hubStore.myHubs.length) {
-    selectedHubId.value = hubStore.myHubs[0]?.id;
+    const queryHubIdRaw = Array.isArray(route.query.hubId)
+      ? route.query.hubId[0]
+      : route.query.hubId;
+    const queryHubId = Number(queryHubIdRaw);
+    const hasMatchingHub = hubStore.myHubs.some(
+      (h: Hub) => h.id === queryHubId
+    );
+
+    selectedHubId.value = hasMatchingHub ? queryHubId : hubStore.myHubs[0]?.id;
     await loadCourts();
   }
 });

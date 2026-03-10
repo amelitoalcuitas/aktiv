@@ -192,7 +192,10 @@ function formatPrice(price: string | null) {
           <!-- View courts link -->
           <div class="mt-auto pt-3 w-full justify-end flex">
             <NuxtLink
-              to="/dashboard/courts"
+              :to="{
+                path: '/dashboard/courts',
+                query: { hubId: String(hub.id) }
+              }"
               class="text-xs font-medium text-[#004e89] hover:underline"
             >
               Manage courts

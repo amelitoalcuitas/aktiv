@@ -110,7 +110,7 @@ onUnmounted(() => {
               <UBadge
                 v-for="sport in hub.sports"
                 :key="sport"
-                variant="soft"
+                variant="outline"
                 color="primary"
                 class="capitalize"
               >

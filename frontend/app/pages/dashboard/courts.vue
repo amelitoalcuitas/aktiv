@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { z } from 'zod';
 import { useHubs } from '~/composables/useHubs';
 import { useHubStore } from '~/stores/hub';
 import type { Court, Hub } from '~/types/hub';
@@ -90,7 +91,7 @@ const courtForm = reactive({
 watch(
   () => courtForm.is_active,
   (isActive) => {
-    if (!isActive) clearFormErrors();
+    if (!isActive) clearConditionalFormErrors();
   }
 );
 
@@ -112,40 +113,138 @@ function clearFormErrors() {
   formErrors.sports = '';
 }
 
-function validateCourtForm() {
-  clearFormErrors();
+function clearConditionalFormErrors() {
+  formErrors.surface = '';
+  formErrors.price_per_hour = '';
+  formErrors.max_players = '';
+  formErrors.sports = '';
+}
 
-  if (!courtForm.is_active) return true;
+function normalizeTextValue(value: string | number | null | undefined) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
 
-  if (!courtForm.name.trim()) {
-    formErrors.name = 'Court name is required when court is Active.';
+function normalizeUnknownText(value: unknown) {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    value === null ||
+    value === undefined
+  ) {
+    return normalizeTextValue(value);
   }
 
-  if (!courtForm.surface.trim()) {
-    formErrors.surface = 'Surface is required when court is Active.';
-  }
+  return '';
+}
 
-  if (!courtForm.price_per_hour.trim()) {
-    formErrors.price_per_hour =
-      'Price per hour is required when court is Active.';
-  } else if (Number.isNaN(parseFloat(courtForm.price_per_hour))) {
-    formErrors.price_per_hour = 'Price per hour must be a valid number.';
-  }
+const courtFormSchema = z
+  .object({
+    name: z.preprocess(
+      (value) => normalizeUnknownText(value),
+      z.string().min(1, 'Court name is required.')
+    ),
+    surface: z.preprocess((value) => normalizeUnknownText(value), z.string()),
+    price_per_hour: z.preprocess(
+      (value) => normalizeUnknownText(value),
+      z.string()
+    ),
+    max_players: z.preprocess(
+      (value) => normalizeUnknownText(value),
+      z.string()
+    ),
+    sports: z.array(z.string()),
+    is_active: z.boolean()
+  })
+  .superRefine((data, ctx) => {
+    if (!data.is_active) return;
 
-  if (!courtForm.max_players.trim()) {
-    formErrors.max_players = 'Max players is required when court is Active.';
-  } else {
-    const parsedMaxPlayers = parseInt(courtForm.max_players, 10);
-    if (Number.isNaN(parsedMaxPlayers) || parsedMaxPlayers < 1) {
-      formErrors.max_players = 'Max players must be at least 1.';
+    if (!data.surface) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['surface'],
+        message: 'Surface is required when court is Active.'
+      });
     }
+
+    if (!data.price_per_hour) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['price_per_hour'],
+        message: 'Price per hour is required when court is Active.'
+      });
+    } else if (Number.isNaN(parseFloat(data.price_per_hour))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['price_per_hour'],
+        message: 'Price per hour must be a valid number.'
+      });
+    }
+
+    if (!data.max_players) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['max_players'],
+        message: 'Max players is required when court is Active.'
+      });
+    } else {
+      const parsedMaxPlayers = parseInt(data.max_players, 10);
+      if (Number.isNaN(parsedMaxPlayers) || parsedMaxPlayers < 1) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['max_players'],
+          message: 'Max players must be at least 1.'
+        });
+      }
+    }
+
+    if (!data.sports.length) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['sports'],
+        message: 'Select at least one sport when court is Active.'
+      });
+    }
+  });
+
+function setFormErrorsFromZod(error: z.ZodError) {
+  clearFormErrors();
+  for (const issue of error.issues) {
+    const key = issue.path[0];
+    if (typeof key !== 'string') continue;
+
+    if (key === 'name' && !formErrors.name) formErrors.name = issue.message;
+    if (key === 'surface' && !formErrors.surface) {
+      formErrors.surface = issue.message;
+    }
+    if (key === 'price_per_hour' && !formErrors.price_per_hour) {
+      formErrors.price_per_hour = issue.message;
+    }
+    if (key === 'max_players' && !formErrors.max_players) {
+      formErrors.max_players = issue.message;
+    }
+    if (key === 'sports' && !formErrors.sports)
+      formErrors.sports = issue.message;
+  }
+}
+
+function validateCourtForm() {
+  const parsed = courtFormSchema.safeParse({
+    name: courtForm.name,
+    surface: courtForm.surface,
+    price_per_hour: courtForm.price_per_hour,
+    max_players: courtForm.max_players,
+    sports: courtForm.sports,
+    is_active: courtForm.is_active
+  });
+
+  if (parsed.success) {
+    clearFormErrors();
+    return true;
   }
 
-  if (!courtForm.sports.length) {
-    formErrors.sports = 'Select at least one sport when court is Active.';
-  }
-
-  return !Object.values(formErrors).some(Boolean);
+  setFormErrorsFromZod(parsed.error);
+  return false;
 }
 
 function openAdd() {
@@ -197,16 +296,15 @@ async function submitForm() {
 
   formLoading.value = true;
   try {
+    const pricePerHour = normalizeTextValue(courtForm.price_per_hour);
+    const maxPlayers = normalizeTextValue(courtForm.max_players);
+
     const payload = {
       name: courtForm.name,
       surface: courtForm.surface || undefined,
       indoor: courtForm.indoor,
-      price_per_hour: courtForm.price_per_hour
-        ? parseFloat(courtForm.price_per_hour)
-        : 0,
-      max_players: courtForm.max_players
-        ? parseInt(courtForm.max_players, 10)
-        : null,
+      price_per_hour: pricePerHour ? parseFloat(pricePerHour) : 0,
+      max_players: maxPlayers ? parseInt(maxPlayers, 10) : null,
       is_active: courtForm.is_active,
       sports: courtForm.sports
     };
@@ -456,8 +554,10 @@ function formatPrice(price: string) {
         <form class="space-y-4" @submit.prevent="submitForm">
           <UFormField
             label="Court Name"
-            :required="courtForm.is_active"
-            :error="formSubmitted ? formErrors.name : undefined"
+            required
+            :error="
+              formSubmitted && formErrors.name ? formErrors.name : undefined
+            "
           >
             <UInput
               v-model="courtForm.name"
@@ -470,7 +570,11 @@ function formatPrice(price: string) {
             <UFormField
               label="Surface"
               :required="courtForm.is_active"
-              :error="formSubmitted ? formErrors.surface : undefined"
+              :error="
+                formSubmitted && formErrors.surface
+                  ? formErrors.surface
+                  : undefined
+              "
             >
               <USelect
                 v-model="courtForm.surface"
@@ -481,7 +585,11 @@ function formatPrice(price: string) {
             <UFormField
               label="Price per Hour (₱)"
               :required="courtForm.is_active"
-              :error="formSubmitted ? formErrors.price_per_hour : undefined"
+              :error="
+                formSubmitted && formErrors.price_per_hour
+                  ? formErrors.price_per_hour
+                  : undefined
+              "
             >
               <UInput
                 v-model="courtForm.price_per_hour"
@@ -498,7 +606,11 @@ function formatPrice(price: string) {
             <UFormField
               label="Max Players"
               :required="courtForm.is_active"
-              :error="formSubmitted ? formErrors.max_players : undefined"
+              :error="
+                formSubmitted && formErrors.max_players
+                  ? formErrors.max_players
+                  : undefined
+              "
             >
               <UInput
                 v-model="courtForm.max_players"

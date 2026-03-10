@@ -1,47 +1,16 @@
 <script setup lang="ts">
-import { useHubs } from '~/composables/useHubs';
 import { useHubStore } from '~/stores/hub';
-import type { Hub } from '~/types/hub';
 
 definePageMeta({ layout: 'dashboard', middleware: 'auth' });
 
 const hubStore = useHubStore();
-const { deleteHub } = useHubs();
 const toast = useToast();
-
-// ── State ─────────────────────────────────────────────────────────────────────
-
-const isDeleteOpen = ref(false);
-const selectedHub = ref<Hub | null>(null);
-const deleteLoading = ref(false);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
   await hubStore.fetchMyHubs();
 });
-
-// ── Delete Hub ────────────────────────────────────────────────────────────────
-
-function openDelete(hub: Hub) {
-  selectedHub.value = hub;
-  isDeleteOpen.value = true;
-}
-
-async function confirmDelete() {
-  if (!selectedHub.value) return;
-  deleteLoading.value = true;
-  try {
-    await deleteHub(selectedHub.value.id);
-    toast.add({ title: 'Hub deleted', color: 'success' });
-    isDeleteOpen.value = false;
-    await hubStore.fetchMyHubs();
-  } catch {
-    toast.add({ title: 'Failed to delete hub', color: 'error' });
-  } finally {
-    deleteLoading.value = false;
-  }
-}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -107,7 +76,8 @@ function formatPrice(price: string | null) {
       <div
         v-for="hub in hubStore.myHubs"
         :key="hub.id"
-        class="flex flex-col overflow-hidden rounded-2xl border border-[#dbe4ef] bg-white shadow-sm"
+        class="flex flex-col overflow-hidden rounded-2xl border border-[#dbe4ef] bg-white shadow-sm cursor-pointer transition duration-150 ease-out hover:shadow-md"
+        @click="navigateTo(`/hubs/${hub.id}/edit`)"
       >
         <!-- Cover image -->
         <div class="relative h-36 bg-[#e8f0f8]">
@@ -145,24 +115,6 @@ function formatPrice(price: string | null) {
                 {{ hub.city }}
               </p>
             </div>
-            <div class="flex flex-shrink-0 items-center gap-1">
-              <UButton
-                :to="`/hubs/${hub.id}/edit`"
-                icon="i-heroicons-pencil-square"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-                aria-label="Edit hub"
-              />
-              <UButton
-                icon="i-heroicons-trash"
-                color="error"
-                variant="ghost"
-                size="sm"
-                aria-label="Delete hub"
-                @click="openDelete(hub)"
-              />
-            </div>
           </div>
 
           <!-- Stats row -->
@@ -197,6 +149,7 @@ function formatPrice(price: string | null) {
                 query: { hubId: String(hub.id) }
               }"
               class="text-xs font-medium text-[#004e89] hover:underline"
+              @click.stop
             >
               Manage courts
             </NuxtLink>
@@ -204,32 +157,5 @@ function formatPrice(price: string | null) {
         </div>
       </div>
     </div>
-
-    <!-- Delete Confirm Modal -->
-    <UModal
-      v-model:open="isDeleteOpen"
-      title="Delete Hub"
-      :ui="{ content: 'max-w-sm' }"
-    >
-      <template #body>
-        <p class="text-sm text-[#0f1728]">
-          Are you sure you want to delete
-          <strong>{{ selectedHub?.name }}</strong
-          >? This will permanently remove the hub and all its courts.
-        </p>
-        <div class="mt-5 flex justify-end gap-2">
-          <UButton color="neutral" variant="ghost" @click="isDeleteOpen = false"
-            >Cancel</UButton
-          >
-          <UButton
-            color="error"
-            :loading="deleteLoading"
-            @click="confirmDelete"
-          >
-            Delete Hub
-          </UButton>
-        </div>
-      </template>
-    </UModal>
   </div>
 </template>

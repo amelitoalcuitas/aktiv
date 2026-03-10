@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { z } from 'zod';
 import { useAuth } from '~/composables/useAuth';
 
 definePageMeta({ layout: 'auth' });
@@ -7,13 +8,36 @@ const { login } = useAuth();
 
 const form = reactive({ email: '', password: '' });
 const error = ref<string | null>(null);
+const fieldErrors = ref<Record<string, string>>({});
 const loading = ref(false);
+
+const loginSchema = z.object({
+  email: z.string().trim().min(1, 'Email is required.').email('Invalid email.'),
+  password: z.string().min(1, 'Password is required.')
+});
+
+function fieldError(field: string) {
+  return fieldErrors.value[field];
+}
 
 async function handleSubmit() {
   error.value = null;
+  fieldErrors.value = {};
+
+  const parsed = loginSchema.safeParse(form);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0];
+      if (typeof key === 'string' && !fieldErrors.value[key]) {
+        fieldErrors.value[key] = issue.message;
+      }
+    }
+    return;
+  }
+
   loading.value = true;
   try {
-    await login(form.email, form.password);
+    await login(parsed.data.email, parsed.data.password);
     await navigateTo('/dashboard');
   } catch (e: unknown) {
     const err = e as { data?: { message?: string } };
@@ -48,7 +72,7 @@ async function handleSubmit() {
     />
 
     <form class="space-y-4" @submit.prevent="handleSubmit">
-      <UFormField label="Email" name="email">
+      <UFormField label="Email" name="email" :error="fieldError('email')">
         <UInput
           v-model="form.email"
           type="email"
@@ -59,7 +83,11 @@ async function handleSubmit() {
         />
       </UFormField>
 
-      <UFormField label="Password" name="password">
+      <UFormField
+        label="Password"
+        name="password"
+        :error="fieldError('password')"
+      >
         <UInput
           v-model="form.password"
           type="password"

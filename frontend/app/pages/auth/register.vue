@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { z } from 'zod';
 import { useAuth } from '~/composables/useAuth';
 
 definePageMeta({ layout: 'auth' });
@@ -12,19 +13,49 @@ const form = reactive({
   password_confirmation: ''
 });
 const error = ref<string | null>(null);
-const fieldErrors = ref<Record<string, string[]>>({});
+const validationErrors = ref<Record<string, string>>({});
+const serverFieldErrors = ref<Record<string, string[]>>({});
 const loading = ref(false);
+
+const registerSchema = z
+  .object({
+    name: z.string().trim().min(1, 'Name is required.'),
+    email: z
+      .string()
+      .trim()
+      .min(1, 'Email is required.')
+      .email('Invalid email.'),
+    password: z.string().min(8, 'Password must be at least 8 characters.'),
+    password_confirmation: z.string().min(1, 'Please confirm your password.')
+  })
+  .refine((data) => data.password === data.password_confirmation, {
+    message: 'Passwords do not match.',
+    path: ['password_confirmation']
+  });
 
 async function handleSubmit() {
   error.value = null;
-  fieldErrors.value = {};
+  validationErrors.value = {};
+  serverFieldErrors.value = {};
+
+  const parsed = registerSchema.safeParse(form);
+  if (!parsed.success) {
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0];
+      if (typeof key === 'string' && !validationErrors.value[key]) {
+        validationErrors.value[key] = issue.message;
+      }
+    }
+    return;
+  }
+
   loading.value = true;
   try {
     await register(
-      form.name,
-      form.email,
-      form.password,
-      form.password_confirmation
+      parsed.data.name,
+      parsed.data.email,
+      parsed.data.password,
+      parsed.data.password_confirmation
     );
     await navigateTo('/dashboard');
   } catch (e: unknown) {
@@ -33,14 +64,14 @@ async function handleSubmit() {
     };
     error.value =
       err?.data?.message ?? 'Registration failed. Please check the form.';
-    fieldErrors.value = err?.data?.errors ?? {};
+    serverFieldErrors.value = err?.data?.errors ?? {};
   } finally {
     loading.value = false;
   }
 }
 
 function fieldError(field: string) {
-  return fieldErrors.value[field]?.[0];
+  return validationErrors.value[field] ?? serverFieldErrors.value[field]?.[0];
 }
 </script>
 
@@ -60,7 +91,11 @@ function fieldError(field: string) {
     </template>
 
     <UAlert
-      v-if="error && !Object.keys(fieldErrors).length"
+      v-if="
+        error &&
+        !Object.keys(serverFieldErrors).length &&
+        !Object.keys(validationErrors).length
+      "
       color="error"
       variant="subtle"
       :description="error"

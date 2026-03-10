@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { z } from 'zod';
 import { useAuth } from '~/composables/useAuth';
 import {
   HUB_IMAGE_MAX_BYTES,
@@ -10,12 +11,14 @@ definePageMeta({ middleware: 'auth', layout: 'page' });
 
 const route = useRoute();
 const { isAuthenticated } = useAuth();
-const { fetchHub, updateHub } = useHubs();
+const { fetchHub, updateHub, deleteHub } = useHubs();
 const toast = useToast();
 
 const hubId = computed(() => String(route.params.id));
 const loading = ref(false);
 const loadingHub = ref(true);
+const isDeleteOpen = ref(false);
+const deleteLoading = ref(false);
 
 const form = reactive({
   name: '',
@@ -50,7 +53,53 @@ const SPORT_OPTIONS = [
   { label: 'Volleyball', value: 'volleyball' }
 ];
 
+const optionalTrimmedStringSchema = z.preprocess((value) => {
+  if (value === null || value === undefined) return undefined;
+  const normalized = String(value).trim();
+  return normalized.length ? normalized : undefined;
+}, z.string().optional());
+
+const hubFormSchema = z.object({
+  name: z.string().trim().min(1, 'Hub name is required.'),
+  description: optionalTrimmedStringSchema,
+  address: z.string().trim().min(1, 'Address 1 is required.'),
+  address_line2: optionalTrimmedStringSchema,
+  city: z.string().trim().min(1, 'City is required.'),
+  zip_code: z.string().trim().min(1, 'Zip Code is required.'),
+  province: z.string().trim().min(1, 'Province is required.'),
+  country: z.string().trim().min(1, 'Country is required.'),
+  landmark: optionalTrimmedStringSchema,
+  lat: z
+    .number()
+    .nullable()
+    .refine(
+      (value) => value !== null,
+      'Please pin your hub location on the map.'
+    ),
+  lng: z
+    .number()
+    .nullable()
+    .refine(
+      (value) => value !== null,
+      'Please pin your hub location on the map.'
+    ),
+  sports: z.array(z.string())
+});
+
 const fieldErrors = ref<Record<string, string[]>>({});
+
+function setFieldErrorsFromZod(error: z.ZodError) {
+  const nextErrors: Record<string, string[]> = {};
+
+  for (const issue of error.issues) {
+    const key = issue.path[0];
+    if (typeof key !== 'string') continue;
+    if (!nextErrors[key]) nextErrors[key] = [];
+    nextErrors[key].push(issue.message);
+  }
+
+  fieldErrors.value = nextErrors;
+}
 
 function onPinUpdate(coords: { lat: number | null; lng: number | null }) {
   form.lat = coords.lat;
@@ -180,25 +229,50 @@ async function loadHub() {
 }
 
 async function handleSubmit() {
-  loading.value = true;
   fieldErrors.value = {};
+
+  const parsed = hubFormSchema.safeParse({
+    name: form.name,
+    description: form.description,
+    address: form.address,
+    address_line2: form.address_line2,
+    city: form.city,
+    zip_code: form.zip_code,
+    province: form.province,
+    country: form.country,
+    landmark: form.landmark,
+    lat: form.lat,
+    lng: form.lng,
+    sports: form.sports
+  });
+
+  if (!parsed.success) {
+    setFieldErrorsFromZod(parsed.error);
+    toast.add({
+      title: 'Please fix the highlighted fields before saving.',
+      color: 'error'
+    });
+    return;
+  }
+
+  loading.value = true;
   try {
     await updateHub(hubId.value, {
-      name: form.name,
-      description: form.description || undefined,
-      address: form.address,
-      address_line2: form.address_line2 || null,
-      city: form.city,
-      zip_code: form.zip_code,
-      province: form.province,
-      country: form.country,
-      landmark: form.landmark || null,
-      lat: form.lat,
-      lng: form.lng,
+      name: parsed.data.name,
+      description: parsed.data.description,
+      address: parsed.data.address,
+      address_line2: parsed.data.address_line2 ?? null,
+      city: parsed.data.city,
+      zip_code: parsed.data.zip_code,
+      province: parsed.data.province,
+      country: parsed.data.country,
+      landmark: parsed.data.landmark ?? null,
+      lat: parsed.data.lat,
+      lng: parsed.data.lng,
       cover_image: coverImage.value,
       gallery_images: newGalleryImages.value,
       remove_gallery_image_ids: removeGalleryImageIds.value,
-      sports: form.sports
+      sports: parsed.data.sports
     });
     toast.add({ title: 'Hub updated successfully!', color: 'success' });
     await navigateTo('/dashboard');
@@ -213,6 +287,19 @@ async function handleSubmit() {
     });
   } finally {
     loading.value = false;
+  }
+}
+
+async function confirmDelete() {
+  deleteLoading.value = true;
+  try {
+    await deleteHub(hubId.value);
+    toast.add({ title: 'Hub deleted', color: 'success' });
+    await navigateTo('/dashboard');
+  } catch {
+    toast.add({ title: 'Failed to delete hub', color: 'error' });
+  } finally {
+    deleteLoading.value = false;
   }
 }
 
@@ -511,21 +598,63 @@ onUnmounted(() => {
           </UFormField>
 
           <div
-            class="flex justify-end gap-3 border-t border-[var(--aktiv-border)] pt-4"
+            class="flex items-center justify-between gap-3 border-t border-[var(--aktiv-border)] pt-4"
           >
-            <UButton to="/dashboard" color="neutral" variant="ghost">
-              Cancel
-            </UButton>
             <UButton
-              type="submit"
-              :loading="loading"
-              class="bg-[var(--aktiv-primary)] font-semibold hover:bg-[var(--aktiv-primary-hover)]"
+              type="button"
+              icon="i-heroicons-trash"
+              color="error"
+              variant="ghost"
+              @click="isDeleteOpen = true"
             >
-              Save Changes
+              Delete Hub
             </UButton>
+            <div class="flex gap-3">
+              <UButton to="/dashboard" color="neutral" variant="ghost">
+                Cancel
+              </UButton>
+              <UButton
+                type="submit"
+                :loading="loading"
+                class="bg-[var(--aktiv-primary)] font-semibold hover:bg-[var(--aktiv-primary-hover)]"
+              >
+                Save Changes
+              </UButton>
+            </div>
           </div>
         </form>
       </UCard>
     </div>
+
+    <!-- Delete Confirm Modal -->
+    <UModal
+      v-model:open="isDeleteOpen"
+      title="Delete Hub"
+      :ui="{ content: 'max-w-sm' }"
+    >
+      <template #body>
+        <p class="text-sm text-[var(--aktiv-ink)]">
+          Are you sure you want to delete
+          <strong>{{ form.name }}</strong
+          >? This will permanently remove the hub and all its courts.
+        </p>
+        <div class="mt-5 flex justify-end gap-2">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            @click="isDeleteOpen = false"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            color="error"
+            :loading="deleteLoading"
+            @click="confirmDelete"
+          >
+            Delete Hub
+          </UButton>
+        </div>
+      </template>
+    </UModal>
   </div>
 </template>

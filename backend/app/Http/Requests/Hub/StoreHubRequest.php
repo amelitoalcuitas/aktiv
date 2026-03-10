@@ -28,7 +28,9 @@ class StoreHubRequest extends FormRequest
             'country'         => ['required', 'string', 'max:255'],
             'lat'             => ['nullable', 'numeric', 'between:-90,90'],
             'lng'             => ['nullable', 'numeric', 'between:-180,180'],
-            'cover_image_url' => ['nullable', 'url', 'max:2048'],
+            'cover_image'     => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:10240'],
+            'gallery_images'  => ['nullable', 'array', 'max:10'],
+            'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp,gif', 'max:10240'],
             'sports'          => ['nullable', 'array'],
             'sports.*'        => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],
         ];

@@ -28,6 +28,7 @@ export interface Hub {
   lat: string | null;
   lng: string | null;
   cover_image_url: string | null;
+  gallery_images: { id: number; url: string; order: number }[];
   is_approved: boolean;
   is_verified: boolean;
   owner_id: number;

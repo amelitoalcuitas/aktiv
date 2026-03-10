@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { useAuth } from '~/composables/useAuth';
-import { useHubs } from '~/composables/useHubs';
+import {
+  HUB_IMAGE_MAX_BYTES,
+  HUB_IMAGE_MAX_SIZE_MB,
+  useHubs
+} from '~/composables/useHubs';
 
 definePageMeta({ middleware: 'auth', layout: 'page' });
 
@@ -21,9 +25,13 @@ const form = reactive({
   landmark: '',
   lat: null as number | null,
   lng: null as number | null,
-  cover_image_url: '',
   sports: [] as string[]
 });
+
+const coverImage = ref<File | null>(null);
+const coverPreview = ref('');
+const galleryImages = ref<File[]>([]);
+const galleryPreviews = ref<string[]>([]);
 
 const SPORT_OPTIONS = [
   { label: 'Pickleball', value: 'pickleball' },
@@ -38,6 +46,63 @@ const fieldErrors = ref<Record<string, string[]>>({});
 function onPinUpdate(coords: { lat: number | null; lng: number | null }) {
   form.lat = coords.lat;
   form.lng = coords.lng;
+}
+
+function onCoverImageChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0] ?? null;
+
+  if (file && file.size > HUB_IMAGE_MAX_BYTES) {
+    toast.add({
+      title: `Cover image must be ${HUB_IMAGE_MAX_SIZE_MB}MB or smaller.`,
+      color: 'error'
+    });
+    input.value = '';
+    return;
+  }
+
+  coverImage.value = file;
+  if (coverPreview.value) {
+    URL.revokeObjectURL(coverPreview.value);
+    coverPreview.value = '';
+  }
+
+  if (file) {
+    coverPreview.value = URL.createObjectURL(file);
+  }
+}
+
+function onGalleryImagesChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files ?? []);
+  if (!files.length) return;
+
+  const validFiles = files.filter((file) => file.size <= HUB_IMAGE_MAX_BYTES);
+  const oversizedCount = files.length - validFiles.length;
+  if (oversizedCount > 0) {
+    toast.add({
+      title: `${oversizedCount} image(s) skipped. Max ${HUB_IMAGE_MAX_SIZE_MB}MB per image.`,
+      color: 'error'
+    });
+  }
+
+  const availableSlots = 10 - galleryImages.value.length;
+  const filesToAdd = validFiles.slice(0, Math.max(0, availableSlots));
+
+  filesToAdd.forEach((file) => {
+    galleryImages.value.push(file);
+    galleryPreviews.value.push(URL.createObjectURL(file));
+  });
+
+  input.value = '';
+}
+
+function removeGalleryImage(index: number) {
+  const [preview] = galleryPreviews.value.splice(index, 1);
+  galleryImages.value.splice(index, 1);
+  if (preview) {
+    URL.revokeObjectURL(preview);
+  }
 }
 
 async function handleSubmit() {
@@ -56,7 +121,8 @@ async function handleSubmit() {
       landmark: form.landmark || null,
       lat: form.lat,
       lng: form.lng,
-      cover_image_url: form.cover_image_url || null,
+      cover_image: coverImage.value,
+      gallery_images: galleryImages.value,
       sports: form.sports
     });
     toast.add({ title: 'Hub created successfully!', color: 'success' });
@@ -82,6 +148,14 @@ function fieldError(field: string) {
 if (!isAuthenticated.value) {
   await navigateTo('/auth/login');
 }
+
+onUnmounted(() => {
+  if (coverPreview.value) {
+    URL.revokeObjectURL(coverPreview.value);
+  }
+
+  galleryPreviews.value.forEach((preview) => URL.revokeObjectURL(preview));
+});
 </script>
 
 <template>
@@ -241,17 +315,64 @@ if (!isAuthenticated.value) {
             </UFormField>
           </div>
 
-          <!-- Cover Image URL -->
           <UFormField
-            label="Cover Image URL (optional)"
-            :error="fieldError('cover_image_url')"
+            label="Cover Image (optional)"
+            :error="fieldError('cover_image')"
           >
-            <UInput
-              v-model="form.cover_image_url"
-              type="url"
-              placeholder="https://example.com/photo.jpg"
-              class="w-full"
+            <input
+              type="file"
+              accept="image/*"
+              class="block w-full text-sm text-[var(--aktiv-muted)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--aktiv-primary)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[var(--aktiv-primary-hover)]"
+              @change="onCoverImageChange"
             />
+            <img
+              v-if="coverPreview"
+              :src="coverPreview"
+              alt="Cover preview"
+              class="mt-3 h-40 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
+            />
+          </UFormField>
+
+          <UFormField
+            label="Gallery Images (optional)"
+            :error="fieldError('gallery_images')"
+          >
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              class="block w-full text-sm text-[var(--aktiv-muted)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--aktiv-primary)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[var(--aktiv-primary-hover)]"
+              @change="onGalleryImagesChange"
+            />
+
+            <p class="mt-2 text-xs text-[var(--aktiv-muted)]">
+              Up to 10 images, max {{ HUB_IMAGE_MAX_SIZE_MB }}MB each. Files are
+              resized and compressed on upload.
+            </p>
+
+            <div
+              v-if="galleryPreviews.length"
+              class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3"
+            >
+              <div
+                v-for="(preview, index) in galleryPreviews"
+                :key="`${preview}-${index}`"
+                class="relative"
+              >
+                <img
+                  :src="preview"
+                  :alt="`Gallery preview ${index + 1}`"
+                  class="h-28 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
+                />
+                <button
+                  type="button"
+                  class="absolute right-1 top-1 rounded bg-black/70 px-2 py-0.5 text-xs text-white"
+                  @click="removeGalleryImage(index)"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
           </UFormField>
 
           <!-- Sports multi-select -->

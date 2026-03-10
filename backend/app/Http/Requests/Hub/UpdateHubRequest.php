@@ -28,7 +28,11 @@ class UpdateHubRequest extends FormRequest
             'country'         => ['sometimes', 'string', 'max:255'],
             'lat'             => ['sometimes', 'nullable', 'numeric', 'between:-90,90'],
             'lng'             => ['sometimes', 'nullable', 'numeric', 'between:-180,180'],
-            'cover_image_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
+            'cover_image'     => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:10240'],
+            'gallery_images'  => ['sometimes', 'array', 'max:10'],
+            'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp,gif', 'max:10240'],
+            'remove_gallery_image_ids' => ['sometimes', 'array'],
+            'remove_gallery_image_ids.*' => ['integer', 'exists:hub_images,id'],
             'sports'          => ['sometimes', 'array'],
             'sports.*'        => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],
         ];

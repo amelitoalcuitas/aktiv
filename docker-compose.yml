@@ -58,6 +58,7 @@ services:
       - APP_ENV=local
       - APP_DEBUG=true
       - APP_URL=http://localhost:8080
+      - FILESYSTEM_DISK=s3
       - DB_CONNECTION=pgsql
       - DB_HOST=db
       - DB_PORT=5432
@@ -76,6 +77,13 @@ services:
       - MAIL_ENCRYPTION=null
       - MAIL_FROM_ADDRESS=hello@aktiv.local
       - MAIL_FROM_NAME=Aktiv
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_BUCKET=aktiv-media
+      - AWS_ENDPOINT=http://minio:9000
+      - AWS_URL=http://localhost:9000/aktiv-media
+      - AWS_USE_PATH_STYLE_ENDPOINT=true
     expose:
       - "9000"
     depends_on:
@@ -83,6 +91,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      minio:
+        condition: service_started
+    command: >
+      sh -c "chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache &&
+      chmod -R ug+rwX /var/www/storage /var/www/bootstrap/cache &&
+      php-fpm"
     restart: unless-stopped
 
   # ─── PostgreSQL database ───────────────────────────────────────────────────
@@ -126,7 +140,37 @@ services:
       - "1025:1025"           # SMTP (Laravel points here)
     restart: unless-stopped
 
+  # ─── MinIO (S3-compatible object storage) ────────────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: aktiv_minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    restart: unless-stopped
+
+  # Initializes MinIO bucket for media uploads
+  minio-init:
+    image: minio/mc:latest
+    container_name: aktiv_minio_init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set local http://minio:9000 minioadmin minioadmin) do echo '...waiting for minio...' && sleep 1; done;
+      /usr/bin/mc mb local/aktiv-media --ignore-existing;
+      /usr/bin/mc anonymous set public local/aktiv-media;
+      exit 0;
+      "
+
 volumes:
   db_data:
   redis_data:
   pnpm_store:
+  minio_data:

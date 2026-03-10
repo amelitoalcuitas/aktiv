@@ -28,6 +28,7 @@ class Hub extends Model
         'lat',
         'lng',
         'cover_image_url',
+        'cover_image_path',
         'is_approved',
         'is_verified',
     ];
@@ -58,5 +59,10 @@ class Hub extends Model
     public function sports(): HasMany
     {
         return $this->hasMany(HubSport::class);
+    }
+
+    public function images(): HasMany
+    {
+        return $this->hasMany(HubImage::class)->orderBy('order');
     }
 }

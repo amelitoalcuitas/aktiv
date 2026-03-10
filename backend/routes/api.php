@@ -27,7 +27,7 @@ Route::get('/hubs/{hub}/courts', [CourtController::class, 'index'])->name('api.h
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/dashboard/hubs', [HubController::class, 'myHubs'])->name('api.dashboard.hubs');
     Route::post('/hubs', [HubController::class, 'store'])->name('api.hubs.store');
-    Route::put('/hubs/{hub}', [HubController::class, 'update'])->name('api.hubs.update');
+    Route::match(['put', 'post'], '/hubs/{hub}', [HubController::class, 'update'])->name('api.hubs.update');
     Route::delete('/hubs/{hub}', [HubController::class, 'destroy'])->name('api.hubs.destroy');
     Route::post('/hubs/{hub}/courts', [CourtController::class, 'store'])->name('api.hubs.courts.store');
     Route::put('/hubs/{hub}/courts/{court}', [CourtController::class, 'update'])->name('api.hubs.courts.update');

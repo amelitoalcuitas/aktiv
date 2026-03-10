@@ -1,8 +1,78 @@
 import type { Hub, Court } from '~/types/hub';
 import { useApi } from '~/utils/api';
 
+export const HUB_IMAGE_MAX_SIZE_MB = 10;
+export const HUB_IMAGE_MAX_BYTES = HUB_IMAGE_MAX_SIZE_MB * 1024 * 1024;
+
 export function useHubs() {
   const { apiFetch } = useApi();
+
+  function validateImageSize(file: File, fieldLabel: string) {
+    if (file.size > HUB_IMAGE_MAX_BYTES) {
+      throw new Error(
+        `${fieldLabel} must be ${HUB_IMAGE_MAX_SIZE_MB}MB or smaller.`
+      );
+    }
+  }
+
+  function appendHubFormData(
+    formData: FormData,
+    payload: Partial<{
+      name: string;
+      description: string;
+      city: string;
+      zip_code: string;
+      province: string;
+      country: string;
+      address: string;
+      address_line2: string | null;
+      landmark: string | null;
+      lat: number | null;
+      lng: number | null;
+      sports: string[];
+      cover_image: File | null;
+      gallery_images: File[];
+      remove_gallery_image_ids: number[];
+    }>
+  ) {
+    const appendIfDefined = (key: string, value: unknown) => {
+      if (value === undefined) return;
+      if (value === null) {
+        formData.append(key, '');
+        return;
+      }
+
+      formData.append(key, String(value));
+    };
+
+    appendIfDefined('name', payload.name);
+    appendIfDefined('description', payload.description);
+    appendIfDefined('city', payload.city);
+    appendIfDefined('zip_code', payload.zip_code);
+    appendIfDefined('province', payload.province);
+    appendIfDefined('country', payload.country);
+    appendIfDefined('address', payload.address);
+    appendIfDefined('address_line2', payload.address_line2);
+    appendIfDefined('landmark', payload.landmark);
+    appendIfDefined('lat', payload.lat);
+    appendIfDefined('lng', payload.lng);
+
+    if (payload.cover_image) {
+      validateImageSize(payload.cover_image, 'Cover image');
+      formData.append('cover_image', payload.cover_image);
+    }
+
+    (payload.sports ?? []).forEach((sport) =>
+      formData.append('sports[]', sport)
+    );
+    (payload.gallery_images ?? []).forEach((image) => {
+      validateImageSize(image, 'Gallery image');
+      formData.append('gallery_images[]', image);
+    });
+    (payload.remove_gallery_image_ids ?? []).forEach((id) =>
+      formData.append('remove_gallery_image_ids[]', String(id))
+    );
+  }
 
   // ── Hubs ──────────────────────────────────────────────────────────────────
 
@@ -33,12 +103,16 @@ export function useHubs() {
     landmark?: string | null;
     lat?: number | null;
     lng?: number | null;
-    cover_image_url?: string | null;
+    cover_image?: File | null;
+    gallery_images?: File[];
     sports?: string[];
   }): Promise<Hub> {
+    const formData = new FormData();
+    appendHubFormData(formData, payload);
+
     const res = await apiFetch<{ data: Hub }>('/hubs', {
       method: 'POST',
-      body: payload
+      body: formData
     });
     return res.data;
   }
@@ -57,13 +131,19 @@ export function useHubs() {
       landmark: string | null;
       lat: number | null;
       lng: number | null;
-      cover_image_url: string | null;
+      cover_image: File | null;
+      gallery_images: File[];
+      remove_gallery_image_ids: number[];
       sports: string[];
     }>
   ): Promise<Hub> {
+    const formData = new FormData();
+    formData.append('_method', 'PUT');
+    appendHubFormData(formData, payload);
+
     const res = await apiFetch<{ data: Hub }>(`/hubs/${id}`, {
-      method: 'PUT',
-      body: payload
+      method: 'POST',
+      body: formData
     });
     return res.data;
   }

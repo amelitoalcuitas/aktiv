@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { useAuth } from '~/composables/useAuth';
-import { useHubs } from '~/composables/useHubs';
+import {
+  HUB_IMAGE_MAX_BYTES,
+  HUB_IMAGE_MAX_SIZE_MB,
+  useHubs
+} from '~/composables/useHubs';
 
 definePageMeta({ middleware: 'auth', layout: 'page' });
 
@@ -25,9 +29,18 @@ const form = reactive({
   landmark: '',
   lat: null as number | null,
   lng: null as number | null,
-  cover_image_url: '',
   sports: [] as string[]
 });
+
+const coverImage = ref<File | null>(null);
+const coverPreview = ref('');
+const existingCoverUrl = ref('');
+const existingGallery = ref<Array<{ id: number; url: string; order: number }>>(
+  []
+);
+const removeGalleryImageIds = ref<number[]>([]);
+const newGalleryImages = ref<File[]>([]);
+const newGalleryPreviews = ref<string[]>([]);
 
 const SPORT_OPTIONS = [
   { label: 'Pickleball', value: 'pickleball' },
@@ -61,6 +74,7 @@ function fillFormFromHub(hub: {
   lat: string | null;
   lng: string | null;
   cover_image_url: string | null;
+  gallery_images: Array<{ id: number; url: string; order: number }>;
   sports: string[];
 }) {
   form.name = hub.name;
@@ -74,8 +88,82 @@ function fillFormFromHub(hub: {
   form.landmark = hub.landmark ?? '';
   form.lat = hub.lat ? parseFloat(hub.lat) : null;
   form.lng = hub.lng ? parseFloat(hub.lng) : null;
-  form.cover_image_url = hub.cover_image_url ?? '';
+  existingCoverUrl.value = hub.cover_image_url ?? '';
+  existingGallery.value = [...hub.gallery_images];
+  removeGalleryImageIds.value = [];
   form.sports = [...hub.sports];
+}
+
+function onCoverImageChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0] ?? null;
+
+  if (file && file.size > HUB_IMAGE_MAX_BYTES) {
+    toast.add({
+      title: `Cover image must be ${HUB_IMAGE_MAX_SIZE_MB}MB or smaller.`,
+      color: 'error'
+    });
+    input.value = '';
+    return;
+  }
+
+  coverImage.value = file;
+  if (coverPreview.value) {
+    URL.revokeObjectURL(coverPreview.value);
+    coverPreview.value = '';
+  }
+
+  if (file) {
+    coverPreview.value = URL.createObjectURL(file);
+  }
+}
+
+function onNewGalleryImagesChange(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files ?? []);
+  if (!files.length) return;
+
+  const validFiles = files.filter((file) => file.size <= HUB_IMAGE_MAX_BYTES);
+  const oversizedCount = files.length - validFiles.length;
+  if (oversizedCount > 0) {
+    toast.add({
+      title: `${oversizedCount} image(s) skipped. Max ${HUB_IMAGE_MAX_SIZE_MB}MB per image.`,
+      color: 'error'
+    });
+  }
+
+  const remainingSlots =
+    10 -
+    (existingGallery.value.length - removeGalleryImageIds.value.length) -
+    newGalleryImages.value.length;
+
+  const filesToAdd = validFiles.slice(0, Math.max(0, remainingSlots));
+
+  filesToAdd.forEach((file) => {
+    newGalleryImages.value.push(file);
+    newGalleryPreviews.value.push(URL.createObjectURL(file));
+  });
+
+  input.value = '';
+}
+
+function removeNewGalleryImage(index: number) {
+  const [preview] = newGalleryPreviews.value.splice(index, 1);
+  newGalleryImages.value.splice(index, 1);
+  if (preview) {
+    URL.revokeObjectURL(preview);
+  }
+}
+
+function toggleExistingGalleryRemoval(imageId: number) {
+  if (removeGalleryImageIds.value.includes(imageId)) {
+    removeGalleryImageIds.value = removeGalleryImageIds.value.filter(
+      (id) => id !== imageId
+    );
+    return;
+  }
+
+  removeGalleryImageIds.value.push(imageId);
 }
 
 async function loadHub() {
@@ -107,7 +195,9 @@ async function handleSubmit() {
       landmark: form.landmark || null,
       lat: form.lat,
       lng: form.lng,
-      cover_image_url: form.cover_image_url || null,
+      cover_image: coverImage.value,
+      gallery_images: newGalleryImages.value,
+      remove_gallery_image_ids: removeGalleryImageIds.value,
       sports: form.sports
     });
     toast.add({ title: 'Hub updated successfully!', color: 'success' });
@@ -131,6 +221,14 @@ if (!isAuthenticated.value) {
 } else {
   await loadHub();
 }
+
+onUnmounted(() => {
+  if (coverPreview.value) {
+    URL.revokeObjectURL(coverPreview.value);
+  }
+
+  newGalleryPreviews.value.forEach((preview) => URL.revokeObjectURL(preview));
+});
 </script>
 
 <template>
@@ -285,15 +383,97 @@ if (!isAuthenticated.value) {
           </div>
 
           <UFormField
-            label="Cover Image URL (optional)"
-            :error="fieldError('cover_image_url')"
+            label="Cover Image (optional)"
+            :error="fieldError('cover_image')"
           >
-            <UInput
-              v-model="form.cover_image_url"
-              type="url"
-              placeholder="https://example.com/photo.jpg"
-              class="w-full"
+            <img
+              v-if="coverPreview || existingCoverUrl"
+              :src="coverPreview || existingCoverUrl"
+              alt="Cover preview"
+              class="mb-3 h-40 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
             />
+            <input
+              type="file"
+              accept="image/*"
+              class="block w-full text-sm text-[var(--aktiv-muted)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--aktiv-primary)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[var(--aktiv-primary-hover)]"
+              @change="onCoverImageChange"
+            />
+          </UFormField>
+
+          <UFormField
+            label="Gallery Images"
+            :error="fieldError('gallery_images')"
+          >
+            <p class="text-xs text-[var(--aktiv-muted)]">
+              Up to 10 images total, max {{ HUB_IMAGE_MAX_SIZE_MB }}MB each.
+              Mark existing images for removal or add new ones.
+            </p>
+
+            <div
+              v-if="existingGallery.length"
+              class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3"
+            >
+              <div
+                v-for="image in existingGallery"
+                :key="image.id"
+                class="relative"
+              >
+                <img
+                  :src="image.url"
+                  :alt="`Gallery image ${image.id}`"
+                  class="h-28 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
+                  :class="
+                    removeGalleryImageIds.includes(image.id) ? 'opacity-40' : ''
+                  "
+                />
+                <button
+                  type="button"
+                  class="absolute right-1 top-1 rounded px-2 py-0.5 text-xs text-white"
+                  :class="
+                    removeGalleryImageIds.includes(image.id)
+                      ? 'bg-emerald-600'
+                      : 'bg-black/70'
+                  "
+                  @click="toggleExistingGalleryRemoval(image.id)"
+                >
+                  {{
+                    removeGalleryImageIds.includes(image.id) ? 'Undo' : 'Remove'
+                  }}
+                </button>
+              </div>
+            </div>
+
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              class="mt-3 block w-full text-sm text-[var(--aktiv-muted)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--aktiv-primary)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[var(--aktiv-primary-hover)]"
+              @change="onNewGalleryImagesChange"
+            />
+
+            <div
+              v-if="newGalleryPreviews.length"
+              class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3"
+            >
+              <div
+                v-for="(preview, index) in newGalleryPreviews"
+                :key="`${preview}-${index}`"
+                class="relative"
+              >
+                <img
+                  :src="preview"
+                  :alt="`New gallery image ${index + 1}`"
+                  class="h-28 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
+                />
+                <button
+                  type="button"
+                  class="absolute right-1 top-1 rounded bg-black/70 px-2 py-0.5 text-xs text-white"
+                  @click="removeNewGalleryImage(index)"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
           </UFormField>
 
           <UFormField label="Sports">

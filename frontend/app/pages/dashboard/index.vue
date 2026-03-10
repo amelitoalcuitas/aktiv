@@ -190,12 +190,12 @@ function formatPrice(price: string | null) {
           </div>
 
           <!-- View courts link -->
-          <div class="mt-auto border-t border-[#f0f4f8] pt-3">
+          <div class="mt-auto pt-3 w-full justify-end flex">
             <NuxtLink
               to="/dashboard/courts"
               class="text-xs font-medium text-[#004e89] hover:underline"
             >
-              Manage courts →
+              Manage courts
             </NuxtLink>
           </div>
         </div>

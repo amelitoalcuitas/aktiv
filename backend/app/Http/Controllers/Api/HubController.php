@@ -6,12 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Hub\StoreHubRequest;
 use App\Http\Requests\Hub\UpdateHubRequest;
 use App\Models\Hub;
+use App\Models\HubImage;
 use App\Models\HubSport;
+use App\Services\ImageUploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 
 class HubController extends Controller
 {
+    public function __construct(private readonly ImageUploadService $imageUploadService)
+    {
+    }
+
     /**
      * Public list of all approved hubs with aggregated data.
      */
@@ -19,7 +27,7 @@ class HubController extends Controller
     {
         $hubs = Hub::query()
             ->where('is_approved', true)
-            ->with('sports')
+            ->with(['sports', 'images'])
             ->withCount('courts')
             ->withMin('courts', 'price_per_hour')
             ->orderByDesc('created_at')
@@ -36,7 +44,7 @@ class HubController extends Controller
     {
         $hubs = Hub::query()
             ->where('owner_id', $request->user()->id)
-            ->with(['sports', 'courts.sports'])
+            ->with(['sports', 'courts.sports', 'images'])
             ->withCount('courts')
             ->withMin('courts', 'price_per_hour')
             ->orderByDesc('created_at')
@@ -51,7 +59,7 @@ class HubController extends Controller
      */
     public function show(Hub $hub): JsonResponse
     {
-        $hub->load(['sports', 'courts.sports', 'owner:id,name,avatar_url']);
+        $hub->load(['sports', 'courts.sports', 'owner:id,name,avatar_url', 'images']);
         $hub->loadCount('courts');
         $hub->loadAggregate('courts', 'min(price_per_hour)');
 
@@ -65,7 +73,15 @@ class HubController extends Controller
     {
         $validated = $request->validated();
         $sports = $validated['sports'] ?? [];
+        $galleryImages = $request->file('gallery_images', []);
         unset($validated['sports']);
+        unset($validated['cover_image'], $validated['gallery_images']);
+
+        if ($request->hasFile('cover_image')) {
+            $coverImage = $this->imageUploadService->upload($request->file('cover_image'), 'hubs/covers');
+            $validated['cover_image_url'] = $coverImage['url'];
+            $validated['cover_image_path'] = $coverImage['path'];
+        }
 
         $hub = Hub::query()->create([
             ...$validated,
@@ -75,8 +91,9 @@ class HubController extends Controller
         ]);
 
         $this->syncHubSports($hub, $sports);
+        $this->uploadGalleryImages($hub, $galleryImages);
 
-        $hub->load('sports');
+        $hub->load(['sports', 'images']);
 
         return response()->json(['data' => $this->formatHub($hub)], 201);
     }
@@ -90,15 +107,45 @@ class HubController extends Controller
 
         $validated = $request->validated();
         $sports = isset($validated['sports']) ? $validated['sports'] : null;
+        $galleryImages = $request->file('gallery_images', []);
+        $removeGalleryImageIds = $validated['remove_gallery_image_ids'] ?? [];
         unset($validated['sports']);
+        unset($validated['remove_gallery_image_ids']);
+        unset($validated['cover_image'], $validated['gallery_images']);
+
+        if ($request->hasFile('cover_image')) {
+            $coverImage = $this->imageUploadService->upload($request->file('cover_image'), 'hubs/covers');
+
+            if ($hub->cover_image_path) {
+                Storage::disk('s3')->delete($hub->cover_image_path);
+            }
+
+            $validated['cover_image_url'] = $coverImage['url'];
+            $validated['cover_image_path'] = $coverImage['path'];
+        }
+
+        if (!empty($removeGalleryImageIds)) {
+            $imagesToRemove = $hub->images()->whereIn('id', $removeGalleryImageIds)->get();
+            $this->removeGalleryImages($imagesToRemove);
+        }
+
+        $remainingGalleryCount = $hub->images()->count();
+        if (($remainingGalleryCount + count($galleryImages)) > 10) {
+            return response()->json([
+                'message' => 'A hub can only have up to 10 gallery images.',
+                'errors' => ['gallery_images' => ['A hub can only have up to 10 gallery images.']],
+            ], 422);
+        }
 
         $hub->update($validated);
+
+        $this->uploadGalleryImages($hub, $galleryImages);
 
         if ($sports !== null) {
             $this->syncHubSports($hub, $sports);
         }
 
-        $hub->load(['sports', 'courts.sports']);
+        $hub->load(['sports', 'courts.sports', 'images']);
         $hub->loadCount('courts');
         $hub->loadAggregate('courts', 'min(price_per_hour)');
 
@@ -111,6 +158,12 @@ class HubController extends Controller
     public function destroy(Hub $hub): JsonResponse
     {
         $this->authorize('delete', $hub);
+
+        if ($hub->cover_image_path) {
+            Storage::disk('s3')->delete($hub->cover_image_path);
+        }
+
+        $this->removeGalleryImages($hub->images()->get());
 
         $hub->delete();
 
@@ -128,6 +181,41 @@ class HubController extends Controller
 
         foreach (array_unique($sports) as $sport) {
             HubSport::query()->create(['hub_id' => $hub->id, 'sport' => $sport]);
+        }
+    }
+
+    /**
+     * @param array<int, \Illuminate\Http\UploadedFile> $galleryImages
+     */
+    private function uploadGalleryImages(Hub $hub, array $galleryImages): void
+    {
+        if (empty($galleryImages)) {
+            return;
+        }
+
+        $currentOrder = (int) $hub->images()->max('order');
+
+        foreach ($galleryImages as $file) {
+            $currentOrder++;
+            $uploaded = $this->imageUploadService->upload($file, 'hubs/gallery');
+
+            HubImage::query()->create([
+                'hub_id' => $hub->id,
+                'storage_path' => $uploaded['path'],
+                'url' => $uploaded['url'],
+                'order' => $currentOrder,
+            ]);
+        }
+    }
+
+    /**
+     * @param \Illuminate\Support\Collection<int, HubImage> $images
+     */
+    private function removeGalleryImages(Collection $images): void
+    {
+        foreach ($images as $image) {
+            Storage::disk('s3')->delete($image->storage_path);
+            $image->delete();
         }
     }
 
@@ -170,6 +258,13 @@ class HubController extends Controller
             'lat'                  => $hub->lat,
             'lng'                  => $hub->lng,
             'cover_image_url'      => $hub->cover_image_url,
+            'gallery_images'       => $hub->images
+                ? $hub->images->map(fn (HubImage $image): array => [
+                    'id' => $image->id,
+                    'url' => $image->url,
+                    'order' => $image->order,
+                ])->values()
+                : [],
             'is_approved'          => $hub->is_approved,
             'is_verified'          => $hub->is_verified,
             'owner_id'             => $hub->owner_id,

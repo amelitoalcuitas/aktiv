@@ -41,9 +41,7 @@ watch(
 </script>
 
 <template>
-  <div
-    class="overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
-  >
+  <div class="overflow-hidden bg-[var(--aktiv-surface)]">
     <!-- Main image carousel -->
     <div class="relative">
       <UCarousel

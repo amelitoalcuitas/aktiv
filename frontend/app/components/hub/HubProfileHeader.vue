@@ -2,119 +2,49 @@
 import type { Hub } from '~/types/hub';
 
 const route = useRoute();
+const { fetchHub } = useHubs();
 
-const mockHubs: Record<string, Hub> = {
-  '1': {
-    id: 1,
-    name: 'Sunnyvale Pickleball Club',
-    city: 'Sunnyvale, CA',
-    description: 'Premier pickleball facility with state-of-the-art courts.',
-    cover_image_url:
-      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1300&q=80',
-    coverImageUrl:
-      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1300&q=80',
-    courts_count: 12,
-    courtsCount: 12,
-    sports: ['pickleball', 'badminton'],
-    lowest_price_per_hour: '650.00',
-    lowestPricePerHour: 650,
-    rating: 4.8,
-    reviewsCount: 104,
-    isOpenNow: true,
-    address: 'Sunnyvale, CA',
-    is_approved: true,
-    is_verified: false,
-    owner_id: 1,
-    created_at: '2026-01-01',
-    lat: null,
-    lng: null
-  },
-  '2': {
-    id: 2,
-    name: 'Downtown Rec Center',
-    city: 'Austin, TX',
-    description: 'Community center with indoor and outdoor multi-sport courts.',
-    cover_image_url:
-      'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1300&q=80',
-    coverImageUrl:
-      'https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1300&q=80',
-    courts_count: 6,
-    courtsCount: 6,
-    sports: ['basketball', 'badminton'],
-    lowest_price_per_hour: '520.00',
-    lowestPricePerHour: 520,
-    rating: 4.6,
-    reviewsCount: 68,
-    isOpenNow: true,
-    address: 'Austin, TX',
-    is_approved: true,
-    is_verified: false,
-    owner_id: 2,
-    created_at: '2026-01-01',
-    lat: null,
-    lng: null
-  },
-  '3': {
-    id: 3,
-    name: 'Eastbay Court House',
-    city: 'Oakland, CA',
-    description: 'Indoor courts ideal for after-work matches and coaching.',
-    cover_image_url:
-      'https://images.unsplash.com/photo-1543357480-c60d40007a3f?auto=format&fit=crop&w=1300&q=80',
-    coverImageUrl:
-      'https://images.unsplash.com/photo-1543357480-c60d40007a3f?auto=format&fit=crop&w=1300&q=80',
-    courts_count: 8,
-    courtsCount: 8,
-    sports: ['tennis', 'pickleball'],
-    lowest_price_per_hour: '700.00',
-    lowestPricePerHour: 700,
-    rating: 4.7,
-    reviewsCount: 91,
-    isOpenNow: false,
-    address: 'Oakland, CA',
-    is_approved: true,
-    is_verified: false,
-    owner_id: 3,
-    created_at: '2026-01-01',
-    lat: null,
-    lng: null
+const hubId = computed(() => String(route.params.id ?? ''));
+
+const { data: activeHub } = await useAsyncData<Hub>(
+  `hub-${hubId.value}`,
+  () => fetchHub(hubId.value),
+  {
+    default: () =>
+      ({
+        id: 0,
+        name: '',
+        description: null,
+        city: '',
+        address: '',
+        address_line2: null,
+        landmark: null,
+        zip_code: null,
+        province: null,
+        country: null,
+        lat: null,
+        lng: null,
+        cover_image_url: null,
+        gallery_images: [],
+        is_approved: true,
+        is_verified: false,
+        owner_id: 0,
+        sports: [],
+        courts_count: 0,
+        lowest_price_per_hour: null,
+        created_at: ''
+      }) as Hub
   }
-};
-
-const fallbackHub: Hub = {
-  id: 1,
-  name: 'Sunnyvale Pickleball Club',
-  city: 'Sunnyvale, CA',
-  description: 'Premier pickleball facility with state-of-the-art courts.',
-  cover_image_url:
-    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1300&q=80',
-  coverImageUrl:
-    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1300&q=80',
-  courts_count: 12,
-  courtsCount: 12,
-  sports: ['pickleball', 'badminton'],
-  lowest_price_per_hour: '650.00',
-  lowestPricePerHour: 650,
-  rating: 4.8,
-  reviewsCount: 104,
-  isOpenNow: true,
-  address: 'Sunnyvale, CA',
-  is_approved: true,
-  is_verified: false,
-  owner_id: 1,
-  created_at: '2026-01-01',
-  lat: null,
-  lng: null
-};
-
-const activeHub = computed<Hub>(() => {
-  const id = String(route.params.id || '').trim();
-  return mockHubs[id] || fallbackHub;
-});
+);
 
 const tabs = computed(() => {
-  const id = String(route.params.id || activeHub.value.id);
+  const id = hubId.value || String(activeHub.value?.id ?? '');
   return [
+    {
+      label: 'About',
+      icon: 'i-heroicons-information-circle',
+      to: `/hubs/${id}/about`
+    },
     {
       label: 'Scheduler',
       icon: 'i-heroicons-calendar-days',
@@ -139,6 +69,10 @@ const tabs = computed(() => {
 });
 
 const isTabActive = (to: string) => route.path === to;
+
+const coverImage = computed(
+  () => activeHub.value?.cover_image_url ?? activeHub.value?.coverImageUrl ?? ''
+);
 </script>
 
 <template>
@@ -148,10 +82,28 @@ const isTabActive = (to: string) => route.path === to;
       class="relative isolate overflow-hidden border-b border-[var(--aktiv-border)]"
     >
       <img
-        :src="activeHub.coverImageUrl"
-        :alt="activeHub.name"
+        v-if="coverImage"
+        :src="coverImage"
+        :alt="activeHub?.name"
         class="h-[260px] w-full object-cover"
       />
+      <div
+        v-else
+        class="flex h-[260px] w-full items-center justify-center bg-[var(--aktiv-border)]"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-20 w-20 text-[var(--aktiv-muted)] opacity-30"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          stroke-width="1"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <path d="M21 15l-5-5L5 21" />
+        </svg>
+      </div>
       <div class="absolute inset-0 bg-black/50"></div>
 
       <div class="absolute inset-x-0 bottom-0">
@@ -161,18 +113,18 @@ const isTabActive = (to: string) => route.path === to;
               class="m-0 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white"
             >
               <UIcon name="i-heroicons-map-pin" class="h-4 w-4" />
-              {{ activeHub.city }}
+              {{ activeHub?.city }}
             </p>
 
             <h1
               class="mt-3 text-3xl font-black leading-tight text-white md:text-5xl"
             >
-              {{ activeHub.name }}
+              {{ activeHub?.name }}
             </h1>
 
             <div class="mt-4 flex flex-wrap items-center gap-2.5">
               <UBadge
-                v-for="sport in activeHub.sports"
+                v-for="sport in activeHub?.sports ?? []"
                 :key="sport"
                 variant="outline"
                 color="neutral"
@@ -182,6 +134,7 @@ const isTabActive = (to: string) => route.path === to;
               </UBadge>
 
               <span
+                v-if="activeHub?.rating != null"
                 class="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white"
               >
                 <UIcon
@@ -194,10 +147,11 @@ const isTabActive = (to: string) => route.path === to;
               </span>
 
               <UBadge
-                :color="activeHub.isOpenNow ? 'success' : 'error'"
+                v-if="activeHub?.is_verified"
+                color="primary"
                 variant="soft"
               >
-                {{ activeHub.isOpenNow ? 'Open now' : 'Closed' }}
+                Verified
               </UBadge>
             </div>
           </div>

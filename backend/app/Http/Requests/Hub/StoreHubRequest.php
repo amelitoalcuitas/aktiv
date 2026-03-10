@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Http\Requests\Hub;
+
+use Illuminate\Foundation\Http\FormRequest;
+
+class StoreHubRequest extends FormRequest
+{
+    public function authorize(): bool
+    {
+        return true;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules(): array
+    {
+        return [
+            'name'            => ['required', 'string', 'max:255'],
+            'description'     => ['nullable', 'string'],
+            'city'            => ['required', 'string', 'max:255'],
+            'address'         => ['required', 'string', 'max:500'],
+            'address_line2'   => ['nullable', 'string', 'max:500'],
+            'landmark'        => ['nullable', 'string', 'max:500'],
+            'zip_code'        => ['required', 'string', 'max:20'],
+            'province'        => ['required', 'string', 'max:255'],
+            'country'         => ['required', 'string', 'max:255'],
+            'lat'             => ['nullable', 'numeric', 'between:-90,90'],
+            'lng'             => ['nullable', 'numeric', 'between:-180,180'],
+            'cover_image_url' => ['nullable', 'url', 'max:2048'],
+            'sports'          => ['nullable', 'array'],
+            'sports.*'        => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],
+        ];
+    }
+}

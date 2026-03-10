@@ -10,6 +10,18 @@ Aktiv is a sports hub discovery and scheduling platform. Users can explore local
 
 ---
 
+## Coding Agent UI Guidelines
+
+Use these rules for all frontend implementation tasks:
+
+- Always use Nuxt UI components first. Build custom components only when Nuxt UI does not cover the use case.
+- Do not use hardcoded colors in components, pages, or composables.
+- Use Nuxt theme colors/tokens or CSS variables/classes defined in `frontend/app/assets/css/main.css`.
+- Keep the visual style flat and minimal. Avoid gradients, glassmorphism, heavy shadows, and overly decorative effects.
+- Before creating a new component, check existing files in `frontend/app/components/` (and related feature folders) to reuse or extend what already exists.
+
+---
+
 ## Core Features
 
 ### 1. Explore Page

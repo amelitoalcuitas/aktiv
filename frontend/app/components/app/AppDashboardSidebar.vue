@@ -1,0 +1,82 @@
+<script setup lang="ts">
+import { useAuth } from '~/composables/useAuth';
+
+const { user, logout } = useAuth();
+const route = useRoute();
+
+const navLinks = [
+  { label: 'My Hubs', icon: 'i-heroicons-building-office-2', to: '/dashboard' },
+  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: '/dashboard/courts' }
+];
+
+const isActive = (to: string) => {
+  if (to === '/dashboard') return route.path === '/dashboard';
+  return route.path.startsWith(to);
+};
+</script>
+
+<template>
+  <aside
+    class="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-[#dbe4ef] bg-white"
+  >
+    <!-- Logo -->
+    <div class="flex h-16 items-center border-b border-[#dbe4ef] px-6">
+      <NuxtLink
+        to="/"
+        class="text-xl font-extrabold tracking-tight text-[#004e89]"
+      >
+        Aktiv
+      </NuxtLink>
+      <span
+        class="ml-2 rounded-md bg-[#e8f0f8] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#004e89]"
+      >
+        Dashboard
+      </span>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex-1 overflow-y-auto px-3 py-4">
+      <ul class="space-y-0.5">
+        <li v-for="link in navLinks" :key="link.to">
+          <NuxtLink
+            :to="link.to"
+            :class="[
+              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+              isActive(link.to)
+                ? 'bg-[#e8f0f8] text-[#004e89]'
+                : 'text-[#3a4a5c] hover:bg-[#f0f4f8] hover:text-[#004e89]'
+            ]"
+          >
+            <UIcon :name="link.icon" class="h-5 w-5 flex-shrink-0" />
+            {{ link.label }}
+          </NuxtLink>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- User footer -->
+    <div class="border-t border-[#dbe4ef] p-4">
+      <div class="flex items-center gap-3">
+        <div
+          class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#004e89] text-sm font-bold text-white"
+        >
+          {{ user?.name?.charAt(0)?.toUpperCase() ?? '?' }}
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-sm font-semibold text-[#0f1728]">
+            {{ user?.name }}
+          </p>
+          <p class="truncate text-xs text-[#64748b]">{{ user?.email }}</p>
+        </div>
+        <UButton
+          icon="i-heroicons-arrow-right-on-rectangle"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          aria-label="Logout"
+          @click="logout"
+        />
+      </div>
+    </div>
+  </aside>
+</template>

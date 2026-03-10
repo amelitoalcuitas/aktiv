@@ -11,6 +11,10 @@
   --aktiv-muted: #64748b;
   --aktiv-border: #dbe4ef;
   --aktiv-accent: #d9f55a;
+  --aktiv-success-bg: #daf7d0;
+  --aktiv-success-fg: #1e6a0f;
+  --aktiv-danger-bg: #fee2e2;
+  --aktiv-danger-fg: #9f1239;
 }
 
 * {
@@ -28,9 +32,4 @@ body {
   font-family: 'Roboto', 'Segoe UI', sans-serif;
   color: var(--aktiv-ink);
   background: var(--aktiv-background);
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
 }

@@ -30,6 +30,8 @@ services:
     environment:
       - NODE_ENV=development
       - NUXT_PUBLIC_API_BASE=http://localhost:8080/api
+      # Internal Docker URL used by Nuxt SSR to reach the Laravel backend
+      - NUXT_API_BASE_INTERNAL=http://nginx/api
       # Bind to all interfaces inside the container so Nginx can reach it
       - NUXT_HOST=0.0.0.0
       - NUXT_PORT=3000

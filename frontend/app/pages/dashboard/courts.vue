@@ -83,6 +83,7 @@ const courtForm = reactive({
   surface: 'concrete' as string,
   indoor: true,
   price_per_hour: '',
+  open_play_price_per_head: '',
   max_players: '',
   is_active: true,
   sports: [] as string[]
@@ -256,6 +257,7 @@ function openAdd() {
     surface: 'concrete',
     indoor: true,
     price_per_hour: '',
+    open_play_price_per_head: '',
     max_players: '',
     is_active: true,
     sports: []
@@ -273,6 +275,9 @@ function openEdit(court: Court) {
     indoor: court.indoor,
     price_per_hour: court.price_per_hour
       ? String(parseFloat(court.price_per_hour))
+      : '',
+    open_play_price_per_head: court.open_play_price_per_head
+      ? String(parseFloat(court.open_play_price_per_head))
       : '',
     max_players: court.max_players != null ? String(court.max_players) : '',
     is_active: court.is_active,
@@ -297,6 +302,9 @@ async function submitForm() {
   formLoading.value = true;
   try {
     const pricePerHour = normalizeTextValue(courtForm.price_per_hour);
+    const openPlayPrice = normalizeTextValue(
+      courtForm.open_play_price_per_head
+    );
     const maxPlayers = normalizeTextValue(courtForm.max_players);
 
     const payload = {
@@ -304,6 +312,9 @@ async function submitForm() {
       surface: courtForm.surface || undefined,
       indoor: courtForm.indoor,
       price_per_hour: pricePerHour ? parseFloat(pricePerHour) : 0,
+      open_play_price_per_head: openPlayPrice
+        ? parseFloat(openPlayPrice)
+        : null,
       max_players: maxPlayers ? parseInt(maxPlayers, 10) : null,
       is_active: courtForm.is_active,
       sports: courtForm.sports
@@ -465,6 +476,9 @@ function formatPrice(price: string) {
                 Indoor
               </th>
               <th class="px-4 py-3 text-left font-medium">Price/hr</th>
+              <th class="hidden px-4 py-3 text-left font-medium md:table-cell">
+                Open Play
+              </th>
               <th class="hidden px-4 py-3 text-left font-medium lg:table-cell">
                 Sports
               </th>
@@ -500,6 +514,13 @@ function formatPrice(price: string) {
               </td>
               <td class="px-4 py-3 text-[#0f1728]">
                 {{ formatPrice(court.price_per_hour) }}
+              </td>
+              <td class="hidden px-4 py-3 text-[#0f1728] md:table-cell">
+                {{
+                  court.open_play_price_per_head
+                    ? `₱${parseFloat(court.open_play_price_per_head).toFixed(0)}/head`
+                    : '—'
+                }}
               </td>
               <td class="hidden px-4 py-3 lg:table-cell">
                 <div class="flex flex-wrap gap-1">
@@ -592,27 +613,6 @@ function formatPrice(price: string) {
               />
             </UFormField>
             <UFormField
-              label="Price per Hour (₱)"
-              :required="courtForm.is_active"
-              :error="
-                formSubmitted && formErrors.price_per_hour
-                  ? formErrors.price_per_hour
-                  : undefined
-              "
-            >
-              <UInput
-                v-model="courtForm.price_per_hour"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="500"
-                class="w-full"
-              />
-            </UFormField>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <UFormField
               label="Max Players"
               :required="courtForm.is_active"
               :error="
@@ -629,6 +629,40 @@ function formatPrice(price: string) {
                 class="w-full"
               />
             </UFormField>
+          </div>
+
+          <div>
+            <p class="mb-2.5 text-sm font-semibold text-[#0f1728]">Prices</p>
+            <div class="grid grid-cols-2 gap-4">
+              <UFormField
+                label="Private Court (₱/hr)"
+                :required="courtForm.is_active"
+                :error="
+                  formSubmitted && formErrors.price_per_hour
+                    ? formErrors.price_per_hour
+                    : undefined
+                "
+              >
+                <UInput
+                  v-model="courtForm.price_per_hour"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="500"
+                  class="w-full"
+                />
+              </UFormField>
+              <UFormField label="Open Play (₱/head)">
+                <UInput
+                  v-model="courtForm.open_play_price_per_head"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="150"
+                  class="w-full"
+                />
+              </UFormField>
+            </div>
           </div>
 
           <div class="flex items-center gap-6">

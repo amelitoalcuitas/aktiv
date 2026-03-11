@@ -1,4 +1,4 @@
-import type { Hub, Court, HubContactNumber } from '~/types/hub';
+import type { Hub, Court, HubContactNumber, HubWebsite } from '~/types/hub';
 import { useApi } from '~/utils/api';
 
 export const HUB_IMAGE_MAX_SIZE_MB = 10;
@@ -32,6 +32,7 @@ export function useHubs() {
       is_active: boolean;
       sports: string[];
       contact_numbers: HubContactNumber[];
+      websites: HubWebsite[];
       cover_image: File | null;
       gallery_images: File[];
       remove_gallery_image_ids: number[];
@@ -73,6 +74,9 @@ export function useHubs() {
     (payload.contact_numbers ?? []).forEach((entry, i) => {
       formData.append(`contact_numbers[${i}][type]`, entry.type);
       formData.append(`contact_numbers[${i}][number]`, entry.number);
+    });
+    (payload.websites ?? []).forEach((entry, i) => {
+      formData.append(`websites[${i}][url]`, entry.url);
     });
     (payload.gallery_images ?? []).forEach((image) => {
       validateImageSize(image, 'Gallery image');
@@ -117,6 +121,7 @@ export function useHubs() {
     gallery_images?: File[];
     sports?: string[];
     contact_numbers?: HubContactNumber[];
+    websites?: HubWebsite[];
   }): Promise<Hub> {
     const formData = new FormData();
     appendHubFormData(formData, payload);
@@ -148,6 +153,7 @@ export function useHubs() {
       is_active: boolean;
       sports: string[];
       contact_numbers: HubContactNumber[];
+      websites: HubWebsite[];
     }>
   ): Promise<Hub> {
     const formData = new FormData();
@@ -179,6 +185,7 @@ export function useHubs() {
       surface?: string | null;
       indoor?: boolean;
       price_per_hour?: number;
+      open_play_price_per_head?: number | null;
       max_players?: number | null;
       is_active?: boolean;
       sports?: string[];
@@ -199,6 +206,7 @@ export function useHubs() {
       surface: string | null;
       indoor: boolean;
       price_per_hour: number;
+      open_play_price_per_head: number | null;
       max_players: number | null;
       is_active: boolean;
       sports: string[];

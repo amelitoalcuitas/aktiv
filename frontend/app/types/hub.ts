@@ -18,6 +18,10 @@ export interface HubContactNumber {
   number: string;
 }
 
+export interface HubWebsite {
+  url: string;
+}
+
 /** Matches the Hub object returned by the API */
 export interface Hub {
   id: number;
@@ -41,6 +45,7 @@ export interface Hub {
   owner?: { id: number; name: string; avatar_url: string | null } | null;
   sports: SportType[];
   contact_numbers: HubContactNumber[];
+  websites: HubWebsite[];
   courts_count: number;
   lowest_price_per_hour: string | null;
   created_at: string;
@@ -61,6 +66,7 @@ export interface Court {
   surface: SurfaceType | null;
   indoor: boolean;
   price_per_hour: string;
+  open_play_price_per_head: string | null;
   max_players: number | null;
   is_active: boolean;
   sports: SportType[];

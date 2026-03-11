@@ -104,16 +104,17 @@ class CourtController extends Controller
     private function formatCourt(Court $court): array
     {
         return [
-            'id'             => $court->id,
-            'hub_id'         => $court->hub_id,
-            'name'           => $court->name,
-            'surface'        => $court->surface,
-            'indoor'         => $court->indoor,
-            'price_per_hour' => $court->price_per_hour,
-            'max_players'    => $court->max_players,
-            'is_active'      => $court->is_active,
-            'sports'         => $court->sports ? $court->sports->pluck('sport')->values() : [],
-            'created_at'     => $court->created_at,
+            'id'                       => $court->id,
+            'hub_id'                   => $court->hub_id,
+            'name'                     => $court->name,
+            'surface'                  => $court->surface,
+            'indoor'                   => $court->indoor,
+            'price_per_hour'           => $court->price_per_hour,
+            'open_play_price_per_head' => $court->open_play_price_per_head,
+            'max_players'              => $court->max_players,
+            'is_active'                => $court->is_active,
+            'sports'                   => $court->sports ? $court->sports->pluck('sport')->values() : [],
+            'created_at'               => $court->created_at,
         ];
     }
 }

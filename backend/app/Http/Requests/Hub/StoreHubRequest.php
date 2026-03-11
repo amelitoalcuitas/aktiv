@@ -37,6 +37,8 @@ class StoreHubRequest extends FormRequest
             'contact_numbers'           => ['nullable', 'array', 'max:5'],
             'contact_numbers.*.type'    => ['required', 'string', 'in:mobile,landline'],
             'contact_numbers.*.number'  => ['required', 'string', 'max:20'],
+            'websites'                  => ['nullable', 'array', 'max:5'],
+            'websites.*.url'            => ['required', 'string', 'url', 'max:2048'],
         ];
     }
 }

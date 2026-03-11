@@ -20,6 +20,7 @@ class Court extends Model
         'surface',
         'indoor',
         'price_per_hour',
+        'open_play_price_per_head',
         'max_players',
         'is_active',
     ];
@@ -32,6 +33,7 @@ class Court extends Model
         return [
             'indoor' => 'boolean',
             'price_per_hour' => 'decimal:2',
+            'open_play_price_per_head' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }
@@ -44,5 +46,10 @@ class Court extends Model
     public function sports(): HasMany
     {
         return $this->hasMany(CourtSport::class);
+    }
+
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
     }
 }

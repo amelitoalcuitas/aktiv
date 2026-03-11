@@ -161,6 +161,33 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <!-- Websites -->
+        <div
+          v-if="hub.websites && hub.websites.length > 0"
+          class="flex items-start gap-3"
+        >
+          <UIcon
+            name="i-heroicons-globe-alt"
+            class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
+          />
+          <div class="min-w-0">
+            <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
+              Websites
+            </h2>
+            <ul class="mt-2 space-y-1">
+              <li v-for="(site, i) in hub.websites" :key="i">
+                <a
+                  :href="site.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-sm text-[var(--aktiv-primary)] hover:underline break-all"
+                  >{{ site.url }}</a
+                >
+              </li>
+            </ul>
+          </div>
+        </div>
+
         <!-- Courts -->
         <div class="flex items-start gap-3">
           <UIcon
@@ -176,57 +203,91 @@ onUnmounted(() => {
               <div
                 v-for="court in courts"
                 :key="court.id"
-                class="rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-bg)] p-4"
+                class="h-full rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-bg)] p-4 flex flex-col"
               >
-                <div class="flex items-start justify-between gap-2">
+                <div class="flex-1">
+                  <div class="flex items-start justify-between gap-2">
+                    <p
+                      class="font-semibold text-sm text-[var(--aktiv-ink)] leading-tight"
+                    >
+                      {{ court.name }}
+                    </p>
+                    <UBadge
+                      :label="court.indoor ? 'Indoor' : 'Outdoor'"
+                      :color="court.indoor ? 'primary' : 'success'"
+                      variant="subtle"
+                      class="shrink-0"
+                    />
+                  </div>
+
                   <p
-                    class="font-semibold text-sm text-[var(--aktiv-ink)] leading-tight"
+                    class="mt-2 text-xl font-black text-[var(--aktiv-primary)]"
                   >
-                    {{ court.name }}
+                    ₱{{
+                      parseFloat(court.price_per_hour).toLocaleString('en-PH')
+                    }}<span
+                      class="text-xs font-normal text-[var(--aktiv-muted)]"
+                      >&nbsp;/ hr</span
+                    >
                   </p>
-                  <UBadge
-                    :label="court.indoor ? 'Indoor' : 'Outdoor'"
-                    :color="court.indoor ? 'primary' : 'success'"
-                    variant="subtle"
-                    class="shrink-0"
-                  />
+
+                  <div class="mt-0.5 min-h-[22px] text-[var(--aktiv-muted)]">
+                    <p v-if="court.open_play_price_per_head">
+                      <span class="font-semibold text-[var(--aktiv-ink)]">
+                        ₱{{
+                          parseFloat(
+                            court.open_play_price_per_head
+                          ).toLocaleString('en-PH')
+                        }}
+                      </span>
+                      <span class="text-xs">&nbsp;/ head (Open Play)</span>
+                    </p>
+                  </div>
+
+                  <div
+                    class="mt-2 min-h-[16px] flex flex-wrap gap-1.5 text-xs text-[var(--aktiv-muted)]"
+                  >
+                    <span
+                      v-if="court.surface"
+                      class="inline-flex items-center gap-1 capitalize"
+                    >
+                      <UIcon name="i-heroicons-squares-2x2" class="h-3 w-3" />
+                      {{ court.surface }}
+                    </span>
+                    <span
+                      v-if="court.max_players"
+                      class="inline-flex items-center gap-1"
+                    >
+                      <UIcon name="i-heroicons-users" class="h-3 w-3" />
+                      Max {{ court.max_players }}
+                    </span>
+                  </div>
+
+                  <div
+                    class="mt-2 min-h-[32px] flex flex-wrap content-start gap-1"
+                  >
+                    <UBadge
+                      v-for="sport in court.sports"
+                      :key="sport"
+                      :label="sport"
+                      variant="outline"
+                      color="neutral"
+                      class="capitalize"
+                    />
+                  </div>
                 </div>
-                <p class="mt-2 text-xl font-black text-[var(--aktiv-primary)]">
-                  ₱{{ parseFloat(court.price_per_hour).toLocaleString('en-PH')
-                  }}<span class="text-xs font-normal text-[var(--aktiv-muted)]"
-                    >&nbsp;/ hr</span
+
+                <div class="mt-3 border-t border-[var(--aktiv-border)] pt-3">
+                  <NuxtLink
+                    :to="`/hubs/${hubId}/scheduler?courtId=${court.id}`"
+                    class="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--aktiv-primary)] hover:underline"
                   >
-                </p>
-                <div
-                  class="mt-2 flex flex-wrap gap-1.5 text-xs text-[var(--aktiv-muted)]"
-                >
-                  <span
-                    v-if="court.surface"
-                    class="inline-flex items-center gap-1 capitalize"
-                  >
-                    <UIcon name="i-heroicons-squares-2x2" class="h-3 w-3" />
-                    {{ court.surface }}
-                  </span>
-                  <span
-                    v-if="court.max_players"
-                    class="inline-flex items-center gap-1"
-                  >
-                    <UIcon name="i-heroicons-users" class="h-3 w-3" />
-                    Max {{ court.max_players }}
-                  </span>
-                </div>
-                <div
-                  v-if="court.sports.length > 0"
-                  class="mt-2 flex flex-wrap gap-1"
-                >
-                  <UBadge
-                    v-for="sport in court.sports"
-                    :key="sport"
-                    :label="sport"
-                    variant="outline"
-                    color="neutral"
-                    class="capitalize"
-                  />
+                    <UIcon
+                      name="i-heroicons-calendar-days"
+                      class="h-3.5 w-3.5"
+                    />
+                    Schedule
+                  </NuxtLink>
                 </div>
               </div>
             </div>

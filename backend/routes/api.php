@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CourtController;
 use App\Http\Controllers\Api\HubController;
 use App\Http\Controllers\Api\OAuthController;
@@ -22,6 +23,7 @@ Route::prefix('auth')->group(function (): void {
 Route::get('/hubs', [HubController::class, 'index'])->name('api.hubs.index');
 Route::get('/hubs/{hub}', [HubController::class, 'show'])->name('api.hubs.show');
 Route::get('/hubs/{hub}/courts', [CourtController::class, 'index'])->name('api.hubs.courts.index');
+Route::get('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'index'])->name('api.hubs.courts.bookings.index');
 
 // Authenticated hub + court management
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -32,6 +34,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/hubs/{hub}/courts', [CourtController::class, 'store'])->name('api.hubs.courts.store');
     Route::put('/hubs/{hub}/courts/{court}', [CourtController::class, 'update'])->name('api.hubs.courts.update');
     Route::delete('/hubs/{hub}/courts/{court}', [CourtController::class, 'destroy'])->name('api.hubs.courts.destroy');
+    Route::post('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'store'])->name('api.hubs.courts.bookings.store');
 });
 
 Route::get('/status', static fn (): array => ['ok' => true])->name('api.status');

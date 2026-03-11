@@ -5,6 +5,13 @@ import { useAuth } from '~/composables/useAuth';
 definePageMeta({ layout: 'auth' });
 
 const { login } = useAuth();
+const route = useRoute();
+
+// Safe redirect: only allow same-origin paths starting with /
+const redirectPath = computed(() => {
+  const r = route.query.redirect;
+  return typeof r === 'string' && r.startsWith('/') ? r : '/dashboard';
+});
 
 const form = reactive({ email: '', password: '' });
 const error = ref<string | null>(null);
@@ -38,7 +45,7 @@ async function handleSubmit() {
   loading.value = true;
   try {
     await login(parsed.data.email, parsed.data.password);
-    await navigateTo('/dashboard');
+    await navigateTo(redirectPath.value);
   } catch (e: unknown) {
     const err = e as { data?: { message?: string } };
     error.value = err?.data?.message ?? 'Invalid email or password.';

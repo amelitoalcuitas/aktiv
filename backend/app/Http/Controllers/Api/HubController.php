@@ -8,6 +8,7 @@ use App\Http\Requests\Hub\UpdateHubRequest;
 use App\Models\Hub;
 use App\Models\HubContactNumber;
 use App\Models\HubImage;
+use App\Models\HubWebsite;
 use App\Models\HubSport;
 use App\Services\ImageUploadService;
 use Illuminate\Http\JsonResponse;
@@ -29,7 +30,7 @@ class HubController extends Controller
         $hubs = Hub::query()
             ->where('is_approved', true)
             ->where('is_active', true)
-            ->with(['sports', 'images', 'contactNumbers'])
+            ->with(['sports', 'images', 'contactNumbers', 'websites'])
             ->withCount('courts')
             ->withMin('courts', 'price_per_hour')
             ->orderByDesc('created_at')
@@ -46,7 +47,7 @@ class HubController extends Controller
     {
         $hubs = Hub::query()
             ->where('owner_id', $request->user()->id)
-            ->with(['sports', 'courts.sports', 'images', 'contactNumbers'])
+            ->with(['sports', 'courts.sports', 'images', 'contactNumbers', 'websites'])
             ->withCount('courts')
             ->withMin('courts', 'price_per_hour')
             ->orderByDesc('created_at')
@@ -65,7 +66,7 @@ class HubController extends Controller
             abort(404);
         }
 
-        $hub->load(['sports', 'courts.sports', 'owner:id,name,avatar_url', 'images', 'contactNumbers']);
+        $hub->load(['sports', 'courts.sports', 'owner:id,name,avatar_url', 'images', 'contactNumbers', 'websites']);
         $hub->loadCount('courts');
         $hub->loadAggregate('courts', 'min(price_per_hour)');
 
@@ -80,8 +81,9 @@ class HubController extends Controller
         $validated = $request->validated();
         $sports = $validated['sports'] ?? [];
         $contactNumbers = $validated['contact_numbers'] ?? [];
+        $websites = $validated['websites'] ?? [];
         $galleryImages = $request->file('gallery_images', []);
-        unset($validated['sports'], $validated['contact_numbers']);
+        unset($validated['sports'], $validated['contact_numbers'], $validated['websites']);
         unset($validated['cover_image'], $validated['gallery_images']);
 
         if ($request->hasFile('cover_image')) {
@@ -100,9 +102,10 @@ class HubController extends Controller
 
         $this->syncHubSports($hub, $sports);
         $this->syncContactNumbers($hub, $contactNumbers);
+        $this->syncWebsites($hub, $websites);
         $this->uploadGalleryImages($hub, $galleryImages);
 
-        $hub->load(['sports', 'images', 'contactNumbers']);
+        $hub->load(['sports', 'images', 'contactNumbers', 'websites']);
 
         return response()->json(['data' => $this->formatHub($hub)], 201);
     }
@@ -117,9 +120,10 @@ class HubController extends Controller
         $validated = $request->validated();
         $sports = isset($validated['sports']) ? $validated['sports'] : null;
         $contactNumbers = array_key_exists('contact_numbers', $validated) ? $validated['contact_numbers'] : null;
+        $websites = array_key_exists('websites', $validated) ? $validated['websites'] : null;
         $galleryImages = $request->file('gallery_images', []);
         $removeGalleryImageIds = $validated['remove_gallery_image_ids'] ?? [];
-        unset($validated['sports'], $validated['contact_numbers']);
+        unset($validated['sports'], $validated['contact_numbers'], $validated['websites']);
         unset($validated['remove_gallery_image_ids']);
         unset($validated['cover_image'], $validated['gallery_images']);
 
@@ -159,7 +163,11 @@ class HubController extends Controller
             $this->syncContactNumbers($hub, $contactNumbers);
         }
 
-        $hub->load(['sports', 'courts.sports', 'images', 'contactNumbers']);
+        if ($websites !== null) {
+            $this->syncWebsites($hub, $websites);
+        }
+
+        $hub->load(['sports', 'courts.sports', 'images', 'contactNumbers', 'websites']);
         $hub->loadCount('courts');
         $hub->loadAggregate('courts', 'min(price_per_hour)');
 
@@ -195,6 +203,23 @@ class HubController extends Controller
 
         foreach (array_unique($sports) as $sport) {
             HubSport::query()->create(['hub_id' => $hub->id, 'sport' => $sport]);
+        }
+    }
+
+    /**
+     * Sync hub_websites to the exact provided list.
+     *
+     * @param  list<array{url: string}>  $websites
+     */
+    private function syncWebsites(Hub $hub, array $websites): void
+    {
+        $hub->websites()->delete();
+
+        foreach ($websites as $entry) {
+            HubWebsite::query()->create([
+                'hub_id' => $hub->id,
+                'url'    => $entry['url'],
+            ]);
         }
     }
 
@@ -308,6 +333,9 @@ class HubController extends Controller
                     'type'   => $c->type,
                     'number' => $c->number,
                 ])->values()
+                : [],
+            'websites'             => $hub->websites
+                ? $hub->websites->map(fn (HubWebsite $w): array => ['url' => $w->url])->values()
                 : [],
             'courts_count'         => $hub->courts_count ?? 0,
             'lowest_price_per_hour' => $hub->courts_min_price_per_hour,

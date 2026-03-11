@@ -59,6 +59,9 @@ The core booking interface.
   - Date & time range
   - **Session type:** Private (just me/my group) or Open Play (public, others can join)
 - Open Play slots appear on the Scheduler AND have a dedicated Open Play tab for discovery
+- A persistent info notice is shown above the calendar advising users to contact the venue to confirm availability, with the hub's contact number(s) displayed inline
+
+> 📄 See [SCHEDULER_FLOW.md](SCHEDULER_FLOW.md) for the full booking flow, payment confirmation process, owner walk-in bookings, and schema details.
 
 #### 🏃 Open Play
 
@@ -127,6 +130,25 @@ hub_sports
   id              UUID        PK
   hub_id          UUID        FK → hubs.id
   sport           VARCHAR     (tennis, badminton, basketball, etc.)
+
+hub_operating_hours
+  id              UUID        PK
+  hub_id          UUID        FK → hubs.id
+  day_of_week     INTEGER     (0 = Sunday … 6 = Saturday)
+  opens_at        TIME        (stored in venue local time, UTC+8 — e.g. 06:00)
+  closes_at       TIME        (stored in venue local time, UTC+8 — e.g. 22:00)
+  is_closed       BOOLEAN     DEFAULT false   (entire day closed, e.g. public holidays)
+
+hub_contact_numbers
+  id              UUID        PK
+  hub_id          UUID        FK → hubs.id
+  type            VARCHAR     (mobile, landline)
+  number          VARCHAR
+
+hub_websites
+  id              UUID        PK
+  hub_id          UUID        FK → hubs.id
+  url             VARCHAR(2048)
 ```
 
 ### Courts
@@ -154,19 +176,30 @@ court_sports
 
 ```
 bookings
-  id              UUID        PK
-  court_id        UUID        FK → courts.id
-  booked_by       UUID        FK → users.id
-  sport           VARCHAR     (sport selected for this booking)
-  start_time      TIMESTAMP
-  end_time        TIMESTAMP
-  session_type    ENUM        (private, open_play)
-  status          ENUM        (confirmed, cancelled, completed)
-  total_price     DECIMAL     (recorded for future payment integration)
-  created_at      TIMESTAMP
+  id                    UUID        PK
+  court_id              UUID        FK → courts.id
+  booked_by             UUID        FK → users.id        (nullable for anonymous walk-ins)
+  sport                 VARCHAR     (sport selected for this booking)
+  start_time            TIMESTAMP
+  end_time              TIMESTAMP
+  session_type          ENUM        (private, open_play)
+  status                ENUM        (pending_payment, payment_sent, confirmed, cancelled, completed)
+  booking_source        ENUM        (self_booked, owner_added)
+  created_by            UUID        FK → users.id        (owner's user ID if owner_added)
+  guest_name            VARCHAR     (nullable — anonymous walk-ins only)
+  guest_phone           VARCHAR     (nullable — anonymous walk-ins only)
+  total_price           DECIMAL     (recorded for future payment integration)
+  receipt_image_url     VARCHAR     (nullable)
+  receipt_uploaded_at   TIMESTAMP   (nullable)
+  payment_note          TEXT        (nullable — rejection reason or internal note)
+  payment_confirmed_by  UUID        FK → users.id        (nullable — hub owner who confirmed)
+  payment_confirmed_at  TIMESTAMP   (nullable)
+  expires_at            TIMESTAMP   (nullable — set to created_at + 1h; reset on rejection; null for owner_added)
+  cancelled_by          ENUM        (nullable — user, owner, system)
+  created_at            TIMESTAMP
 ```
 
-> ⚠️ **Payments:** Payment processing (Stripe or local gateway) is planned for a future phase. For now, bookings are confirmed without online payment. Pricing fields are stored in the DB to make integration straightforward when ready.
+> 📄 See [SCHEDULER_FLOW.md](SCHEDULER_FLOW.md) for the full booking lifecycle, receipt upload flow, owner walk-in process, and auto-cancel rules.
 
 ### Open Play
 
@@ -277,7 +310,7 @@ hub_reviews
 
 - [ ] Project setup: Nuxt 3 + Nuxt UI 4 (frontend), Laravel (backend API), PostgreSQL, Docker Compose
 - [ ] Auth: Sign up / login via Laravel Sanctum (email + Google OAuth)
-- [ ] Database: `users`, `hubs`, `courts`, `court_sports`, `hub_sports`, `app_settings` tables
+- [ ] Database: `users`, `hubs`, `courts`, `court_sports`, `hub_sports`, `hub_contact_numbers`, `hub_websites`, `app_settings` tables
 - [ ] Hub listing: auto-approved on creation (`is_approved = true`), `is_verified = false` by default
 - [ ] Explore page: hub cards with search + filters
 - [ ] Map view using MapLibre GL JS + OpenFreeMap Bright tiles
@@ -291,17 +324,26 @@ hub_reviews
 
 ### Phase 2 — Scheduler & Bookings (Weeks 5–8)
 
-**Goal:** Users can book courts (no payment yet).
+**Goal:** Users can book courts with manual payment confirmation via receipt upload.
 
 - [ ] Scheduler UI: calendar/timeline view per court
-- [ ] Booking flow: select court → select sport → date/time → session type → confirm
+- [ ] Info notice above calendar: contact venue to confirm availability (shows hub contact number(s) and website(s))
+- [ ] Booking flow: select court → select sport → date, start time & duration → session type → confirm
+- [ ] Booking requires a logged-in account; guests are redirected to login/register
+- [ ] New booking starts as `pending_payment`; slot is immediately blocked on the scheduler
+- [ ] User uploads GCash/bank transfer receipt image within 1 hour or booking is auto-cancelled
+- [ ] Auto-cancel job: cancels `pending_payment` bookings older than 1 hour with no receipt uploaded
+- [ ] On receipt upload, status moves to `pending_review`; hub owner is notified via email
+- [ ] Hub owner dashboard: "Pending Confirmations" queue — review receipt, confirm or reject with a note
+- [ ] On confirm → status becomes `confirmed`; user is notified
+- [ ] On reject → status returns to `pending_payment`; user is notified with rejection reason and can re-upload
+- [ ] Owner walk-in bookings: owner can add a booking directly (registered user or anonymous guest) — instantly `confirmed`, no receipt required
 - [ ] Conflict detection (no double-booking)
 - [ ] Booking management: view, cancel, reschedule
-- [ ] Email confirmations via Resend (free tier)
-- [ ] Hub admin dashboard: view all bookings, manage schedule
-- [ ] ⏳ Payment integration: deferred to future phase
+- [ ] Email notifications via Resend (booking created, receipt uploaded, confirmed, rejected, auto-cancelled)
+- [ ] ⏳ Online payment gateway: deferred to future phase
 
-**Deliverables:** Full private court booking without online payment
+**Deliverables:** Full court booking flow with receipt-based manual payment confirmation and owner walk-in support
 
 ---
 
@@ -586,14 +628,19 @@ frontend/
 
 ## Decisions & Notes
 
-| Topic                         | Decision                                                                                               |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Multi-sport courts            | ✅ A court supports multiple sports via `court_sports` table; user picks sport at booking time         |
-| Open Play pricing             | ✅ Per-player at ₱150.00 default; stored in `app_settings` for admin panel changes                     |
-| Tournament score confirmation | ✅ Hub admins confirm submitted scores                                                                 |
-| Mobile app                    | ⏳ Website only for now; PWA/native planned post-launch                                                |
-| Hub listing approval          | ✅ Auto-approved (`is_approved = true`) for now; `is_verified` flag reserved for future Verified badge |
-| Payments                      | ⏳ Deferred to future phase; all price fields stored in DB now to ease future integration              |
-| Maps                          | ✅ OpenFreeMap (Bright tiles) + MapLibre GL JS — fully free, no API key needed                         |
-| Frontend framework            | ✅ Nuxt 3 + Nuxt UI 4 + Pinia (uses npm)                                                               |
-| Hosting                       | Local dev on WSL Ubuntu + Docker Compose; Hetzner VPS provisioned before Phase 6 launch                |
+| Topic                         | Decision                                                                                                                                                                                                           |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Multi-sport courts            | ✅ A court supports multiple sports via `court_sports` table; user picks sport at booking time                                                                                                                     |
+| Open Play pricing             | ✅ Per-player at ₱150.00 default; stored in `app_settings` for admin panel changes                                                                                                                                 |
+| Tournament score confirmation | ✅ Hub admins confirm submitted scores                                                                                                                                                                             |
+| Mobile app                    | ⏳ Website only for now; PWA/native planned post-launch                                                                                                                                                            |
+| Hub listing approval          | ✅ Auto-approved (`is_approved = true`) for now; `is_verified` flag reserved for future Verified badge                                                                                                             |
+| Booking payment               | ✅ Receipt upload flow — user pays offline (GCash/bank transfer), uploads receipt, owner confirms manually. Statuses: `pending_payment` → `payment_sent` → `confirmed`. See [SCHEDULER_FLOW.md](SCHEDULER_FLOW.md) |
+| Online payment gateway        | ⏳ Deferred to future phase; all price fields stored in DB now to ease future integration                                                                                                                          |
+| Booking auth requirement      | ✅ Account required to book; guests redirected to login/register                                                                                                                                                   |
+| Slot holding / auto-cancel    | ✅ `pending_payment` bookings auto-cancelled after 1 hour if no receipt uploaded                                                                                                                                   |
+| Owner walk-in bookings        | ✅ Owners can add bookings for on-site customers (registered user or anonymous guest); instantly confirmed                                                                                                         |
+| Scheduler contact notice      | ✅ Non-dismissible info alert above calendar; shows hub contact numbers from `hub_contact_numbers`                                                                                                                 |
+| Maps                          | ✅ OpenFreeMap (Bright tiles) + MapLibre GL JS — fully free, no API key needed                                                                                                                                     |
+| Frontend framework            | ✅ Nuxt 3 + Nuxt UI 4 + Pinia (uses npm)                                                                                                                                                                           |
+| Hosting                       | Local dev on WSL Ubuntu + Docker Compose; Hetzner VPS provisioned before Phase 6 launch                                                                                                                            |

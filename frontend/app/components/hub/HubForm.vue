@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { z } from 'zod';
-import type { HubContactNumber } from '~/types/hub';
+import type { HubContactNumber, HubWebsite } from '~/types/hub';
 import {
   HUB_IMAGE_MAX_BYTES,
   HUB_IMAGE_MAX_SIZE_MB
@@ -20,6 +20,7 @@ export interface HubFormPayload {
   lng: number;
   sports: string[];
   contact_numbers: HubContactNumber[];
+  websites: HubWebsite[];
   coverImage: File | null;
   galleryImages: File[];
   removeGalleryImageIds: number[];
@@ -46,6 +47,7 @@ interface InitialData {
   lng: string | null;
   sports: string[];
   contact_numbers: HubContactNumber[];
+  websites: HubWebsite[];
   is_active?: boolean;
 }
 
@@ -84,6 +86,7 @@ const form = reactive({
   lng: null as number | null,
   sports: [] as string[],
   contact_numbers: [] as HubContactNumber[],
+  websites: [] as HubWebsite[],
   is_active: true
 });
 
@@ -111,6 +114,7 @@ watch(
     form.lng = data.lng ? parseFloat(data.lng) : null;
     form.sports = [...data.sports];
     form.contact_numbers = data.contact_numbers.map((c) => ({ ...c }));
+    form.websites = (data.websites ?? []).map((w) => ({ url: w.url }));
     form.is_active = data.is_active ?? true;
   },
   { immediate: true }
@@ -191,6 +195,16 @@ const hubFormSchema = z.object({
         })
     )
     .max(5)
+    .optional(),
+  websites: z
+    .array(
+      z.object({
+        url: z
+          .string()
+          .url('Please enter a valid URL (e.g. https://example.com).')
+      })
+    )
+    .max(5)
     .optional()
 });
 
@@ -241,6 +255,20 @@ function contactNumberError(index: number) {
     fieldErrors.value[`contact_numbers.${index}.number`]?.[0] ??
     fieldErrors.value[`contact_numbers.${index}.type`]?.[0]
   );
+}
+
+function addWebsite() {
+  if (form.websites.length < 5) {
+    form.websites.push({ url: '' });
+  }
+}
+
+function removeWebsite(index: number) {
+  form.websites.splice(index, 1);
+}
+
+function websiteError(index: number) {
+  return fieldErrors.value[`websites.${index}.url`]?.[0];
 }
 
 function onCoverImageChange(event: Event) {
@@ -331,7 +359,8 @@ function handleSubmit() {
     lng: form.lng,
     sports: form.sports,
     is_active: form.is_active,
-    contact_numbers: form.contact_numbers
+    contact_numbers: form.contact_numbers,
+    websites: form.websites
   });
 
   if (!parsed.success) {
@@ -357,6 +386,7 @@ function handleSubmit() {
     lng: parsed.data.lng as number,
     sports: parsed.data.sports,
     contact_numbers: parsed.data.contact_numbers ?? [],
+    websites: parsed.data.websites ?? [],
     coverImage: coverImage.value,
     galleryImages: newGalleryImages.value,
     removeGalleryImageIds: removeGalleryImageIds.value,
@@ -455,6 +485,61 @@ onUnmounted(() => {
         @click="addContactNumber"
       >
         Add
+      </UButton>
+    </div>
+
+    <!-- Websites -->
+    <div class="space-y-2">
+      <p class="text-sm font-medium text-[var(--aktiv-ink)]">
+        Websites
+        <span class="ml-1 text-xs font-normal text-[var(--aktiv-muted)]"
+          >(optional, up to 5)</span
+        >
+      </p>
+
+      <div
+        v-for="(entry, index) in form.websites"
+        :key="index"
+        class="flex items-start gap-2"
+      >
+        <div class="min-w-0 flex-1">
+          <UInput
+            v-model="entry.url"
+            placeholder="https://example.com"
+            class="w-full"
+            :ui="{
+              base: websiteError(index)
+                ? 'ring-1 ring-[var(--aktiv-danger-fg)]'
+                : ''
+            }"
+          />
+          <p
+            v-if="websiteError(index)"
+            class="mt-0.5 text-xs text-[var(--aktiv-danger-fg)]"
+          >
+            {{ websiteError(index) }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="mt-1.5 shrink-0 text-[var(--aktiv-muted)] hover:text-[var(--aktiv-danger-fg)]"
+          aria-label="Remove website"
+          @click="removeWebsite(index)"
+        >
+          <UIcon name="i-heroicons-x-mark" class="h-4 w-4" />
+        </button>
+      </div>
+
+      <UButton
+        v-if="form.websites.length < 5"
+        type="button"
+        variant="ghost"
+        color="neutral"
+        size="xs"
+        icon="i-heroicons-plus"
+        @click="addWebsite"
+      >
+        Add another
       </UButton>
     </div>
 
@@ -640,20 +725,6 @@ onUnmounted(() => {
       </div>
     </UFormField>
 
-    <!-- Visibility -->
-    <div class="space-y-1.5">
-      <div class="flex items-center gap-3">
-        <USwitch v-model="form.is_active" />
-        <p class="text-sm font-medium text-[var(--aktiv-ink)]">
-          {{ form.is_active ? 'Active' : 'Inactive' }}
-        </p>
-      </div>
-      <p class="text-xs text-[var(--aktiv-muted)]">
-        When active, this hub will appear in the public hub list. Deactivate it
-        to hide it from visitors while you set things up.
-      </p>
-    </div>
-
     <!-- Sports -->
     <UFormField label="Sports">
       <div class="flex flex-wrap gap-2 pt-1">
@@ -685,6 +756,20 @@ onUnmounted(() => {
         You can also manage sports by adding courts with specific sports later.
       </p>
     </UFormField>
+
+    <!-- Visibility -->
+    <div class="space-y-1.5">
+      <div class="flex items-center gap-3">
+        <USwitch v-model="form.is_active" />
+        <p class="text-sm font-medium text-[var(--aktiv-ink)]">
+          {{ form.is_active ? 'Active' : 'Inactive' }}
+        </p>
+      </div>
+      <p class="text-xs text-[var(--aktiv-muted)]">
+        When active, this hub will appear in the public hub list. Deactivate it
+        to hide it from visitors while you set things up.
+      </p>
+    </div>
 
     <!-- Footer -->
     <div

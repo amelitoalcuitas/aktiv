@@ -72,4 +72,14 @@ class Hub extends Model
     {
         return $this->hasMany(HubContactNumber::class)->orderBy('id');
     }
+
+    public function websites(): HasMany
+    {
+        return $this->hasMany(HubWebsite::class)->orderBy('id');
+    }
+
+    public function operatingHours(): HasMany
+    {
+        return $this->hasMany(HubOperatingHours::class)->orderBy('day_of_week');
+    }
 }

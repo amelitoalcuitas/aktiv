@@ -28,6 +28,7 @@ class HubController extends Controller
     {
         $hubs = Hub::query()
             ->where('is_approved', true)
+            ->where('is_active', true)
             ->with(['sports', 'images', 'contactNumbers'])
             ->withCount('courts')
             ->withMin('courts', 'price_per_hour')
@@ -58,8 +59,12 @@ class HubController extends Controller
     /**
      * Show a single hub with courts and sports.
      */
-    public function show(Hub $hub): JsonResponse
+    public function show(Request $request, Hub $hub): JsonResponse
     {
+        if (!$hub->is_active && auth('sanctum')->id() !== $hub->owner_id) {
+            abort(404);
+        }
+
         $hub->load(['sports', 'courts.sports', 'owner:id,name,avatar_url', 'images', 'contactNumbers']);
         $hub->loadCount('courts');
         $hub->loadAggregate('courts', 'min(price_per_hour)');
@@ -88,6 +93,7 @@ class HubController extends Controller
         $hub = Hub::query()->create([
             ...$validated,
             'owner_id'    => $request->user()->id,
+            'is_active'   => isset($validated['is_active']) ? (bool) $validated['is_active'] : true,
             'is_approved' => true,
             'is_verified' => false,
         ]);
@@ -291,6 +297,7 @@ class HubController extends Controller
                     'order' => $image->order,
                 ])->values()
                 : [],
+            'is_active'            => $hub->is_active,
             'is_approved'          => $hub->is_approved,
             'is_verified'          => $hub->is_verified,
             'owner_id'             => $hub->owner_id,

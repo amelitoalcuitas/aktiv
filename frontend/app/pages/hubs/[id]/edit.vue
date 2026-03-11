@@ -51,7 +51,8 @@ async function handleSubmit(payload: HubFormPayload) {
       gallery_images: payload.galleryImages,
       remove_gallery_image_ids: payload.removeGalleryImageIds,
       sports: payload.sports,
-      contact_numbers: payload.contact_numbers
+      contact_numbers: payload.contact_numbers,
+      is_active: payload.is_active
     });
     toast.add({ title: 'Hub updated successfully!', color: 'success' });
     await navigateTo('/dashboard');

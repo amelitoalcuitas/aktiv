@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type { Hub } from '~/types/hub';
+import { useAuthStore } from '~/stores/auth';
 
 const route = useRoute();
 const { fetchHub } = useHubs();
+const authStore = useAuthStore();
 
 const hubId = computed(() => String(route.params.id ?? ''));
 
-const { data: activeHub } = await useAsyncData<Hub>(
+const { data: activeHub, error: hubError } = await useAsyncData<Hub>(
   `hub-${hubId.value}`,
   () => fetchHub(hubId.value),
   {
@@ -28,6 +30,7 @@ const { data: activeHub } = await useAsyncData<Hub>(
         gallery_images: [],
         is_approved: true,
         is_verified: false,
+        is_active: true,
         owner_id: 0,
         sports: [],
         courts_count: 0,
@@ -35,6 +38,24 @@ const { data: activeHub } = await useAsyncData<Hub>(
         created_at: ''
       }) as Hub
   }
+);
+
+// Any API error (including 404 for inactive hubs) should render the error page
+if (hubError.value) {
+  throw createError({
+    statusCode: (hubError.value as { statusCode?: number }).statusCode ?? 404,
+    statusMessage: 'Not Found',
+    fatal: true
+  });
+}
+
+const currentUserId = computed(() => authStore.user?.id ?? null);
+
+const isInactiveOwnerView = computed(
+  () =>
+    !!activeHub.value?.id &&
+    activeHub.value.is_active === false &&
+    currentUserId.value === activeHub.value.owner_id
 );
 
 const tabs = computed(() => {
@@ -158,6 +179,22 @@ const coverImage = computed(
         </div>
       </div>
     </section>
+
+    <!-- Inactive hub banner (owner only) -->
+    <div
+      v-if="isInactiveOwnerView"
+      class="border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
+    >
+      <div class="mx-auto w-full max-w-[1160px] px-4 py-3 md:px-6">
+        <UAlert
+          icon="i-heroicons-eye-slash"
+          color="warning"
+          variant="subtle"
+          title="This hub is currently inactive"
+          description="Only you (the owner) can see this page. This hub is hidden from the public listing. You can activate it from the hub edit page."
+        />
+      </div>
+    </div>
 
     <!-- Tab navigation -->
     <nav

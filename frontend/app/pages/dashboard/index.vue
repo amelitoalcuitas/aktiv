@@ -44,7 +44,10 @@ function formatPrice(price: string | null) {
     </div>
 
     <!-- Loading -->
-    <div v-if="hubStore.loading" class="flex items-center gap-2 text-[#64748b]">
+    <div
+      v-if="!hubStore.initialized || hubStore.loading"
+      class="flex items-center gap-2 text-[#64748b]"
+    >
       <UIcon name="i-heroicons-arrow-path" class="h-5 w-5 animate-spin" />
       <span class="text-sm">Loading hubs…</span>
     </div>
@@ -115,6 +118,15 @@ function formatPrice(price: string | null) {
                 {{ hub.city }}
               </p>
             </div>
+
+            <div>
+              <UBadge
+                :label="hub.is_active ? 'Active' : 'Inactive'"
+                :color="hub.is_active ? 'success' : 'error'"
+                variant="subtle"
+                class="shrink-0"
+              />
+            </div>
           </div>
 
           <!-- Stats row -->
@@ -142,7 +154,17 @@ function formatPrice(price: string | null) {
           </div>
 
           <!-- View courts link -->
-          <div class="mt-auto pt-3 w-full justify-end flex">
+          <div class="mt-auto pt-3 w-full justify-end flex gap-4">
+            <NuxtLink
+              :to="{
+                path: '/hubs/' + hub.id
+              }"
+              class="text-xs font-medium text-[#004e89] hover:underline"
+              @click.stop
+            >
+              View Page
+            </NuxtLink>
+
             <NuxtLink
               :to="{
                 path: '/dashboard/courts',

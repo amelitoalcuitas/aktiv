@@ -31,6 +31,7 @@ class Hub extends Model
         'cover_image_path',
         'is_approved',
         'is_verified',
+        'is_active',
     ];
 
     /**
@@ -43,6 +44,7 @@ class Hub extends Model
             'lng' => 'decimal:7',
             'is_approved' => 'boolean',
             'is_verified' => 'boolean',
+            'is_active'   => 'boolean',
         ];
     }
 

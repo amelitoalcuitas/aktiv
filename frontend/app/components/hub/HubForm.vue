@@ -23,6 +23,7 @@ export interface HubFormPayload {
   coverImage: File | null;
   galleryImages: File[];
   removeGalleryImageIds: number[];
+  is_active: boolean;
 }
 
 interface GalleryImage {
@@ -45,6 +46,7 @@ interface InitialData {
   lng: string | null;
   sports: string[];
   contact_numbers: HubContactNumber[];
+  is_active?: boolean;
 }
 
 const props = withDefaults(
@@ -81,7 +83,8 @@ const form = reactive({
   lat: null as number | null,
   lng: null as number | null,
   sports: [] as string[],
-  contact_numbers: [] as HubContactNumber[]
+  contact_numbers: [] as HubContactNumber[],
+  is_active: true
 });
 
 const coverImage = ref<File | null>(null);
@@ -108,6 +111,7 @@ watch(
     form.lng = data.lng ? parseFloat(data.lng) : null;
     form.sports = [...data.sports];
     form.contact_numbers = data.contact_numbers.map((c) => ({ ...c }));
+    form.is_active = data.is_active ?? true;
   },
   { immediate: true }
 );
@@ -158,6 +162,7 @@ const hubFormSchema = z.object({
       'Please pin your hub location on the map.'
     ),
   sports: z.array(z.string()),
+  is_active: z.boolean(),
   contact_numbers: z
     .array(
       z
@@ -325,6 +330,7 @@ function handleSubmit() {
     lat: form.lat,
     lng: form.lng,
     sports: form.sports,
+    is_active: form.is_active,
     contact_numbers: form.contact_numbers
   });
 
@@ -353,7 +359,8 @@ function handleSubmit() {
     contact_numbers: parsed.data.contact_numbers ?? [],
     coverImage: coverImage.value,
     galleryImages: newGalleryImages.value,
-    removeGalleryImageIds: removeGalleryImageIds.value
+    removeGalleryImageIds: removeGalleryImageIds.value,
+    is_active: parsed.data.is_active
   });
 }
 
@@ -632,6 +639,20 @@ onUnmounted(() => {
         </div>
       </div>
     </UFormField>
+
+    <!-- Visibility -->
+    <div class="space-y-1.5">
+      <div class="flex items-center gap-3">
+        <USwitch v-model="form.is_active" />
+        <p class="text-sm font-medium text-[var(--aktiv-ink)]">
+          {{ form.is_active ? 'Active' : 'Inactive' }}
+        </p>
+      </div>
+      <p class="text-xs text-[var(--aktiv-muted)]">
+        When active, this hub will appear in the public hub list. Deactivate it
+        to hide it from visitors while you set things up.
+      </p>
+    </div>
 
     <!-- Sports -->
     <UFormField label="Sports">

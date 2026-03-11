@@ -30,7 +30,8 @@ async function handleSubmit(payload: HubFormPayload) {
       cover_image: payload.coverImage,
       gallery_images: payload.galleryImages,
       sports: payload.sports,
-      contact_numbers: payload.contact_numbers
+      contact_numbers: payload.contact_numbers,
+      is_active: payload.is_active
     });
     toast.add({ title: 'Hub created successfully!', color: 'success' });
     await navigateTo('/dashboard');

@@ -31,6 +31,7 @@ class StoreHubRequest extends FormRequest
             'cover_image'     => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:10240'],
             'gallery_images'  => ['nullable', 'array', 'max:10'],
             'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp,gif', 'max:10240'],
+            'is_active'                 => ['nullable', 'boolean'],
             'sports'                    => ['nullable', 'array'],
             'sports.*'                  => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],
             'contact_numbers'           => ['nullable', 'array', 'max:5'],

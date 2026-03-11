@@ -382,9 +382,18 @@ function formatPrice(price: string) {
       </UButton>
     </div>
 
+    <!-- Hubs loading -->
+    <div
+      v-if="!hubStore.initialized || hubStore.loading"
+      class="flex items-center gap-2 text-[#64748b]"
+    >
+      <UIcon name="i-heroicons-arrow-path" class="h-5 w-5 animate-spin" />
+      <span class="text-sm">Loading courts...</span>
+    </div>
+
     <!-- No hubs state -->
     <div
-      v-if="!hubStore.loading && !hubStore.myHubs.length"
+      v-else-if="!hubStore.myHubs.length"
       class="rounded-2xl border border-dashed border-[#dbe4ef] bg-white p-12 text-center"
     >
       <UIcon

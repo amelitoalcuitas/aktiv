@@ -29,6 +29,7 @@ export function useHubs() {
       landmark: string | null;
       lat: number | null;
       lng: number | null;
+      is_active: boolean;
       sports: string[];
       contact_numbers: HubContactNumber[];
       cover_image: File | null;
@@ -57,6 +58,9 @@ export function useHubs() {
     appendIfDefined('landmark', payload.landmark);
     appendIfDefined('lat', payload.lat);
     appendIfDefined('lng', payload.lng);
+    if (payload.is_active !== undefined) {
+      formData.append('is_active', payload.is_active ? '1' : '0');
+    }
 
     if (payload.cover_image) {
       validateImageSize(payload.cover_image, 'Cover image');
@@ -108,6 +112,7 @@ export function useHubs() {
     landmark?: string | null;
     lat?: number | null;
     lng?: number | null;
+    is_active?: boolean;
     cover_image?: File | null;
     gallery_images?: File[];
     sports?: string[];
@@ -140,6 +145,7 @@ export function useHubs() {
       cover_image: File | null;
       gallery_images: File[];
       remove_gallery_image_ids: number[];
+      is_active: boolean;
       sports: string[];
       contact_numbers: HubContactNumber[];
     }>

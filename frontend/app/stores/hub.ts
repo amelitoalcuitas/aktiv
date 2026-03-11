@@ -8,6 +8,7 @@ interface HubListResponse {
 export const useHubStore = defineStore('hub', () => {
   const myHubs = ref<Hub[]>([]);
   const loading = ref(false);
+  const initialized = ref(false);
 
   async function fetchMyHubs() {
     loading.value = true;
@@ -17,8 +18,9 @@ export const useHubStore = defineStore('hub', () => {
       myHubs.value = res.data;
     } finally {
       loading.value = false;
+      initialized.value = true;
     }
   }
 
-  return { myHubs, loading, fetchMyHubs };
+  return { myHubs, loading, initialized, fetchMyHubs };
 });

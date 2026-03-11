@@ -34,6 +34,7 @@ export interface Hub {
   lng: string | null;
   cover_image_url: string | null;
   gallery_images: { id: number; url: string; order: number }[];
+  is_active: boolean;
   is_approved: boolean;
   is_verified: boolean;
   owner_id: number;

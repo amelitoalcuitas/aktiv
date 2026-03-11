@@ -33,8 +33,11 @@ class UpdateHubRequest extends FormRequest
             'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp,gif', 'max:10240'],
             'remove_gallery_image_ids' => ['sometimes', 'array'],
             'remove_gallery_image_ids.*' => ['integer', 'exists:hub_images,id'],
-            'sports'          => ['sometimes', 'array'],
-            'sports.*'        => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],
+            'sports'                    => ['sometimes', 'array'],
+            'sports.*'                  => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],
+            'contact_numbers'           => ['sometimes', 'nullable', 'array', 'max:5'],
+            'contact_numbers.*.type'    => ['required', 'string', 'in:mobile,landline'],
+            'contact_numbers.*.number'  => ['required', 'string', 'max:20'],
         ];
     }
 }

@@ -65,4 +65,9 @@ class Hub extends Model
     {
         return $this->hasMany(HubImage::class)->orderBy('order');
     }
+
+    public function contactNumbers(): HasMany
+    {
+        return $this->hasMany(HubContactNumber::class)->orderBy('id');
+    }
 }

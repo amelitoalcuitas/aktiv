@@ -13,6 +13,11 @@ export type SurfaceType =
   | 'concrete'
   | 'wood';
 
+export interface HubContactNumber {
+  type: 'mobile' | 'landline';
+  number: string;
+}
+
 /** Matches the Hub object returned by the API */
 export interface Hub {
   id: number;
@@ -34,6 +39,7 @@ export interface Hub {
   owner_id: number;
   owner?: { id: number; name: string; avatar_url: string | null } | null;
   sports: SportType[];
+  contact_numbers: HubContactNumber[];
   courts_count: number;
   lowest_price_per_hour: string | null;
   created_at: string;

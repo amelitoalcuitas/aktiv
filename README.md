@@ -397,8 +397,8 @@ hub_reviews
 Map tiles are served by [OpenFreeMap](https://openfreemap.org) using the **Bright** style, rendered with **MapLibre GL JS**. No API key is required — tiles are free and open.
 
 ```js
-// nuxt.config.ts — install maplibre-gl via pnpm
-// pnpm add maplibre-gl
+// nuxt.config.ts — install maplibre-gl via npm
+// npm install maplibre-gl
 
 const map = new maplibregl.Map({
   container: 'map',
@@ -440,7 +440,7 @@ const map = new maplibregl.Map({
 
 - Store the project inside the WSL filesystem (`~/projects/aktiv`) **not** on the Windows mount (`/mnt/c/...`). File I/O on Windows mounts is significantly slower.
 - Docker Desktop for Windows with the WSL 2 backend is the recommended setup. Alternatively, install Docker Engine directly inside WSL.
-- `vendor/` and `node_modules/` live on your local WSL filesystem and are mounted into the containers. This means VS Code IntelliSense and autocomplete work natively — run `composer install` and `pnpm install` in WSL once to set them up locally.
+- `vendor/` and `node_modules/` live on your local WSL filesystem and are mounted into the containers. This means VS Code IntelliSense and autocomplete work natively — run `composer install` and `npm install` in WSL once to set them up locally.
 - Mailpit replaces Resend in local dev — all outgoing emails are caught at `http://localhost:8025`. No emails actually send during local development.
 
 ### Common Commands
@@ -457,8 +457,8 @@ docker compose logs -f backend
 docker compose exec backend php artisan migrate
 docker compose exec backend php artisan make:controller ExampleController
 
-# Nuxt / pnpm (adding packages)
-docker compose exec frontend pnpm add maplibre-gl
+# Nuxt / npm (adding packages)
+docker compose exec frontend npm install maplibre-gl
 ```
 
 ---
@@ -595,5 +595,5 @@ frontend/
 | Hub listing approval          | ✅ Auto-approved (`is_approved = true`) for now; `is_verified` flag reserved for future Verified badge |
 | Payments                      | ⏳ Deferred to future phase; all price fields stored in DB now to ease future integration              |
 | Maps                          | ✅ OpenFreeMap (Bright tiles) + MapLibre GL JS — fully free, no API key needed                         |
-| Frontend framework            | ✅ Nuxt 3 + Nuxt UI 4 + Pinia (uses pnpm)                                                              |
+| Frontend framework            | ✅ Nuxt 3 + Nuxt UI 4 + Pinia (uses npm)                                                               |
 | Hosting                       | Local dev on WSL Ubuntu + Docker Compose; Hetzner VPS provisioned before Phase 6 launch                |

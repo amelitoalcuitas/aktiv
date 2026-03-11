@@ -21,12 +21,12 @@ services:
     image: node:20-alpine
     container_name: aktiv_frontend
     working_dir: /app
+    user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./frontend:/app
       # node_modules and .nuxt are on your local WSL filesystem.
       # This means VS Code IntelliSense and autocomplete work natively.
-      # Run `pnpm install` in WSL inside frontend/ to install locally too.
-      - pnpm_store:/root/.local/share/pnpm/store
+      # Run `npm install` in WSL inside frontend/ to install locally too.
     environment:
       - NODE_ENV=development
       - NUXT_PUBLIC_API_BASE=http://localhost:8080/api
@@ -35,9 +35,7 @@ services:
       # Bind to all interfaces inside the container so Nginx can reach it
       - NUXT_HOST=0.0.0.0
       - NUXT_PORT=3000
-      # Required for pnpm to work in Docker (no TTY available)
-      - CI=true
-    command: sh -c "npm install -g pnpm && pnpm install && pnpm run dev"
+    command: sh -c "npm install && npm run dev"
     expose:
       - "3000"
     restart: unless-stopped
@@ -172,5 +170,4 @@ services:
 volumes:
   db_data:
   redis_data:
-  pnpm_store:
   minio_data:

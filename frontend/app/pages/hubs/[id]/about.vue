@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import maplibregl from 'maplibre-gl';
-import type { Hub } from '~/types/hub';
+import type { Hub, Court } from '~/types/hub';
 
 definePageMeta({ layout: 'hub' });
 
 const route = useRoute();
-const { fetchHub } = useHubs();
+const { fetchHub, fetchCourts } = useHubs();
 
 const hubId = computed(() => String(route.params.id ?? ''));
 
-const { data: hub, error } = await useAsyncData<Hub>(`hub-${hubId.value}`, () =>
-  fetchHub(hubId.value)
-);
+const [{ data: hub, error }, { data: courts }] = await Promise.all([
+  useAsyncData<Hub>(`hub-${hubId.value}`, () => fetchHub(hubId.value)),
+  useAsyncData<Court[]>(`hub-courts-${hubId.value}`, () =>
+    fetchCourts(hubId.value)
+  )
+]);
 
 // ── Address helpers ────────────────────────────────────────────────────────
 const fullAddress = computed(() => {
@@ -90,7 +93,9 @@ onUnmounted(() => {
           />
           <div class="min-w-0">
             <h2 class="text-base font-bold text-[var(--aktiv-ink)]">About</h2>
-            <p class="mt-1 text-sm leading-relaxed text-[var(--aktiv-muted)]">
+            <p
+              class="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[var(--aktiv-muted)]"
+            >
               {{ hub.description || 'No description provided.' }}
             </p>
           </div>
@@ -123,32 +128,111 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Courts summary -->
+        <!-- Contact Numbers -->
+        <div
+          v-if="hub.contact_numbers && hub.contact_numbers.length > 0"
+          class="flex items-start gap-3"
+        >
+          <UIcon
+            name="i-heroicons-phone"
+            class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
+          />
+          <div class="min-w-0">
+            <h2 class="text-base font-bold text-[var(--aktiv-ink)]">Contact</h2>
+            <ul class="mt-2 space-y-1">
+              <li
+                v-for="(contact, i) in hub.contact_numbers"
+                :key="i"
+                class="flex items-center gap-2 text-sm text-[var(--aktiv-ink)]"
+              >
+                <UIcon
+                  :name="
+                    contact.type === 'mobile'
+                      ? 'i-heroicons-device-phone-mobile'
+                      : 'i-heroicons-phone'
+                  "
+                  class="h-4 w-4 shrink-0"
+                />
+                <ULink :href="`tel:${contact.number}`">{{
+                  contact.number
+                }}</ULink>
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Courts -->
         <div class="flex items-start gap-3">
           <UIcon
             name="i-heroicons-rectangle-group"
             class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
           />
-          <div class="min-w-0">
+          <div class="min-w-0 flex-1">
             <h2 class="text-base font-bold text-[var(--aktiv-ink)]">Courts</h2>
-            <div class="mt-2 flex gap-6">
-              <div>
-                <p class="text-2xl font-black text-[var(--aktiv-primary)]">
-                  {{ hub.courts_count }}
+            <div
+              v-if="courts && courts.length > 0"
+              class="mt-3 grid gap-3 grid-cols-[repeat(auto-fill,minmax(220px,280px))]"
+            >
+              <div
+                v-for="court in courts"
+                :key="court.id"
+                class="rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-bg)] p-4"
+              >
+                <div class="flex items-start justify-between gap-2">
+                  <p
+                    class="font-semibold text-sm text-[var(--aktiv-ink)] leading-tight"
+                  >
+                    {{ court.name }}
+                  </p>
+                  <UBadge
+                    :label="court.indoor ? 'Indoor' : 'Outdoor'"
+                    :color="court.indoor ? 'primary' : 'success'"
+                    variant="subtle"
+                    class="shrink-0"
+                  />
+                </div>
+                <p class="mt-2 text-xl font-black text-[var(--aktiv-primary)]">
+                  ₱{{ parseFloat(court.price_per_hour).toLocaleString('en-PH')
+                  }}<span class="text-xs font-normal text-[var(--aktiv-muted)]"
+                    >&nbsp;/ hr</span
+                  >
                 </p>
-                <p class="text-xs text-[var(--aktiv-muted)]">Total courts</p>
-              </div>
-              <div v-if="hub.lowest_price_per_hour">
-                <p class="text-2xl font-black text-[var(--aktiv-primary)]">
-                  ₱{{
-                    parseFloat(hub.lowest_price_per_hour).toLocaleString(
-                      'en-PH'
-                    )
-                  }}
-                </p>
-                <p class="text-xs text-[var(--aktiv-muted)]">Starting / hr</p>
+                <div
+                  class="mt-2 flex flex-wrap gap-1.5 text-xs text-[var(--aktiv-muted)]"
+                >
+                  <span
+                    v-if="court.surface"
+                    class="inline-flex items-center gap-1 capitalize"
+                  >
+                    <UIcon name="i-heroicons-squares-2x2" class="h-3 w-3" />
+                    {{ court.surface }}
+                  </span>
+                  <span
+                    v-if="court.max_players"
+                    class="inline-flex items-center gap-1"
+                  >
+                    <UIcon name="i-heroicons-users" class="h-3 w-3" />
+                    Max {{ court.max_players }}
+                  </span>
+                </div>
+                <div
+                  v-if="court.sports.length > 0"
+                  class="mt-2 flex flex-wrap gap-1"
+                >
+                  <UBadge
+                    v-for="sport in court.sports"
+                    :key="sport"
+                    :label="sport"
+                    variant="outline"
+                    color="neutral"
+                    class="capitalize"
+                  />
+                </div>
               </div>
             </div>
+            <p v-else class="mt-1 text-sm text-[var(--aktiv-muted)]">
+              No courts listed.
+            </p>
           </div>
         </div>
       </div>
@@ -163,9 +247,24 @@ onUnmounted(() => {
             class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
           />
           <div class="min-w-0 flex-1">
-            <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
-              Location
-            </h2>
+            <div class="flex items-center justify-between gap-2">
+              <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
+                Location
+              </h2>
+              <a
+                v-if="hasCoords"
+                :href="`https://maps.google.com/?q=${hub.lat},${hub.lng}`"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--aktiv-primary)] hover:underline"
+              >
+                <UIcon
+                  name="i-heroicons-arrow-top-right-on-square"
+                  class="h-3.5 w-3.5"
+                />
+                Open in Maps
+              </a>
+            </div>
             <p class="mt-1 text-sm text-[var(--aktiv-muted)]">
               {{ fullAddress || 'Address not available.' }}
             </p>

@@ -1,4 +1,4 @@
-import type { Hub, Court } from '~/types/hub';
+import type { Hub, Court, HubContactNumber } from '~/types/hub';
 import { useApi } from '~/utils/api';
 
 export const HUB_IMAGE_MAX_SIZE_MB = 10;
@@ -30,6 +30,7 @@ export function useHubs() {
       lat: number | null;
       lng: number | null;
       sports: string[];
+      contact_numbers: HubContactNumber[];
       cover_image: File | null;
       gallery_images: File[];
       remove_gallery_image_ids: number[];
@@ -65,6 +66,10 @@ export function useHubs() {
     (payload.sports ?? []).forEach((sport) =>
       formData.append('sports[]', sport)
     );
+    (payload.contact_numbers ?? []).forEach((entry, i) => {
+      formData.append(`contact_numbers[${i}][type]`, entry.type);
+      formData.append(`contact_numbers[${i}][number]`, entry.number);
+    });
     (payload.gallery_images ?? []).forEach((image) => {
       validateImageSize(image, 'Gallery image');
       formData.append('gallery_images[]', image);
@@ -106,6 +111,7 @@ export function useHubs() {
     cover_image?: File | null;
     gallery_images?: File[];
     sports?: string[];
+    contact_numbers?: HubContactNumber[];
   }): Promise<Hub> {
     const formData = new FormData();
     appendHubFormData(formData, payload);
@@ -135,6 +141,7 @@ export function useHubs() {
       gallery_images: File[];
       remove_gallery_image_ids: number[];
       sports: string[];
+      contact_numbers: HubContactNumber[];
     }>
   ): Promise<Hub> {
     const formData = new FormData();

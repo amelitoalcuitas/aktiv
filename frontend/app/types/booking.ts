@@ -33,6 +33,12 @@ export interface Booking {
   created_at: string;
 }
 
+/** A time slot the user has selected in the resource grid (UI state only). */
+export interface SelectedSlot {
+  courtId: number;
+  slotStart: Date; // exact start of the 1-hour slot
+}
+
 /** Minimal booking shape for rendering the calendar (no PII). */
 export interface CalendarBooking {
   id: number;

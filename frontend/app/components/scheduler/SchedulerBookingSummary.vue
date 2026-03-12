@@ -1,0 +1,473 @@
+<script setup lang="ts">
+import type { Court, SportType } from '~/types/hub';
+import type { SelectedSlot, SessionType } from '~/types/booking';
+import { useAuthStore } from '~/stores/auth';
+
+const props = defineProps<{
+  selectedSlots: SelectedSlot[];
+  courts: Court[];
+  hubId: string;
+}>();
+
+const emit = defineEmits<{
+  'booking-created': [];
+  'clear': [];
+  'remove-slots': [slots: SelectedSlot[]];
+}>();
+
+const route = useRoute();
+const toast = useToast();
+const authStore = useAuthStore();
+const { createBooking } = useBooking();
+
+const isLoggedIn = computed(() => authStore.isAuthenticated);
+const isSubmitting = ref(false);
+const submitError = ref<string | null>(null);
+
+// ── Session type (global for all bookings in this batch) ───────
+const sessionType = ref<SessionType>('private');
+
+// ── Sport selections (per court+day group) ─────────────────────
+const sportSelections = ref<Record<string, SportType>>({});
+
+// ── Summary groups ─────────────────────────────────────────────
+interface TimeRange {
+  start: Date;
+  end: Date;
+  label: string;
+}
+
+interface SummaryGroup {
+  key: string; // `${courtId}-${dateKey}`
+  court: Court;
+  dateKey: string; // YYYY-MM-DD
+  dateLabel: string;
+  slots: SelectedSlot[];
+  totalHours: number;
+  pricePerHour: number | null;
+  subtotal: number | null;
+  ranges: TimeRange[];
+}
+
+function formatTime12(date: Date): string {
+  const h = date.getHours();
+  const m = date.getMinutes();
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+function mergeContiguousSlots(sortedSlots: SelectedSlot[]): TimeRange[] {
+  if (!sortedSlots.length) return [];
+  const ranges: TimeRange[] = [];
+  let start = new Date(sortedSlots[0]!.slotStart);
+  let end = new Date(start.getTime() + 3_600_000);
+
+  for (let i = 1; i < sortedSlots.length; i++) {
+    const slotTime = sortedSlots[i]!.slotStart.getTime();
+    if (slotTime === end.getTime()) {
+      end = new Date(slotTime + 3_600_000);
+    } else {
+      ranges.push({
+        start,
+        end,
+        label: `${formatTime12(start)} – ${formatTime12(end)}`
+      });
+      start = new Date(sortedSlots[i]!.slotStart);
+      end = new Date(start.getTime() + 3_600_000);
+    }
+  }
+  ranges.push({
+    start,
+    end,
+    label: `${formatTime12(start)} – ${formatTime12(end)}`
+  });
+  return ranges;
+}
+
+const summaryGroups = computed<SummaryGroup[]>(() => {
+  const groups: Record<string, SummaryGroup> = {};
+
+  for (const slot of props.selectedSlots) {
+    const court = props.courts.find((c) => c.id === slot.courtId);
+    if (!court) continue;
+
+    const dateKey = slot.slotStart.toISOString().split('T')[0] ?? '';
+    const key = `${slot.courtId}-${dateKey}`;
+
+    if (!groups[key]) {
+      groups[key] = {
+        key,
+        court,
+        dateKey,
+        dateLabel: slot.slotStart.toLocaleDateString('en-PH', {
+          weekday: 'short',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric'
+        }),
+        slots: [],
+        totalHours: 0,
+        pricePerHour: null,
+        subtotal: null,
+        ranges: []
+      };
+    }
+    groups[key]!.slots.push(slot);
+  }
+
+  return Object.values(groups)
+    .map((group) => {
+      group.slots.sort((a, b) => a.slotStart.getTime() - b.slotStart.getTime());
+      group.totalHours = group.slots.length;
+      const priceNum = parseFloat(group.court.price_per_hour);
+      group.pricePerHour = isNaN(priceNum) ? null : priceNum;
+      group.subtotal =
+        group.pricePerHour !== null
+          ? group.pricePerHour * group.totalHours
+          : null;
+      group.ranges = mergeContiguousSlots(group.slots);
+      return group;
+    })
+    .sort((a, b) =>
+      a.dateKey !== b.dateKey
+        ? a.dateKey.localeCompare(b.dateKey)
+        : a.court.name.localeCompare(b.court.name)
+    );
+});
+
+// Keep sportSelections in sync with groups
+watch(
+  summaryGroups,
+  (groups) => {
+    for (const group of groups) {
+      if (!sportSelections.value[group.key] && group.court.sports.length > 0) {
+        sportSelections.value[group.key] = group.court.sports[0] as SportType;
+      }
+    }
+    const activeKeys = new Set(groups.map((g) => g.key));
+    for (const key of Object.keys(sportSelections.value)) {
+      if (!activeKeys.has(key)) delete sportSelections.value[key];
+    }
+  },
+  { immediate: true }
+);
+
+const totalSlots = computed(() => props.selectedSlots.length);
+
+const grandTotal = computed(() =>
+  summaryGroups.value.reduce((sum, g) => sum + (g.subtotal ?? 0), 0)
+);
+
+const totalBookingsToCreate = computed(() =>
+  summaryGroups.value.reduce((sum, g) => sum + g.ranges.length, 0)
+);
+
+function formatPrice(n: number): string {
+  return n.toLocaleString('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function formatPriceInt(n: number): string {
+  return n.toLocaleString('en-PH', { maximumFractionDigits: 0 });
+}
+
+function sportOptions(court: Court) {
+  return court.sports.map((s) => ({
+    label: s.charAt(0).toUpperCase() + s.slice(1),
+    value: s
+  }));
+}
+
+// ── Actions ────────────────────────────────────────────────────
+function removeSlotsForGroup(group: SummaryGroup) {
+  emit('remove-slots', group.slots);
+}
+
+function goToLogin() {
+  navigateTo(`/auth/login?redirect=${encodeURIComponent(route.fullPath)}`);
+}
+
+async function handleBookNow() {
+  if (!isLoggedIn.value) {
+    goToLogin();
+    return;
+  }
+
+  isSubmitting.value = true;
+  submitError.value = null;
+
+  const tasks: (() => Promise<unknown>)[] = [];
+
+  for (const group of summaryGroups.value) {
+    const sport = sportSelections.value[group.key] ?? group.court.sports[0];
+    if (!sport) continue;
+    for (const range of group.ranges) {
+      tasks.push(() =>
+        createBooking(props.hubId, group.court.id, {
+          sport,
+          start_time: range.start.toISOString(),
+          end_time: range.end.toISOString(),
+          session_type: sessionType.value
+        })
+      );
+    }
+  }
+
+  try {
+    await Promise.all(tasks.map((t) => t()));
+    const n = tasks.length;
+    toast.add({
+      title: n === 1 ? 'Booking created!' : `${n} bookings created!`,
+      description:
+        'Your slot(s) are held for 1 hour. Upload your payment receipt to confirm.',
+      color: 'success'
+    });
+    emit('booking-created');
+    emit('clear');
+  } catch (e: unknown) {
+    const err = e as { data?: { message?: string }; status?: number };
+    submitError.value =
+      err?.status === 409
+        ? 'One or more time slots were just taken. Please update your selection and try again.'
+        : (err?.data?.message ?? 'Booking failed. Please try again.');
+    // Refresh grid so user sees updated availability
+    emit('booking-created');
+  } finally {
+    isSubmitting.value = false;
+  }
+}
+</script>
+
+<template>
+  <div
+    class="overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] shadow-sm"
+  >
+    <!-- Header -->
+    <div
+      class="flex items-center justify-between border-b border-[var(--aktiv-border)] px-5 py-4"
+    >
+      <div class="flex items-center gap-2.5">
+        <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
+          Booking Summary
+        </h2>
+        <UBadge v-if="totalSlots > 0" color="primary" variant="solid">
+          {{ totalSlots }} slot{{ totalSlots !== 1 ? 's' : '' }}
+        </UBadge>
+      </div>
+      <button
+        v-if="totalSlots > 0"
+        type="button"
+        class="text-sm text-[var(--aktiv-muted)] underline underline-offset-2 transition-colors hover:text-[var(--aktiv-ink)]"
+        @click="emit('clear')"
+      >
+        Clear all
+      </button>
+    </div>
+
+    <!-- Empty state -->
+    <div v-if="totalSlots === 0" class="px-5 py-10 text-center">
+      <UIcon
+        name="i-heroicons-calendar-days"
+        class="mx-auto mb-3 h-9 w-9 text-[var(--aktiv-border)]"
+      />
+      <p class="text-sm font-medium text-[var(--aktiv-ink)]">
+        No slots selected yet
+      </p>
+      <p class="mt-1 text-sm text-[var(--aktiv-muted)]">
+        Click any available time slot in the grid above to add it to your
+        booking.
+      </p>
+    </div>
+
+    <template v-else>
+      <!-- ── Per-group breakdown ───────────────────────────── -->
+      <div class="divide-y divide-[var(--aktiv-border)]">
+        <div v-for="group in summaryGroups" :key="group.key" class="px-5 py-4">
+          <!-- Court + date row -->
+          <div class="mb-3 flex items-start justify-between gap-2">
+            <div>
+              <span class="font-semibold text-[var(--aktiv-ink)]">
+                {{ group.court.name }}
+              </span>
+              <span class="ml-2 text-sm text-[var(--aktiv-muted)]">
+                · {{ group.dateLabel }}
+              </span>
+            </div>
+            <button
+              type="button"
+              class="rounded p-0.5 text-[var(--aktiv-muted)] transition-colors hover:bg-[var(--aktiv-border)] hover:text-[var(--aktiv-ink)]"
+              @click="removeSlotsForGroup(group)"
+            >
+              <UIcon name="i-heroicons-x-mark" class="h-4 w-4" />
+            </button>
+          </div>
+
+          <!-- Time range chips -->
+          <div class="mb-3 flex flex-wrap gap-1.5">
+            <span
+              v-for="(range, i) in group.ranges"
+              :key="i"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-background)] px-2.5 py-1 text-sm text-[var(--aktiv-ink)]"
+            >
+              <UIcon
+                name="i-heroicons-clock"
+                class="h-3.5 w-3.5 text-[var(--aktiv-muted)]"
+              />
+              {{ range.label }}
+            </span>
+          </div>
+
+          <!-- Sport selector — only shown for multi-sport courts -->
+          <div v-if="group.court.sports.length > 1" class="mb-3">
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-[var(--aktiv-muted)]">Sport</span>
+              <USelect
+                v-model="sportSelections[group.key]"
+                :items="sportOptions(group.court)"
+                value-key="value"
+                label-key="label"
+                size="sm"
+                class="w-40"
+              />
+            </div>
+          </div>
+          <!-- Single sport: just a pill -->
+          <div v-else-if="group.court.sports.length === 1" class="mb-3">
+            <UBadge color="primary" variant="soft" size="sm" class="capitalize">
+              {{ group.court.sports[0] }}
+            </UBadge>
+          </div>
+
+          <!-- Price breakdown row -->
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-[var(--aktiv-muted)]">
+              {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }}
+              <template v-if="group.pricePerHour !== null">
+                × ₱{{ formatPriceInt(group.pricePerHour) }}/hr
+              </template>
+            </span>
+            <span class="font-semibold text-[var(--aktiv-ink)]">
+              <template v-if="group.subtotal !== null">
+                ₱{{ formatPrice(group.subtotal) }}
+              </template>
+              <span v-else class="text-sm text-[var(--aktiv-muted)]">—</span>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Session type ──────────────────────────────────── -->
+      <div class="border-t border-[var(--aktiv-border)] px-5 py-4">
+        <p class="mb-2 text-sm font-medium text-[var(--aktiv-ink)]">
+          Session Type
+        </p>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            :class="[
+              'flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
+              sessionType === 'private'
+                ? 'border-[var(--aktiv-primary)] bg-[var(--aktiv-primary)] text-white'
+                : 'border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] text-[var(--aktiv-ink)] hover:bg-[var(--aktiv-border)]'
+            ]"
+            @click="sessionType = 'private'"
+          >
+            <UIcon name="i-heroicons-lock-closed" class="h-4 w-4" />
+            Private
+          </button>
+          <button
+            type="button"
+            :class="[
+              'flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
+              sessionType === 'open_play'
+                ? 'border-[var(--aktiv-primary)] bg-[var(--aktiv-primary)] text-white'
+                : 'border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] text-[var(--aktiv-ink)] hover:bg-[var(--aktiv-border)]'
+            ]"
+            @click="sessionType = 'open_play'"
+          >
+            <UIcon name="i-heroicons-user-group" class="h-4 w-4" />
+            Open Play
+          </button>
+        </div>
+        <p class="mt-2 text-sm text-[var(--aktiv-muted)]">
+          <template v-if="sessionType === 'private'">
+            Private session — exclusive court access for you and your group.
+          </template>
+          <template v-else>
+            Open Play — anyone can discover and join. Charged per player.
+          </template>
+        </p>
+      </div>
+
+      <!-- ── Total ─────────────────────────────────────────── -->
+      <div class="border-t border-[var(--aktiv-border)] px-5 py-4">
+        <div class="flex items-center justify-between">
+          <span class="font-semibold text-[var(--aktiv-ink)]">Total</span>
+          <span class="text-2xl font-black text-[var(--aktiv-ink)]">
+            ₱{{ formatPrice(grandTotal) }}
+          </span>
+        </div>
+        <p
+          v-if="totalBookingsToCreate > 1"
+          class="mt-0.5 text-right text-sm text-[var(--aktiv-muted)]"
+        >
+          {{ totalBookingsToCreate }} separate booking{{
+            totalBookingsToCreate !== 1 ? 's' : ''
+          }}
+          will be created
+        </p>
+      </div>
+
+      <!-- ── Payment note ───────────────────────────────────── -->
+      <div class="border-t border-[var(--aktiv-border)] px-5 py-3">
+        <div class="flex items-start gap-2 text-sm text-[var(--aktiv-muted)]">
+          <UIcon
+            name="i-heroicons-information-circle"
+            class="mt-0.5 h-4 w-4 shrink-0"
+          />
+          <span>
+            Slots are held for
+            <strong class="font-semibold text-[var(--aktiv-ink)]"
+              >1 hour</strong
+            >
+            after booking. Upload your GCash or bank transfer receipt within
+            that window to confirm.
+          </span>
+        </div>
+      </div>
+
+      <!-- ── Error ──────────────────────────────────────────── -->
+      <div v-if="submitError" class="px-5 pb-4">
+        <UAlert color="error" variant="soft" :title="submitError" />
+      </div>
+
+      <!-- ── Book Now / Login ───────────────────────────────── -->
+      <div class="border-t border-[var(--aktiv-border)] px-5 py-4">
+        <UButton
+          v-if="isLoggedIn"
+          block
+          size="lg"
+          color="primary"
+          :loading="isSubmitting"
+          :disabled="totalSlots === 0 || isSubmitting"
+          @click="handleBookNow"
+        >
+          Book Now · {{ totalSlots }} slot{{ totalSlots !== 1 ? 's' : '' }}
+        </UButton>
+        <UButton
+          v-else
+          block
+          size="lg"
+          color="primary"
+          variant="outline"
+          @click="goToLogin"
+        >
+          Log in to Book
+        </UButton>
+      </div>
+    </template>
+  </div>
+</template>

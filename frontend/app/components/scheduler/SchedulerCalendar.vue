@@ -58,19 +58,14 @@ const calendarOptions = computed<CalendarOptions>(() => ({
 
 <template>
   <div class="aktiv-calendar">
-    <ClientOnly>
-      <FullCalendar :options="calendarOptions" />
-      <template #fallback>
-        <div
-          class="flex h-[600px] items-center justify-center text-[var(--aktiv-muted)]"
-        >
-          <UIcon
-            name="i-heroicons-calendar-days"
-            class="h-8 w-8 animate-pulse"
-          />
-        </div>
-      </template>
-    </ClientOnly>
+    <FullCalendar :options="calendarOptions" />
+    <template #fallback>
+      <div
+        class="flex h-[600px] items-center justify-center text-[var(--aktiv-muted)]"
+      >
+        <UIcon name="i-heroicons-calendar-days" class="h-8 w-8 animate-pulse" />
+      </div>
+    </template>
   </div>
 </template>
 

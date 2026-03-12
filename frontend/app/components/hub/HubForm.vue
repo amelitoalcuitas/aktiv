@@ -549,19 +549,10 @@ onUnmounted(() => {
         Location <span class="text-[var(--aktiv-danger-fg)]">*</span>
       </p>
 
-      <ClientOnly>
-        <HubLocationPicker
-          :model-value="{ lat: form.lat, lng: form.lng }"
-          @update:model-value="onPinUpdate"
-        />
-        <template #fallback>
-          <div
-            class="flex h-72 w-full items-center justify-center rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-background)] text-sm text-[var(--aktiv-muted)]"
-          >
-            Loading map…
-          </div>
-        </template>
-      </ClientOnly>
+      <HubLocationPicker
+        :model-value="{ lat: form.lat, lng: form.lng }"
+        @update:model-value="onPinUpdate"
+      />
 
       <p
         v-if="fieldError('lat') || fieldError('lng')"

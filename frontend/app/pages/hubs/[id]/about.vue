@@ -5,16 +5,16 @@ import type { Hub, Court } from '~/types/hub';
 definePageMeta({ layout: 'hub' });
 
 const route = useRoute();
-const { fetchHub, fetchCourts } = useHubs();
+const { fetchCourts } = useHubs();
 
 const hubId = computed(() => String(route.params.id ?? ''));
 
-const [{ data: hub, error }, { data: courts }] = await Promise.all([
-  useAsyncData<Hub>(`hub-${hubId.value}`, () => fetchHub(hubId.value)),
-  useAsyncData<Court[]>(`hub-courts-${hubId.value}`, () =>
-    fetchCourts(hubId.value)
-  )
-]);
+const { data: hub } = useNuxtData<Hub>(`hub-${hubId.value}`);
+
+const { data: courts, error } = await useAsyncData<Court[]>(
+  `hub-courts-${hubId.value}`,
+  () => fetchCourts(hubId.value)
+);
 
 // ── Address helpers ────────────────────────────────────────────────────────
 const fullAddress = computed(() => {

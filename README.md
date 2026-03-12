@@ -48,24 +48,20 @@ Each hub has a dedicated profile page with four main tabs:
 
 The core booking interface.
 
-- Calendar view (day / week toggle)
-- Each court shown as a horizontal lane
-- Time slots are color-coded:
-  - `Available` — open for booking
-  - `Reserved (Private)` — booked by a user
-  - `Open Play` — anyone can join
-- When booking a slot, the user selects:
-  - Court
-  - Date & time range
-  - **Session type:** Private (just me/my group) or Open Play (public, others can join)
-- Open Play slots appear on the Scheduler AND have a dedicated Open Play tab for discovery
-- A persistent info notice is shown above the calendar advising users to contact the venue to confirm availability, with the hub's contact number(s) displayed inline
+- Two-panel custom resource grid (no third-party calendar library)
+  - **Left:** Mini month calendar — click a day to load that day's availability
+  - **Right:** Resource grid — courts as columns, 1-hour time slots as rows (vertically scrollable). Auto-scrolls to current time.
+- Time slots are color-coded: Available (green) · Selected (blue) · Pending (amber) · Reserved (red) · Past/Closed (grey)
+- **Multi-slot selection:** click any number of available slots across courts and days, then review and confirm in one action
+- All scheduler bookings are **private** (exclusive court access). Open Play is a separate flow on the Open Play tab.
+- A persistent info notice above the grid advises users to contact the venue to confirm availability, with the hub's contact number(s) displayed inline
+- Booking Summary card below the grid shows per-court/day breakdown, sport selection, grand total, and a single **Book Now** button
 
 > 📄 See [SCHEDULER_FLOW.md](SCHEDULER_FLOW.md) for the full booking flow, payment confirmation process, owner walk-in bookings, and schema details.
 
 #### 🏃 Open Play
 
-> **Recommended implementation:** Open Play is a _session type within the Scheduler_, not a separate booking flow. When a user marks their booking as "Open Play," it becomes discoverable here.
+> **Implementation:** Open Play is a **separate flow from the Scheduler**. The Scheduler only creates private court bookings. Open Play sessions are created via a dedicated "Host a Session" form on this tab and use `session_type = open_play` on the same `bookings` table.
 
 - Lists all upcoming Open Play sessions at this hub
 - Each card shows: sport, court, date/time, host, spots filled / total capacity, price per player
@@ -326,10 +322,12 @@ hub_reviews
 
 **Goal:** Users can book courts with manual payment confirmation via receipt upload.
 
-- [ ] Scheduler UI: calendar/timeline view per court
-- [ ] Info notice above calendar: contact venue to confirm availability (shows hub contact number(s) and website(s))
-- [ ] Booking flow: select court → select sport → date, start time & duration → session type → confirm
-- [ ] Booking requires a logged-in account; guests are redirected to login/register
+- [ ] Scheduler UI: two-panel custom resource grid — mini month calendar (left) + courts × time slots grid (right)
+- [ ] Info notice above grid: contact venue to confirm availability (shows hub contact number(s) and website(s))
+- [ ] Booking flow: select one or more slots on the grid → review Booking Summary card → Book Now
+- [ ] Multi-slot selection: users can pick slots across multiple courts and days in one session
+- [ ] All scheduler bookings are `session_type = private`; no session type toggle in the UI
+- [ ] Booking requires a logged-in account; guests are shown a Log in to Book button
 - [ ] New booking starts as `pending_payment`; slot is immediately blocked on the scheduler
 - [ ] User uploads GCash/bank transfer receipt image within 1 hour or booking is auto-cancelled
 - [ ] Auto-cancel job: cancels `pending_payment` bookings older than 1 hour with no receipt uploaded
@@ -351,9 +349,10 @@ hub_reviews
 
 **Goal:** Users can create and join public sessions.
 
-- [ ] Open Play session creation as a booking type (sport selectable per session)
+- [ ] "Host a Session" form on the Open Play tab: select court, sport, date + time, duration, max players, per-player price → creates a `session_type = open_play` booking
 - [ ] Default per-player price (₱150.00) pulled from `app_settings`
 - [ ] Open Play tab on hub profile: browse upcoming sessions, spots remaining
+- [ ] Open Play slots appear as occupied (non-clickable) on the Scheduler grid for the relevant court + time
 - [ ] Join flow (no online payment yet — pay on-site; payment_status tracked in DB)
 - [ ] Player list visible to all participants in a session
 - [ ] Notifications when session fills up or is cancelled (email via Resend)

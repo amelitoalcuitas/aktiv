@@ -10,9 +10,7 @@ export function useApi() {
   const authStore = useAuthStore();
   const config = useRuntimeConfig();
 
-  // On the server, use the internal Docker service URL so SSR requests
-  // actually reach the Laravel backend instead of looping back to Nuxt.
-  const baseURL = import.meta.server ? config.apiBaseInternal : '/api';
+  const baseURL = config.public.apiBase;
 
   function apiFetch<T>(
     path: string,

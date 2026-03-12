@@ -97,12 +97,11 @@ const grid = computed<Record<number, CellState[]>>(() => {
     const bookings = props.bookingsMap[court.id] ?? [];
     result[court.id] = timeSlots.value.map((slot) => {
       const start = slotStartDate(slot);
-      if (start <= now.value) return { type: 'past', booking: null };
       const slotEndMs = start.getTime() + 3_600_000;
       const booking = getBookingForSlot(bookings, start.getTime(), slotEndMs);
-      return booking
-        ? { type: 'booked', booking }
-        : { type: 'available', booking: null };
+      if (booking) return { type: 'booked', booking };
+      if (start <= now.value) return { type: 'past', booking: null };
+      return { type: 'available', booking: null };
     });
   }
   return result;
@@ -195,6 +194,34 @@ function isSlotSelected(courtId: number, slotIdx: number): boolean {
   );
 }
 
+// ── Native date-picker ────────────────────────────────────────
+const dateInput = useTemplateRef<HTMLInputElement>('dateInput');
+
+const todayStr = todayMidnight.toISOString().slice(0, 10);
+
+const selectedDateStr = computed(() => {
+  const d = props.selectedDate;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+});
+
+function openDatePicker() {
+  dateInput.value?.showPicker?.();
+  dateInput.value?.click();
+}
+
+function onDateInputChange(e: Event) {
+  const val = (e.target as HTMLInputElement).value;
+  if (!val) return;
+  const [y, mo, day] = val.split('-').map(Number);
+  const d = new Date(props.selectedDate);
+  d.setFullYear(y ?? 0, (mo ?? 1) - 1, day ?? 1);
+  d.setHours(0, 0, 0, 0);
+  emit('update:selectedDate', d);
+}
+
 // ── Auto-scroll to current time ───────────────────────────────
 const scrollWrapper = useTemplateRef<HTMLDivElement>('scrollWrapper');
 
@@ -251,7 +278,7 @@ function handleCellClick(court: Court, slotIdx: number) {
   >
     <!-- Date nav header -->
     <div
-      class="flex items-center justify-between border-b border-[var(--aktiv-border)] bg-[var(--aktiv-background)] px-4 py-3"
+      class="flex items-center justify-between border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-4 py-3"
     >
       <button
         type="button"
@@ -261,9 +288,34 @@ function handleCellClick(court: Court, slotIdx: number) {
       >
         <UIcon name="i-heroicons-chevron-left" class="h-5 w-5" />
       </button>
-      <span class="text-sm font-semibold text-[var(--aktiv-ink)]">
-        {{ headerLabel }}
-      </span>
+
+      <!-- Clickable date label — opens native date picker -->
+      <div class="relative">
+        <input
+          ref="dateInput"
+          type="date"
+          :value="selectedDateStr"
+          :min="todayStr"
+          class="sr-only"
+          tabindex="-1"
+          aria-hidden="true"
+          @change="onDateInputChange"
+        />
+        <button
+          type="button"
+          class="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-[var(--aktiv-border)]"
+          @click="openDatePicker"
+        >
+          <UIcon
+            name="i-heroicons-calendar-days"
+            class="h-4 w-4 text-[var(--aktiv-muted)]"
+          />
+          <span class="text-sm font-semibold text-[var(--aktiv-ink)]">
+            {{ headerLabel }}
+          </span>
+        </button>
+      </div>
+
       <button
         type="button"
         class="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-[var(--aktiv-border)]"
@@ -279,7 +331,7 @@ function handleCellClick(court: Court, slotIdx: number) {
       Both sticky court header and sticky time column are supported via overflow-auto
       on this wrapper.
     -->
-    <div ref="scrollWrapper" class="overflow-auto max-h-[560px]">
+    <div ref="scrollWrapper" class="overflow-auto max-h-[700px]">
       <table class="w-full border-collapse" style="min-width: max-content">
         <thead>
           <tr>

@@ -5,17 +5,18 @@ import type { CalendarBooking, SelectedSlot } from '~/types/booking';
 definePageMeta({ layout: 'hub' });
 
 const route = useRoute();
-const { fetchHub, fetchCourts } = useHubs();
+const { fetchCourts } = useHubs();
 const { fetchBookings } = useBooking();
 
 const hubId = computed(() => String(route.params.id ?? ''));
 
-const [{ data: hub }, { data: courts }] = await Promise.all([
-  useAsyncData<Hub>(`hub-${hubId.value}`, () => fetchHub(hubId.value)),
-  useAsyncData<Court[]>(`hub-courts-${hubId.value}`, () =>
-    fetchCourts(hubId.value)
-  )
-]);
+// Hub is already fetched by HubProfileHeader with this key — just read the cache.
+const { data: hub } = useNuxtData<Hub>(`hub-${hubId.value}`);
+
+const { data: courts } = await useAsyncData<Court[]>(
+  `hub-courts-${hubId.value}`,
+  () => fetchCourts(hubId.value)
+);
 
 // ── Selected date (drives both mini calendar and resource grid) ─
 const selectedDate = ref(new Date());
@@ -103,11 +104,8 @@ function onBookingCreated() {
         :websites="hub?.websites ?? []"
       />
 
-      <!-- ② Two-panel layout: mini calendar + resource grid -->
-      <div
-        class="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr] lg:items-start"
-      >
-        <SchedulerMiniCalendar v-model="selectedDate" />
+      <!-- ② Resource grid + floating booking summary sidebar -->
+      <div class="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1fr_320px]">
         <SchedulerResourceGrid
           :courts="courts ?? []"
           :bookings-map="bookingsMap"
@@ -116,17 +114,18 @@ function onBookingCreated() {
           @slot-click="onSlotClick"
           @update:selected-date="selectedDate = $event"
         />
+        <!-- ③ Booking summary: sticky floating sidebar on desktop -->
+        <div class="lg:sticky lg:top-4">
+          <SchedulerBookingSummary
+            :selected-slots="selectedSlots"
+            :courts="courts ?? []"
+            :hub-id="hubId"
+            @booking-created="onBookingCreated"
+            @clear="onClearSlots"
+            @remove-slots="onRemoveSlots"
+          />
+        </div>
       </div>
-
-      <!-- ③ Booking summary card -->
-      <SchedulerBookingSummary
-        :selected-slots="selectedSlots"
-        :courts="courts ?? []"
-        :hub-id="hubId"
-        @booking-created="onBookingCreated"
-        @clear="onClearSlots"
-        @remove-slots="onRemoveSlots"
-      />
     </template>
   </div>
 </template>

@@ -31,7 +31,9 @@ defineProps<{
           class="inline-flex items-center gap-1.5 text-sm"
         >
           <UIcon name="i-heroicons-phone" class="h-4 w-4 shrink-0" />
-          <span class="font-medium">{{ cn.number }}</span>
+          <span class="font-medium"
+            ><a :href="`tel:${cn.number}`">{{ cn.number }}</a></span
+          >
         </span>
       </div>
 

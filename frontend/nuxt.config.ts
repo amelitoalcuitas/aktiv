@@ -11,11 +11,10 @@ export default defineNuxtConfig({
       ]
     }
   },
+  ssr: false,
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
   runtimeConfig: {
-    // Server-side only: internal Docker URL so SSR can reach the Laravel backend
-    apiBaseInternal: process.env.NUXT_API_BASE_INTERNAL ?? '/api',
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE ?? '/api',
       googleMapsKey: process.env.NUXT_PUBLIC_GOOGLE_MAPS_KEY ?? 'DUMMY_KEY'

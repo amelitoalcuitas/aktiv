@@ -23,8 +23,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function fetchUser() {
     if (!token.value) return;
     const config = useRuntimeConfig();
-    // On the server use the internal Docker URL; on the client use relative /api
-    const baseURL = import.meta.server ? config.apiBaseInternal : '/api';
+    const baseURL = config.public.apiBase;
     try {
       const res = await $fetch<{ user: User }>('/auth/me', {
         baseURL,

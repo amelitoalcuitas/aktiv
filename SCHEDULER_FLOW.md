@@ -41,6 +41,37 @@ hub_operating_hours
 
 ---
 
+## Scheduler UI
+
+The scheduler uses a two-panel custom resource grid (no third-party calendar library required):
+
+- **Left panel** — Mini month calendar (date picker). Selecting a day updates the grid.
+- **Right panel** — Resource grid. Courts are columns; 1-hour time slots are rows (06:00–23:00 by default). Scrolls vertically. Auto-scrolls to the current time on load.
+
+### Slot states
+
+| State         | Appearance             | Interaction                |
+| ------------- | ---------------------- | -------------------------- |
+| Available     | Green · shows `₱X/hr`  | Click to select / deselect |
+| Selected      | Blue · shows ✓ + price | Click again to deselect    |
+| Pending       | Amber · "Pending"      | Not clickable              |
+| Reserved      | Red · "Reserved"       | Not clickable              |
+| Past / Closed | Grey                   | Not clickable              |
+
+### Multi-slot selection & Booking Summary
+
+Users can select multiple slots across multiple courts and multiple days before confirming. A **Booking Summary card** below the grid shows:
+
+- Each group: court name · date · merged time ranges · sport · `N hrs × ₱X/hr = ₱subtotal`
+- Grand total across all groups
+- Individual group remove (×) and global Clear all
+- **Book Now** button — creates all bookings in parallel via a single confirm action
+- Unauthenticated users are shown a **Log in to Book** button instead
+
+All scheduler bookings are `session_type = private`. Open Play is a completely separate flow handled on the Open Play tab (Phase 3).
+
+---
+
 ## Booking Flow Overview (Self-Booked)
 
 ```
@@ -50,7 +81,12 @@ Guest browses scheduler
   Not logged in? ──► Redirect to login/register
         │
         ▼ (authenticated)
-  Select court → sport → date, start time & duration → session type
+  Select one or more slots (court + date + time) on the resource grid
+  Select sport for each court (if multi-sport)
+        │
+        ▼
+  Review Booking Summary card
+  Click Book Now
         │
         ▼
   Booking created  [status: pending_payment]

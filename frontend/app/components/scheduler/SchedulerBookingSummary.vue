@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Court, SportType } from '~/types/hub';
-import type { SelectedSlot, SessionType } from '~/types/booking';
+import type { SelectedSlot } from '~/types/booking';
 import { useAuthStore } from '~/stores/auth';
 
 const props = defineProps<{
@@ -23,9 +23,6 @@ const { createBooking } = useBooking();
 const isLoggedIn = computed(() => authStore.isAuthenticated);
 const isSubmitting = ref(false);
 const submitError = ref<string | null>(null);
-
-// ── Session type (global for all bookings in this batch) ───────
-const sessionType = ref<SessionType>('private');
 
 // ── Sport selections (per court+day group) ─────────────────────
 const sportSelections = ref<Record<string, SportType>>({});
@@ -190,12 +187,17 @@ function goToLogin() {
   navigateTo(`/auth/login?redirect=${encodeURIComponent(route.fullPath)}`);
 }
 
-async function handleBookNow() {
+const isConfirmOpen = ref(false);
+
+function handleBookNow() {
   if (!isLoggedIn.value) {
     goToLogin();
     return;
   }
+  isConfirmOpen.value = true;
+}
 
+async function submitBooking() {
   isSubmitting.value = true;
   submitError.value = null;
 
@@ -210,7 +212,7 @@ async function handleBookNow() {
           sport,
           start_time: range.start.toISOString(),
           end_time: range.end.toISOString(),
-          session_type: sessionType.value
+          session_type: 'private'
         })
       );
     }
@@ -218,6 +220,7 @@ async function handleBookNow() {
 
   try {
     await Promise.all(tasks.map((t) => t()));
+    isConfirmOpen.value = false;
     const n = tasks.length;
     toast.add({
       title: n === 1 ? 'Booking created!' : `${n} bookings created!`,
@@ -359,49 +362,6 @@ async function handleBookNow() {
         </div>
       </div>
 
-      <!-- ── Session type ──────────────────────────────────── -->
-      <div class="border-t border-[var(--aktiv-border)] px-5 py-4">
-        <p class="mb-2 text-sm font-medium text-[var(--aktiv-ink)]">
-          Session Type
-        </p>
-        <div class="flex gap-2">
-          <button
-            type="button"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
-              sessionType === 'private'
-                ? 'border-[var(--aktiv-primary)] bg-[var(--aktiv-primary)] text-white'
-                : 'border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] text-[var(--aktiv-ink)] hover:bg-[var(--aktiv-border)]'
-            ]"
-            @click="sessionType = 'private'"
-          >
-            <UIcon name="i-heroicons-lock-closed" class="h-4 w-4" />
-            Private
-          </button>
-          <button
-            type="button"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition-colors',
-              sessionType === 'open_play'
-                ? 'border-[var(--aktiv-primary)] bg-[var(--aktiv-primary)] text-white'
-                : 'border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] text-[var(--aktiv-ink)] hover:bg-[var(--aktiv-border)]'
-            ]"
-            @click="sessionType = 'open_play'"
-          >
-            <UIcon name="i-heroicons-user-group" class="h-4 w-4" />
-            Open Play
-          </button>
-        </div>
-        <p class="mt-2 text-sm text-[var(--aktiv-muted)]">
-          <template v-if="sessionType === 'private'">
-            Private session — exclusive court access for you and your group.
-          </template>
-          <template v-else>
-            Open Play — anyone can discover and join. Charged per player.
-          </template>
-        </p>
-      </div>
-
       <!-- ── Total ─────────────────────────────────────────── -->
       <div class="border-t border-[var(--aktiv-border)] px-5 py-4">
         <div class="flex items-center justify-between">
@@ -451,8 +411,7 @@ async function handleBookNow() {
           block
           size="lg"
           color="primary"
-          :loading="isSubmitting"
-          :disabled="totalSlots === 0 || isSubmitting"
+          :disabled="totalSlots === 0"
           @click="handleBookNow"
         >
           Book Now · {{ totalSlots }} slot{{ totalSlots !== 1 ? 's' : '' }}
@@ -470,4 +429,104 @@ async function handleBookNow() {
       </div>
     </template>
   </div>
+
+  <!-- ── Confirmation dialog ──────────────────────────────────── -->
+  <UModal
+    v-model:open="isConfirmOpen"
+    title="Confirm Booking"
+    :ui="{ content: 'max-w-lg' }"
+  >
+    <template #body>
+      <!-- Per-group summary -->
+      <div class="divide-y divide-[var(--aktiv-border)]">
+        <div
+          v-for="group in summaryGroups"
+          :key="group.key"
+          class="py-3 first:pt-0 last:pb-0"
+        >
+          <div class="mb-1.5 flex items-center justify-between">
+            <span class="font-semibold text-[var(--aktiv-ink)]">
+              {{ group.court.name }}
+            </span>
+            <span class="text-sm text-[var(--aktiv-muted)]">
+              {{ group.dateLabel }}
+            </span>
+          </div>
+          <!-- Time range chips -->
+          <div class="mb-1.5 flex flex-wrap gap-1.5">
+            <span
+              v-for="(range, i) in group.ranges"
+              :key="i"
+              class="inline-flex items-center gap-1 rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-background)] px-2 py-0.5 text-sm text-[var(--aktiv-ink)]"
+            >
+              <UIcon
+                name="i-heroicons-clock"
+                class="h-3.5 w-3.5 text-[var(--aktiv-muted)]"
+              />
+              {{ range.label }}
+            </span>
+          </div>
+          <!-- Sport + price row -->
+          <div class="flex items-center justify-between text-sm">
+            <UBadge color="primary" variant="soft" size="sm" class="capitalize">
+              {{ sportSelections[group.key] ?? group.court.sports[0] }}
+            </UBadge>
+            <span class="text-[var(--aktiv-muted)]">
+              {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }}
+              <template v-if="group.pricePerHour !== null">
+                × ₱{{ formatPriceInt(group.pricePerHour) }}/hr
+              </template>
+              <strong
+                v-if="group.subtotal !== null"
+                class="ml-2 text-[var(--aktiv-ink)]"
+              >
+                ₱{{ formatPrice(group.subtotal) }}
+              </strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Grand total -->
+      <div
+        class="mt-4 flex items-center justify-between border-t border-[var(--aktiv-border)] pt-4"
+      >
+        <span class="font-semibold text-[var(--aktiv-ink)]">Total</span>
+        <span class="text-xl font-black text-[var(--aktiv-ink)]">
+          ₱{{ formatPrice(grandTotal) }}
+        </span>
+      </div>
+
+      <!-- Payment note -->
+      <p class="mt-3 text-sm text-[var(--aktiv-muted)]">
+        Slots are held for
+        <strong class="font-semibold text-[var(--aktiv-ink)]">1 hour</strong>
+        after booking. Upload your receipt within that window to confirm.
+      </p>
+
+      <!-- Error -->
+      <UAlert
+        v-if="submitError"
+        color="error"
+        variant="soft"
+        :title="submitError"
+        class="mt-3"
+      />
+
+      <!-- Actions -->
+      <div class="mt-5 flex justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :disabled="isSubmitting"
+          @click="isConfirmOpen = false"
+        >
+          Cancel
+        </UButton>
+        <UButton color="primary" :loading="isSubmitting" @click="submitBooking">
+          Confirm Booking
+        </UButton>
+      </div>
+    </template>
+  </UModal>
 </template>

@@ -21,7 +21,7 @@ const toast = useToast();
 const route = useRoute();
 
 // ── View mode ─────────────────────────────────────────────────
-const viewMode = ref<'table' | 'calendar'>('table');
+const viewMode = ref<'table' | 'calendar'>('calendar');
 const selectedDate = ref(new Date());
 const calendarSlot = ref<{
   date: string;
@@ -97,7 +97,6 @@ const filteredCourts = computed(() => {
   if (courtFilter.value.length === 0) return hubCourts.value;
   return hubCourts.value.filter((c) => courtFilter.value.includes(c.id));
 });
-
 
 // ── Init ──────────────────────────────────────────────────────
 
@@ -381,16 +380,6 @@ function bookingDropdownItems(booking: BookingDetail) {
         <div class="flex rounded-lg border border-[#dbe4ef] p-0.5">
           <UButton
             size="sm"
-            :variant="viewMode === 'table' ? 'solid' : 'ghost'"
-            :color="viewMode === 'table' ? 'primary' : 'neutral'"
-            icon="i-heroicons-table-cells"
-            class="rounded-md px-3"
-            @click="viewMode = 'table'"
-          >
-            Table
-          </UButton>
-          <UButton
-            size="sm"
             :variant="viewMode === 'calendar' ? 'solid' : 'ghost'"
             :color="viewMode === 'calendar' ? 'primary' : 'neutral'"
             icon="i-heroicons-calendar-days"
@@ -398,6 +387,16 @@ function bookingDropdownItems(booking: BookingDetail) {
             @click="viewMode = 'calendar'"
           >
             Calendar
+          </UButton>
+          <UButton
+            size="sm"
+            :variant="viewMode === 'table' ? 'solid' : 'ghost'"
+            :color="viewMode === 'table' ? 'primary' : 'neutral'"
+            icon="i-heroicons-table-cells"
+            class="rounded-md px-3"
+            @click="viewMode = 'table'"
+          >
+            Table
           </UButton>
         </div>
       </UFieldGroup>
@@ -485,7 +484,11 @@ function bookingDropdownItems(booking: BookingDetail) {
           v-if="viewMode === 'table'"
           class="overflow-x-auto rounded-2xl border border-[#dbe4ef] bg-white"
         >
-          <UTable v-model:column-pinning="columnPinning" :data="filteredBookings" :columns="columns">
+          <UTable
+            v-model:column-pinning="columnPinning"
+            :data="filteredBookings"
+            :columns="columns"
+          >
             <template #empty>
               <div class="py-12 text-center">
                 <UIcon
@@ -593,9 +596,11 @@ function bookingDropdownItems(booking: BookingDetail) {
             :courts="filteredCourts"
             :bookings="filteredBookings"
             @book-slot="openWalkIn"
+            @action-confirm="handleConfirm"
+            @action-reject="openReject"
+            @action-cancel="openCancel"
           />
         </div>
-
       </template>
     </template>
     <!-- ── Reject modal ──────────────────────────────────────────── -->

@@ -19,6 +19,9 @@ const props = withDefaults(
 const emit = defineEmits<{
   'book-slot': [{ court: Court; date: Date; hour: number }];
   'update:selectedDate': [Date];
+  'action-confirm': [BookingDetail];
+  'action-reject': [BookingDetail];
+  'action-cancel': [BookingDetail];
 }>();
 
 // ── Time slot generation ───────────────────────────────────────
@@ -141,6 +144,48 @@ function statusLabel(status: BookingStatus): string {
     default:
       return status;
   }
+}
+
+// ── Booking actions ────────────────────────────────────────────
+function isCancellable(status: BookingStatus) {
+  return !['cancelled', 'completed', 'confirmed'].includes(status);
+}
+
+function getBookingActions(booking: BookingDetail) {
+  const groups: {
+    label: string;
+    icon: string;
+    color?: 'error';
+    onSelect: () => void;
+  }[][] = [];
+  
+  if (booking.status === 'payment_sent') {
+    groups.push([
+      {
+        label: 'Confirm Payment',
+        icon: 'i-heroicons-check-circle',
+        onSelect: () => emit('action-confirm', booking)
+      },
+      {
+        label: 'Reject Receipt',
+        icon: 'i-heroicons-x-circle',
+        color: 'error' as const,
+        onSelect: () => emit('action-reject', booking)
+      }
+    ]);
+  }
+  
+  if (isCancellable(booking.status)) {
+    groups.push([
+      {
+        label: 'Cancel Booking',
+        icon: 'i-heroicons-x-mark',
+        color: 'error' as const,
+        onSelect: () => emit('action-cancel', booking)
+      }
+    ]);
+  }
+  return groups;
 }
 
 // ── Date navigation ─────────────────────────────────────────────
@@ -333,33 +378,57 @@ function handleCellClick(court: Court, slotIdx: number) {
               <!-- Booked slot -->
               <div
                 v-if="grid[court.id]?.[slotIdx].type === 'booked'"
-                class="flex h-12 flex-col justify-center rounded-lg px-2 shadow-sm"
+                class="group relative flex h-12 flex-col justify-center rounded-lg px-2 shadow-sm"
                 :style="{
                   backgroundColor: bookingBg(
                     grid[court.id]![slotIdx].booking!.status
                   )
                 }"
               >
-                <p
-                  class="truncate text-[11px] font-bold"
-                  :style="{
-                    color: bookingTextColor(
-                      grid[court.id]![slotIdx].booking!.status
-                    )
-                  }"
+                <div class="pr-5">
+                  <p
+                    class="truncate text-[11px] font-bold"
+                    :style="{
+                      color: bookingTextColor(
+                        grid[court.id]![slotIdx].booking!.status
+                      )
+                    }"
+                  >
+                    {{ bookingLabel(grid[court.id]![slotIdx].booking!) }}
+                  </p>
+                  <p
+                    class="text-[9px] uppercase tracking-wider opacity-80"
+                    :style="{
+                      color: bookingTextColor(
+                        grid[court.id]![slotIdx].booking!.status
+                      )
+                    }"
+                  >
+                    {{ statusLabel(grid[court.id]![slotIdx].booking!.status) }}
+                  </p>
+                </div>
+
+                <!-- Dropdown action menu positioned top-right -->
+                <div
+                  v-if="getBookingActions(grid[court.id]![slotIdx].booking!).length"
+                  class="absolute right-1 top-1"
                 >
-                  {{ bookingLabel(grid[court.id]![slotIdx].booking!) }}
-                </p>
-                <p
-                  class="text-[9px] uppercase tracking-wider opacity-80"
-                  :style="{
-                    color: bookingTextColor(
-                      grid[court.id]![slotIdx].booking!.status
-                    )
-                  }"
-                >
-                  {{ statusLabel(grid[court.id]![slotIdx].booking!.status) }}
-                </p>
+                  <UDropdownMenu
+                    :items="getBookingActions(grid[court.id]![slotIdx].booking!)"
+                  >
+                    <button
+                      type="button"
+                      class="flex items-center justify-center rounded p-0.5 transition-colors hover:bg-black/10"
+                      :style="{
+                        color: bookingTextColor(
+                          grid[court.id]![slotIdx].booking!.status
+                        )
+                      }"
+                    >
+                      <UIcon name="i-heroicons-ellipsis-vertical" class="h-4 w-4" />
+                    </button>
+                  </UDropdownMenu>
+                </div>
               </div>
 
               <!-- Past slot -->

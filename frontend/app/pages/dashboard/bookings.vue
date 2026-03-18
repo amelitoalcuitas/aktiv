@@ -325,6 +325,8 @@ const columns = [
   { id: 'actions', header: '' }
 ];
 
+const columnPinning = ref({ left: [], right: ['actions'] });
+
 function bookingDropdownItems(booking: BookingDetail) {
   const groups: {
     label: string;
@@ -483,7 +485,7 @@ function bookingDropdownItems(booking: BookingDetail) {
           v-if="viewMode === 'table'"
           class="overflow-x-auto rounded-2xl border border-[#dbe4ef] bg-white"
         >
-          <UTable :data="filteredBookings" :columns="columns">
+          <UTable v-model:column-pinning="columnPinning" :data="filteredBookings" :columns="columns">
             <template #empty>
               <div class="py-12 text-center">
                 <UIcon

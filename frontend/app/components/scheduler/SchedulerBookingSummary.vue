@@ -89,7 +89,8 @@ const summaryGroups = computed<SummaryGroup[]>(() => {
     const court = props.courts.find((c) => c.id === slot.courtId);
     if (!court) continue;
 
-    const dateKey = slot.slotStart.toISOString().split('T')[0] ?? '';
+    const d = slot.slotStart;
+    const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     const key = `${slot.courtId}-${dateKey}`;
 
     if (!groups[key]) {

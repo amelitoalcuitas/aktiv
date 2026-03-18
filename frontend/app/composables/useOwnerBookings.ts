@@ -100,12 +100,25 @@ export function useOwnerBookings() {
     return res.data;
   }
 
+  async function updateBooking(
+    hubId: number | string,
+    bookingId: number,
+    data: Record<string, any>
+  ): Promise<BookingDetail> {
+    const res = await apiFetch<{ message: string; data: BookingDetail }>(
+      `/dashboard/hubs/${hubId}/bookings/${bookingId}`,
+      { method: 'PUT', body: data }
+    );
+    return res.data;
+  }
+
   return {
     fetchHubBookings,
     confirmBooking,
     rejectBooking,
     cancelBooking,
     createWalkIn,
+    updateBooking,
     searchUsers
   };
 }

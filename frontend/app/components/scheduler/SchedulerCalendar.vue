@@ -48,7 +48,10 @@ const calendarOptions = computed<CalendarOptions>(() => ({
   allDaySlot: false,
   expandRows: false,
   height: 'auto',
-  validRange: { start: new Date().toISOString().split('T')[0] },
+  validRange: { start: (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })() },
   dateClick: handleDateClick,
   events: props.events,
   nowIndicator: true,

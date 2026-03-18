@@ -15,6 +15,7 @@ const {
   rejectBooking,
   cancelBooking,
   createWalkIn,
+  updateBooking,
   searchUsers
 } = useOwnerBookings();
 const toast = useToast();
@@ -219,8 +220,11 @@ const isWalkInOpen = ref(false);
 
 function openWalkIn(slot?: { court: Court; date: Date; hour: number }) {
   if (slot) {
+    const y = slot.date.getFullYear();
+    const mo = String(slot.date.getMonth() + 1).padStart(2, '0');
+    const d = String(slot.date.getDate()).padStart(2, '0');
     calendarSlot.value = {
-      date: slot.date.toISOString().slice(0, 10),
+      date: `${y}-${mo}-${d}`,
       hour: slot.hour,
       courtId: slot.court.id
     };
@@ -232,6 +236,48 @@ function openWalkIn(slot?: { court: Court; date: Date; hour: number }) {
 
 function onWalkInCreated(booking: BookingDetail) {
   allBookings.value.unshift(booking);
+}
+
+// ── Booking details modal ───────────────────────────────────────
+
+const isDetailsOpen = ref(false);
+const selectedBooking = ref<BookingDetail | null>(null);
+const updatingId = ref<number | null>(null);
+
+function openDetails(booking: BookingDetail) {
+  selectedBooking.value = booking;
+  isDetailsOpen.value = true;
+}
+
+function onModalConfirm(booking: BookingDetail) {
+  isDetailsOpen.value = false;
+  handleConfirm(booking);
+}
+
+function onModalReject(booking: BookingDetail) {
+  isDetailsOpen.value = false;
+  openReject(booking);
+}
+
+function onModalCancel(booking: BookingDetail) {
+  isDetailsOpen.value = false;
+  openCancel(booking);
+}
+
+async function onModalUpdate({ id, data }: { id: number; data: any }) {
+  if (!selectedHubId.value) return;
+  updatingId.value = id;
+  try {
+    const updated = await updateBooking(selectedHubId.value, id, data);
+    replaceBookingInList(updated);
+    toast.add({ title: 'Booking updated successfully', color: 'success' });
+    isDetailsOpen.value = false;
+  } catch (err: any) {
+    const msg = err?.data?.message || err?.message || 'Conflicting schedules exist or invalid data.';
+    toast.add({ title: 'Failed to update booking', description: msg, color: 'error' });
+  } finally {
+    updatingId.value = null;
+  }
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -599,6 +645,7 @@ function bookingDropdownItems(booking: BookingDetail) {
             @action-confirm="handleConfirm"
             @action-reject="openReject"
             @action-cancel="openCancel"
+            @view-booking="openDetails"
           />
         </div>
       </template>
@@ -694,6 +741,20 @@ function bookingDropdownItems(booking: BookingDetail) {
       :initial-hour="calendarSlot?.hour"
       :initial-court-id="calendarSlot?.courtId"
       @created="onWalkInCreated"
+    />
+
+    <!-- ── Booking Details modal ─────────────────────────────────────── -->
+    <BookingDetailsModal
+      v-model:open="isDetailsOpen"
+      :booking="selectedBooking"
+      :courts="hubCourts"
+      :confirm-loading="confirmingId === selectedBooking?.id"
+      :cancel-loading="cancellingId === selectedBooking?.id"
+      :update-loading="updatingId === selectedBooking?.id"
+      @action-confirm="onModalConfirm"
+      @action-reject="onModalReject"
+      @action-cancel="onModalCancel"
+      @action-update="onModalUpdate"
     />
   </div>
 </template>

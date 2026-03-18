@@ -29,13 +29,13 @@ const isOpen = computed({
 const walkInLoading = ref(false);
 
 const walkInForm = reactive({
-  courtId: null as number | null,
-  sport: '',
+  courtId: undefined as number | undefined,
+  sport: '' as any,
   date: '',
   startHour: 8,
   duration: 1,
   customerMode: 'guest' as 'registered' | 'guest',
-  bookedBy: null as number | null,
+  bookedBy: undefined as number | undefined,
   guestName: '',
   guestPhone: ''
 });
@@ -99,7 +99,7 @@ function selectUser(user: {
 
 function clearSelectedUser() {
   selectedUser.value = null;
-  walkInForm.bookedBy = null;
+  walkInForm.bookedBy = undefined;
 }
 
 const walkInCourtOptions = computed(() =>
@@ -120,13 +120,16 @@ const walkInSportOptions = computed(() =>
 watch(
   () => walkInForm.courtId,
   () => {
-    if (!walkInForm.sport || !walkInSelectedCourt.value?.sports.includes(walkInForm.sport)) {
-      walkInForm.sport = walkInSportOptions.value[0]?.value ?? '';
+    if (!walkInForm.sport || !walkInSelectedCourt.value?.sports.includes(walkInForm.sport as any)) {
+      walkInForm.sport = (walkInSportOptions.value[0]?.value as string) ?? '';
     }
   }
 );
 
-const todayStr = computed(() => new Date().toISOString().slice(0, 10));
+const todayStr = computed(() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+});
 
 const startTimeHourOptions = Array.from({ length: 18 }, (_, i) => {
   const h = i + 6;
@@ -149,13 +152,14 @@ function clearWalkInErrors() {
 
 function resetForm() {
   clearWalkInErrors();
-  walkInForm.courtId = props.initialCourtId ?? (props.courts[0]?.id ?? null);
-  walkInForm.date = props.initialDate || new Date().toISOString().slice(0, 10);
+  walkInForm.courtId = props.initialCourtId ?? (props.courts[0]?.id ?? undefined);
+  const d = new Date();
+  walkInForm.date = props.initialDate || `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   walkInForm.startHour = props.initialHour ?? 8;
   walkInForm.duration = 1;
 
   walkInForm.customerMode = 'guest';
-  walkInForm.bookedBy = null;
+  walkInForm.bookedBy = undefined;
   walkInForm.guestName = '';
   walkInForm.guestPhone = '';
   selectedUser.value = null;
@@ -247,7 +251,7 @@ async function submitWalkIn() {
   <UModal
     v-model:open="isOpen"
     title="Add Walk-in Booking"
-    :ui="{ width: 'sm:max-w-xl' }"
+    :ui="{ content: 'sm:max-w-xl' }"
   >
     <template #body>
       <div class="space-y-4">

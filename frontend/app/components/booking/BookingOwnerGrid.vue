@@ -22,6 +22,7 @@ const emit = defineEmits<{
   'action-confirm': [BookingDetail];
   'action-reject': [BookingDetail];
   'action-cancel': [BookingDetail];
+  'view-booking': [BookingDetail];
 }>();
 
 // ── Time slot generation ───────────────────────────────────────
@@ -64,6 +65,11 @@ interface CellState {
   booking: BookingDetail | null;
 }
 
+interface CellBlock extends CellState {
+  slotIdx: number;
+  span: number;
+}
+
 const now = ref(new Date());
 let nowTimer: ReturnType<typeof setInterval>;
 onMounted(() => {
@@ -74,10 +80,10 @@ onMounted(() => {
 onUnmounted(() => clearInterval(nowTimer));
 
 const grid = computed(() => {
-  const result: Record<number, CellState[]> = {};
+  const result: Record<number, CellBlock[]> = {};
   for (const court of props.courts) {
     const courtBookings = props.bookings.filter((b) => b.court_id === court.id);
-    result[court.id] = timeSlots.value.map((slot) => {
+    const cells: CellState[] = timeSlots.value.map((slot) => {
       const start = slotStartDate(slot);
       const slotStartMs = start.getTime();
       const slotEndMs = slotStartMs + 3_600_000;
@@ -92,6 +98,28 @@ const grid = computed(() => {
       if (start <= now.value) return { type: 'past', booking: null };
       return { type: 'available', booking: null };
     });
+
+    const blocks: CellBlock[] = [];
+    let currentBlock: CellBlock | null = null;
+    for (let i = 0; i < cells.length; i++) {
+      const cell = cells[i]!;
+      if (currentBlock) {
+        if (
+          cell.type === currentBlock.type &&
+          cell.booking?.id === currentBlock.booking?.id &&
+          cell.type === 'booked'
+        ) {
+          currentBlock.span += 1;
+        } else {
+          blocks.push(currentBlock);
+          currentBlock = { ...cell, slotIdx: i, span: 1 };
+        }
+      } else {
+        currentBlock = { ...cell, slotIdx: i, span: 1 };
+      }
+    }
+    if (currentBlock) blocks.push(currentBlock);
+    result[court.id] = blocks;
   }
   return result;
 });
@@ -371,88 +399,84 @@ function handleCellClick(court: Court, slotIdx: number) {
 
             <!-- Time slot cells -->
             <td
-              v-for="(slot, slotIdx) in timeSlots"
-              :key="slot"
-              class="group relative min-w-[88px] border-r border-[#dbe4ef] p-1.5 last:border-r-0"
+              v-for="block in grid[court.id] || []"
+              :key="block.slotIdx"
+              :colspan="block.span"
+              class="group relative border-r border-[#dbe4ef] p-1.5 last:border-r-0"
             >
-              <!-- Booked slot -->
-              <div
-                v-if="grid[court.id]?.[slotIdx].type === 'booked'"
-                class="group relative flex h-12 flex-col justify-center rounded-lg px-2 shadow-sm"
-                :style="{
-                  backgroundColor: bookingBg(
-                    grid[court.id]![slotIdx].booking!.status
-                  )
-                }"
-              >
-                <div class="pr-5">
-                  <p
-                    class="truncate text-[11px] font-bold"
-                    :style="{
-                      color: bookingTextColor(
-                        grid[court.id]![slotIdx].booking!.status
-                      )
-                    }"
-                  >
-                    {{ bookingLabel(grid[court.id]![slotIdx].booking!) }}
-                  </p>
-                  <p
-                    class="text-[9px] uppercase tracking-wider opacity-80"
-                    :style="{
-                      color: bookingTextColor(
-                        grid[court.id]![slotIdx].booking!.status
-                      )
-                    }"
-                  >
-                    {{ statusLabel(grid[court.id]![slotIdx].booking!.status) }}
-                  </p>
-                </div>
-
-                <!-- Dropdown action menu positioned top-right -->
+              <div :style="{ minWidth: `${(block.span * 88) - 12}px` }" class="w-full">
+                <!-- Booked slot -->
                 <div
-                  v-if="getBookingActions(grid[court.id]![slotIdx].booking!).length"
-                  class="absolute right-1 top-1"
+                  v-if="block.type === 'booked'"
+                  class="group relative flex h-12 cursor-pointer flex-col justify-center rounded-lg px-2 shadow-sm transition-opacity hover:opacity-90"
+                  :style="{
+                    backgroundColor: bookingBg(block.booking!.status)
+                  }"
+                  @click="emit('view-booking', block.booking!)"
                 >
-                  <UDropdownMenu
-                    :items="getBookingActions(grid[court.id]![slotIdx].booking!)"
-                  >
-                    <button
-                      type="button"
-                      class="flex items-center justify-center rounded p-0.5 transition-colors hover:bg-black/10"
+                  <div class="pr-5">
+                    <p
+                      class="truncate text-[11px] font-bold"
                       :style="{
-                        color: bookingTextColor(
-                          grid[court.id]![slotIdx].booking!.status
-                        )
+                        color: bookingTextColor(block.booking!.status)
                       }"
                     >
-                      <UIcon name="i-heroicons-ellipsis-vertical" class="h-4 w-4" />
-                    </button>
-                  </UDropdownMenu>
+                      {{ bookingLabel(block.booking!) }}
+                    </p>
+                    <p
+                      class="text-[9px] uppercase tracking-wider opacity-80"
+                      :style="{
+                        color: bookingTextColor(block.booking!.status)
+                      }"
+                    >
+                      {{ statusLabel(block.booking!.status) }}
+                    </p>
+                  </div>
+
+                  <!-- Dropdown action menu positioned top-right -->
+                  <div
+                    v-if="getBookingActions(block.booking!).length"
+                    class="absolute right-1 top-1"
+                  >
+                    <UDropdownMenu
+                      :items="getBookingActions(block.booking!)"
+                    >
+                      <button
+                        type="button"
+                        class="flex items-center justify-center rounded p-0.5 transition-colors hover:bg-black/10"
+                        :style="{
+                          color: bookingTextColor(block.booking!.status)
+                        }"
+                        @click.stop
+                      >
+                        <UIcon name="i-heroicons-ellipsis-vertical" class="h-4 w-4" />
+                      </button>
+                    </UDropdownMenu>
+                  </div>
                 </div>
-              </div>
 
-              <!-- Past slot -->
-              <div
-                v-else-if="grid[court.id]?.[slotIdx].type === 'past'"
-                class="h-12 rounded-lg bg-[#f1f5f9] opacity-50"
-              />
+                <!-- Past slot -->
+                <div
+                  v-else-if="block.type === 'past'"
+                  class="h-12 rounded-lg bg-[#f1f5f9] opacity-50"
+                  :style="{ minWidth: `${(block.span * 88) - 12}px` }"
+                />
 
-              <!-- Available slot -->
-              <div
-                v-else
-                class="relative h-12 rounded-lg border border-dashed border-[#93c5fd] bg-[#dbeafe] transition-all duration-75 group-hover:border-[#3b82f6] group-hover:bg-[#bfdbfe]"
-              >
-
-
-                <button
-                  type="button"
-                  class="absolute inset-0 flex items-center justify-center gap-1 rounded-lg bg-[#004e89] text-white opacity-0 transition-opacity duration-75 group-hover:opacity-100"
-                  @click="handleCellClick(court, slotIdx)"
+                <!-- Available slot -->
+                <div
+                  v-else
+                  class="relative h-12 rounded-lg border border-dashed border-[#93c5fd] bg-[#dbeafe] transition-all duration-75 group-hover:border-[#3b82f6] group-hover:bg-[#bfdbfe]"
+                  :style="{ minWidth: `${(block.span * 88) - 12}px` }"
                 >
-                  <UIcon name="i-heroicons-plus" class="h-3.5 w-3.5" />
-
-                  <span class="text-xs font-bold">Book</span>
-                </button>
+                  <button
+                    type="button"
+                    class="absolute inset-0 flex items-center justify-center gap-1 rounded-lg bg-[#004e89] text-white opacity-0 transition-opacity duration-75 group-hover:opacity-100"
+                    @click="handleCellClick(court, block.slotIdx)"
+                  >
+                    <UIcon name="i-heroicons-plus" class="h-3.5 w-3.5" />
+                    <span class="text-xs font-bold">Book</span>
+                  </button>
+                </div>
               </div>
             </td>
           </tr>

@@ -55,6 +55,59 @@ class OwnerBookingController extends Controller
     }
 
     /**
+     * Update an existing booking (used by owner modal).
+     */
+    public function update(Hub $hub, Booking $booking, Request $request): JsonResponse
+    {
+        abort_if($hub->owner_id !== $request->user()->id, 403);
+        $this->assertBelongsToHub($booking, $hub);
+
+        $validated = $request->validate([
+            'court_id' => 'required|exists:courts,id',
+            'sport' => 'required|string|max:50',
+            'start_time' => 'required|date',
+            'end_time' => 'required|date|after:start_time',
+        ]);
+
+        $court = Court::findOrFail($validated['court_id']);
+        abort_if($court->hub_id !== $hub->id, 422);
+
+        $startTime = Carbon::parse($validated['start_time']);
+        $endTime = Carbon::parse($validated['end_time']);
+
+        // Check conflicts excluding current booking
+        $conflict = Booking::where('court_id', $court->id)
+            ->where('id', '!=', $booking->id)
+            ->whereNotIn('status', ['cancelled'])
+            ->where('start_time', '<', $endTime)
+            ->where('end_time', '>', $startTime)
+            ->exists();
+
+        if ($conflict) {
+            return response()->json([
+                'message' => 'This time slot is already booked on the selected court.',
+            ], 409);
+        }
+
+        $hours = $startTime->diffInMinutes($endTime) / 60;
+        $pricePerHour = (float) $court->price_per_hour;
+        $totalPrice = $pricePerHour > 0 ? round($pricePerHour * $hours, 2) : null;
+
+        $booking->update([
+            'court_id' => $court->id,
+            'sport' => $validated['sport'],
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'total_price' => $totalPrice,
+        ]);
+
+        return response()->json([
+            'message' => 'Booking updated successfully.',
+            'data' => $this->formatBooking($booking->fresh(['court', 'bookedBy'])),
+        ]);
+    }
+
+    /**
      * Confirm a payment receipt (payment_sent → confirmed).
      */
     public function confirm(Hub $hub, Booking $booking, Request $request): JsonResponse

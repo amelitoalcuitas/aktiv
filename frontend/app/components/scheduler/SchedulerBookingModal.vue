@@ -51,12 +51,13 @@ const sessionType = ref<'private' | 'open_play'>('private');
 // ── Start time (locked — set from clicked calendar slot) ──────
 function timeStrFromDate(date: Date): string {
   const h = date.getHours();
-  const m = date.getMinutes() < 30 ? 0 : 30;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  return `${String(h).padStart(2, '0')}:00`;
 }
 
 function formatTimeStr(value: string): string {
-  const [h, m] = value.split(':').map(Number);
+  const parts = value.split(':');
+  const h = parseInt(parts[0] || '0', 10);
+  const m = parseInt(parts[1] || '0', 10);
   const ampm = h < 12 ? 'AM' : 'PM';
   const h12 = h % 12 || 12;
   return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
@@ -71,7 +72,9 @@ const startTimeLabel = computed(() => formatTimeStr(startTimeStr.value));
 // ── End time (user-selectable, 1-hour increments from start) ──
 // Options: start+1h, start+2h, … up to 23:00
 const endTimeOptions = computed(() => {
-  const [h, m] = startTimeStr.value.split(':').map(Number);
+  const parts = startTimeStr.value.split(':');
+  const h = parseInt(parts[0] || '0', 10);
+  const m = parseInt(parts[1] || '0', 10);
   const startMin = h * 60 + m;
   const options = [];
   for (let i = 1; startMin + i * 60 <= 23 * 60; i++) {
@@ -89,8 +92,10 @@ const endTimeStr = ref('10:00');
 
 watch(
   startTimeStr,
-  (val) => {
-    const [h, m] = val.split(':').map(Number);
+  (val: string) => {
+    const parts = val.split(':');
+    const h = parseInt(parts[0] || '0', 10);
+    const m = parseInt(parts[1] || '0', 10);
     const defaultEnd = h * 60 + m + 60;
     const eh = Math.floor(defaultEnd / 60);
     const em = defaultEnd % 60;
@@ -106,7 +111,9 @@ watch(isOpen, (val) => {
   sessionType.value = 'private';
   isSubmitting.value = false;
   // Re-apply default end time from (possibly updated) start
-  const [h, m] = startTimeStr.value.split(':').map(Number);
+  const parts = startTimeStr.value.split(':');
+  const h = parseInt(parts[0] || '0', 10);
+  const m = parseInt(parts[1] || '0', 10);
   const defaultEnd = h * 60 + m + 60;
   const eh = Math.floor(defaultEnd / 60);
   const em = defaultEnd % 60;
@@ -125,15 +132,18 @@ const formattedDate = computed(() => {
 });
 
 const durationHours = computed(() => {
-  const [sh, sm] = startTimeStr.value.split(':').map(Number);
-  const [eh, em] = endTimeStr.value.split(':').map(Number);
+  const startParts = startTimeStr.value.split(':');
+  const endParts = endTimeStr.value.split(':');
+  const sh = parseInt(startParts[0] || '0', 10);
+  const sm = parseInt(startParts[1] || '0', 10);
+  const eh = parseInt(endParts[0] || '0', 10);
+  const em = parseInt(endParts[1] || '0', 10);
   return (eh * 60 + em - (sh * 60 + sm)) / 60;
 });
 
 const durationLabel = computed(() => {
   const h = durationHours.value;
-  if (Number.isInteger(h)) return `${h} hr${h > 1 ? 's' : ''}`;
-  return `${Math.floor(h)} hr ${(h % 1) * 60} min`;
+  return `${h} hr${h > 1 ? 's' : ''}`;
 });
 
 // ── Price ──────────────────────────────────────────────────────
@@ -155,7 +165,9 @@ const isSubmitting = ref(false);
 const submitError = ref<string | null>(null);
 
 function buildISODateTime(date: Date, timeStr: string): string {
-  const [h, m] = timeStr.split(':').map(Number);
+  const parts = timeStr.split(':');
+  const h = parseInt(parts[0] || '0', 10);
+  const m = parseInt(parts[1] || '0', 10);
   const dt = new Date(date);
   dt.setHours(h, m, 0, 0);
   return dt.toISOString();

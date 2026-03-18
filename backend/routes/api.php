@@ -42,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     // Owner booking management
     Route::get('/dashboard/hubs/{hub}/bookings', [OwnerBookingController::class, 'index'])->name('api.dashboard.hubs.bookings.index');
+    Route::put('/dashboard/hubs/{hub}/bookings/{booking}', [OwnerBookingController::class, 'update'])->name('api.dashboard.hubs.bookings.update');
     Route::post('/dashboard/hubs/{hub}/bookings/{booking}/confirm', [OwnerBookingController::class, 'confirm'])->name('api.dashboard.hubs.bookings.confirm');
     Route::post('/dashboard/hubs/{hub}/bookings/{booking}/reject', [OwnerBookingController::class, 'reject'])->name('api.dashboard.hubs.bookings.reject');
     Route::post('/dashboard/hubs/{hub}/bookings/{booking}/cancel', [OwnerBookingController::class, 'cancel'])->name('api.dashboard.hubs.bookings.cancel');

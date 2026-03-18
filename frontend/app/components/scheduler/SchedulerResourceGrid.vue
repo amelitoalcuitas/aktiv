@@ -198,7 +198,13 @@ function isSlotSelected(courtId: number, slotIdx: number): boolean {
 // ── Native date-picker ────────────────────────────────────────
 const dateInput = useTemplateRef<HTMLInputElement>('dateInput');
 
-const todayStr = todayMidnight.toISOString().slice(0, 10);
+const todayStr = computed(() => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+});
 
 const selectedDateStr = computed(() => {
   const d = props.selectedDate;
@@ -220,6 +226,14 @@ function onDateInputChange(e: Event) {
   const d = new Date(props.selectedDate);
   d.setFullYear(y ?? 0, (mo ?? 1) - 1, day ?? 1);
   d.setHours(0, 0, 0, 0);
+
+  // Guard against past dates (in case browser allows selection)
+  if (d < todayMidnight) {
+    // Reset to today if it's in the past
+    emit('update:selectedDate', new Date(todayMidnight));
+    return;
+  }
+
   emit('update:selectedDate', d);
 }
 

@@ -20,6 +20,15 @@ const {
 const toast = useToast();
 const route = useRoute();
 
+// ── View mode ─────────────────────────────────────────────────
+const viewMode = ref<'table' | 'calendar'>('table');
+const selectedDate = ref(new Date());
+const calendarSlot = ref<{
+  date: string;
+  hour: number;
+  courtId?: number;
+} | null>(null);
+
 // ── Hub selector ──────────────────────────────────────────────
 
 const selectedHubId = ref<number | undefined>(undefined);
@@ -84,6 +93,12 @@ const filteredBookings = computed(() => {
   return list;
 });
 
+const filteredCourts = computed(() => {
+  if (courtFilter.value.length === 0) return hubCourts.value;
+  return hubCourts.value.filter((c) => courtFilter.value.includes(c.id));
+});
+
+
 // ── Init ──────────────────────────────────────────────────────
 
 onMounted(async () => {
@@ -103,6 +118,12 @@ watch(selectedHubId, async () => {
   allBookings.value = [];
   hubCourts.value = [];
   await Promise.all([loadBookings(), loadCourts()]);
+});
+
+watch(selectedDate, async () => {
+  if (viewMode.value === 'calendar') {
+    await loadBookings();
+  }
 });
 
 // ── Confirm ───────────────────────────────────────────────────
@@ -196,212 +217,22 @@ async function submitCancel() {
 // ── Walk-in modal ─────────────────────────────────────────────
 
 const isWalkInOpen = ref(false);
-const walkInLoading = ref(false);
 
-const walkInForm = reactive({
-  courtId: null as number | null,
-  sport: '',
-  date: '',
-  startHour: 8,
-  duration: 1,
-  customerMode: 'guest' as 'registered' | 'guest',
-  bookedBy: null as number | null,
-  guestName: '',
-  guestPhone: ''
-});
-
-const walkInErrors = reactive({
-  court: '',
-  sport: '',
-  date: '',
-  customer: ''
-});
-
-// User search
-const userSearchQuery = ref('');
-const userSearchResults = ref<
-  {
-    id: number;
-    name: string;
-    email: string;
-    phone: string | null;
-    avatar_url: string | null;
-  }[]
->([]);
-const userSearchLoading = ref(false);
-const selectedUser = ref<{
-  id: number;
-  name: string;
-  email: string;
-} | null>(null);
-
-let searchDebounce: ReturnType<typeof setTimeout>;
-watch(userSearchQuery, (q) => {
-  clearTimeout(searchDebounce);
-  if (!q.trim()) {
-    userSearchResults.value = [];
-    return;
+function openWalkIn(slot?: { court: Court; date: Date; hour: number }) {
+  if (slot) {
+    calendarSlot.value = {
+      date: slot.date.toISOString().slice(0, 10),
+      hour: slot.hour,
+      courtId: slot.court.id
+    };
+  } else {
+    calendarSlot.value = null;
   }
-  searchDebounce = setTimeout(async () => {
-    userSearchLoading.value = true;
-    try {
-      userSearchResults.value = await searchUsers(q.trim());
-    } catch {
-      userSearchResults.value = [];
-    } finally {
-      userSearchLoading.value = false;
-    }
-  }, 350);
-});
-
-function selectUser(user: {
-  id: number;
-  name: string;
-  email: string;
-  phone: string | null;
-  avatar_url: string | null;
-}) {
-  selectedUser.value = { id: user.id, name: user.name, email: user.email };
-  walkInForm.bookedBy = user.id;
-  userSearchResults.value = [];
-  userSearchQuery.value = '';
-}
-
-function clearSelectedUser() {
-  selectedUser.value = null;
-  walkInForm.bookedBy = null;
-}
-
-const walkInCourtOptions = computed(() =>
-  hubCourts.value.map((c) => ({ label: c.name, value: c.id }))
-);
-
-const walkInSelectedCourt = computed(() =>
-  hubCourts.value.find((c) => c.id === walkInForm.courtId)
-);
-
-const walkInSportOptions = computed(() =>
-  (walkInSelectedCourt.value?.sports ?? []).map((s) => ({
-    label: s.charAt(0).toUpperCase() + s.slice(1),
-    value: s
-  }))
-);
-
-watch(
-  () => walkInForm.courtId,
-  () => {
-    walkInForm.sport = walkInSportOptions.value[0]?.value ?? '';
-  }
-);
-
-const todayStr = computed(() => new Date().toISOString().slice(0, 10));
-
-const startTimeHourOptions = Array.from({ length: 18 }, (_, i) => {
-  const h = i + 6;
-  const label =
-    h === 12 ? '12:00 PM' : h < 12 ? `${h}:00 AM` : `${h - 12}:00 PM`;
-  return { label, value: h };
-});
-
-const durationOptions = Array.from({ length: 8 }, (_, i) => ({
-  label: `${i + 1} hour${i > 0 ? 's' : ''}`,
-  value: i + 1
-}));
-
-function clearWalkInErrors() {
-  walkInErrors.court = '';
-  walkInErrors.sport = '';
-  walkInErrors.date = '';
-  walkInErrors.customer = '';
-}
-
-function openWalkIn() {
-  clearWalkInErrors();
-  walkInForm.courtId = hubCourts.value[0]?.id ?? null;
-  walkInForm.sport = '';
-  walkInForm.date = new Date().toISOString().slice(0, 10);
-  walkInForm.startHour = 8;
-  walkInForm.duration = 1;
-  walkInForm.customerMode = 'guest';
-  walkInForm.bookedBy = null;
-  walkInForm.guestName = '';
-  walkInForm.guestPhone = '';
-  selectedUser.value = null;
-  userSearchQuery.value = '';
-  userSearchResults.value = [];
   isWalkInOpen.value = true;
 }
 
-async function submitWalkIn() {
-  clearWalkInErrors();
-  let valid = true;
-
-  if (!walkInForm.courtId) {
-    walkInErrors.court = 'Select a court.';
-    valid = false;
-  }
-  if (!walkInForm.sport) {
-    walkInErrors.sport = 'Select a sport.';
-    valid = false;
-  }
-  if (!walkInForm.date) {
-    walkInErrors.date = 'Select a date.';
-    valid = false;
-  }
-  if (walkInForm.customerMode === 'registered' && !walkInForm.bookedBy) {
-    walkInErrors.customer = 'Search and select a registered user.';
-    valid = false;
-  }
-  if (walkInForm.customerMode === 'guest' && !walkInForm.guestName.trim()) {
-    walkInErrors.customer = 'Guest name is required.';
-    valid = false;
-  }
-
-  if (!valid) return;
-
-  const [y, mo, day] = walkInForm.date.split('-').map(Number);
-  const startDt = new Date(y!, mo! - 1, day!);
-  startDt.setHours(walkInForm.startHour, 0, 0, 0);
-  const endDt = new Date(startDt.getTime() + walkInForm.duration * 3_600_000);
-
-  walkInLoading.value = true;
-  try {
-    const booking = await createWalkIn(
-      selectedHubId.value!,
-      walkInForm.courtId!,
-      {
-        court_id: walkInForm.courtId!,
-        sport: walkInForm.sport,
-        start_time: startDt.toISOString(),
-        end_time: endDt.toISOString(),
-        session_type: 'private',
-        booked_by:
-          walkInForm.customerMode === 'registered' ? walkInForm.bookedBy : null,
-        guest_name:
-          walkInForm.customerMode === 'guest'
-            ? walkInForm.guestName.trim() || null
-            : null,
-        guest_phone:
-          walkInForm.customerMode === 'guest'
-            ? walkInForm.guestPhone.trim() || null
-            : null
-      }
-    );
-    allBookings.value.unshift(booking);
-    isWalkInOpen.value = false;
-    toast.add({ title: 'Walk-in booking created', color: 'success' });
-  } catch (err: unknown) {
-    const msg =
-      (err as { data?: { message?: string } })?.data?.message ??
-      'Failed to create walk-in booking.';
-    if (msg.includes('already booked')) {
-      walkInErrors.date = msg;
-    } else {
-      toast.add({ title: msg, color: 'error' });
-    }
-  } finally {
-    walkInLoading.value = false;
-  }
+function onWalkInCreated(booking: BookingDetail) {
+  allBookings.value.unshift(booking);
 }
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -491,25 +322,31 @@ const columns = [
   { accessorKey: 'datetime', header: 'Date & Time' },
   { accessorKey: 'status', header: 'Status' },
   { accessorKey: 'receipt', header: 'Receipt' },
-  { id: 'actions', header: '' },
+  { id: 'actions', header: '' }
 ];
 
 function bookingDropdownItems(booking: BookingDetail) {
-  const groups: { label: string; icon: string; color?: 'error'; loading?: boolean; onSelect: () => void }[][] = [];
+  const groups: {
+    label: string;
+    icon: string;
+    color?: 'error';
+    loading?: boolean;
+    onSelect: () => void;
+  }[][] = [];
   if (booking.status === 'payment_sent') {
     groups.push([
       {
         label: 'Confirm Payment',
         icon: 'i-heroicons-check-circle',
         loading: confirmingId.value === booking.id,
-        onSelect: () => handleConfirm(booking),
+        onSelect: () => handleConfirm(booking)
       },
       {
         label: 'Reject Receipt',
         icon: 'i-heroicons-x-circle',
         color: 'error' as const,
-        onSelect: () => openReject(booking),
-      },
+        onSelect: () => openReject(booking)
+      }
     ]);
   }
   if (isCancellable(booking.status)) {
@@ -519,8 +356,8 @@ function bookingDropdownItems(booking: BookingDetail) {
         icon: 'i-heroicons-x-mark',
         color: 'error' as const,
         loading: cancellingId.value === booking.id,
-        onSelect: () => openCancel(booking),
-      },
+        onSelect: () => openCancel(booking)
+      }
     ]);
   }
   return groups;
@@ -528,8 +365,9 @@ function bookingDropdownItems(booking: BookingDetail) {
 </script>
 
 <template>
-  <div>
+  <div class="flex flex-col min-w-0 w-full max-w-full">
     <!-- Page header -->
+
     <div class="mb-6 flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold text-[#0f1728]">Bookings</h1>
@@ -537,14 +375,30 @@ function bookingDropdownItems(booking: BookingDetail) {
           Manage court bookings and walk-in reservations.
         </p>
       </div>
-      <UButton
-        v-if="selectedHubId && hubCourts.length"
-        icon="i-heroicons-plus"
-        class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
-        @click="openWalkIn"
-      >
-        Add Walk-in
-      </UButton>
+      <UFieldGroup>
+        <div class="flex rounded-lg border border-[#dbe4ef] p-0.5">
+          <UButton
+            size="sm"
+            :variant="viewMode === 'table' ? 'solid' : 'ghost'"
+            :color="viewMode === 'table' ? 'primary' : 'neutral'"
+            icon="i-heroicons-table-cells"
+            class="rounded-md px-3"
+            @click="viewMode = 'table'"
+          >
+            Table
+          </UButton>
+          <UButton
+            size="sm"
+            :variant="viewMode === 'calendar' ? 'solid' : 'ghost'"
+            :color="viewMode === 'calendar' ? 'primary' : 'neutral'"
+            icon="i-heroicons-calendar-days"
+            class="rounded-md px-3"
+            @click="viewMode = 'calendar'"
+          >
+            Calendar
+          </UButton>
+        </div>
+      </UFieldGroup>
     </div>
 
     <!-- Hubs loading -->
@@ -595,28 +449,40 @@ function bookingDropdownItems(booking: BookingDetail) {
       </div>
 
       <template v-else>
-        <!-- Filters -->
-        <div class="mb-4 flex flex-wrap items-center gap-3">
-          <USelectMenu
-            v-model="statusFilter"
-            :items="STATUS_OPTIONS"
-            multiple
-            value-key="value"
-            placeholder="All Statuses"
-            class="w-48"
-          />
-          <USelectMenu
-            v-model="courtFilter"
-            :items="courtFilterOptions"
-            multiple
-            value-key="value"
-            placeholder="All Courts"
-            class="w-48"
-          />
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <USelectMenu
+              v-model="statusFilter"
+              :items="STATUS_OPTIONS"
+              multiple
+              value-key="value"
+              placeholder="All Statuses"
+              class="w-48"
+            />
+            <USelectMenu
+              v-model="courtFilter"
+              :items="courtFilterOptions"
+              multiple
+              value-key="value"
+              placeholder="All Courts"
+              class="w-48"
+            />
+          </div>
+          <UButton
+            v-if="viewMode === 'table' && selectedHubId && hubCourts.length"
+            icon="i-heroicons-plus"
+            class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
+            @click="() => openWalkIn()"
+          >
+            Add Walk-in
+          </UButton>
         </div>
 
-        <!-- Table -->
-        <div class="overflow-x-auto rounded-2xl border border-[#dbe4ef] bg-white">
+        <!-- Table View -->
+        <div
+          v-if="viewMode === 'table'"
+          class="overflow-x-auto rounded-2xl border border-[#dbe4ef] bg-white"
+        >
           <UTable :data="filteredBookings" :columns="columns">
             <template #empty>
               <div class="py-12 text-center">
@@ -627,9 +493,7 @@ function bookingDropdownItems(booking: BookingDetail) {
                 <p class="mt-3 text-sm font-semibold text-[#0f1728]">
                   No bookings found
                 </p>
-                <p class="mt-1 text-xs text-[#64748b]">
-                  Try adjusting your filters.
-                </p>
+                <p class="mt-1 text-[#64748b]">Try adjusting your filters.</p>
               </div>
             </template>
 
@@ -643,7 +507,6 @@ function bookingDropdownItems(booking: BookingDetail) {
                   label="Walk-in"
                   color="neutral"
                   variant="subtle"
-                  size="xs"
                 />
               </div>
             </template>
@@ -662,7 +525,12 @@ function bookingDropdownItems(booking: BookingDetail) {
 
             <template #datetime-cell="{ row }">
               <span class="whitespace-nowrap text-sm text-[#64748b]">
-                {{ formatDateRange(row.original.start_time, row.original.end_time) }}
+                {{
+                  formatDateRange(
+                    row.original.start_time,
+                    row.original.end_time
+                  )
+                }}
               </span>
             </template>
 
@@ -672,11 +540,13 @@ function bookingDropdownItems(booking: BookingDetail) {
                   :label="statusLabel(row.original.status)"
                   :color="statusColor(row.original.status)"
                   variant="subtle"
-                  size="sm"
                 />
                 <p
-                  v-if="row.original.payment_note && row.original.status === 'pending_payment'"
-                  class="rounded bg-[#fef9c3] px-1.5 py-0.5 text-xs text-[#92400e]"
+                  v-if="
+                    row.original.payment_note &&
+                    row.original.status === 'pending_payment'
+                  "
+                  class="rounded bg-[#fef9c3] px-1.5 py-0.5 text-[#92400e]"
                 >
                   {{ row.original.payment_note }}
                 </p>
@@ -708,15 +578,24 @@ function bookingDropdownItems(booking: BookingDetail) {
                   icon="i-heroicons-ellipsis-horizontal"
                   color="neutral"
                   variant="ghost"
-                  size="xs"
                 />
               </UDropdownMenu>
             </template>
           </UTable>
         </div>
+
+        <!-- Calendar View -->
+        <div v-else class="min-w-0 overflow-hidden">
+          <BookingOwnerGrid
+            v-model:selected-date="selectedDate"
+            :courts="filteredCourts"
+            :bookings="filteredBookings"
+            @book-slot="openWalkIn"
+          />
+        </div>
+
       </template>
     </template>
-
     <!-- ── Reject modal ──────────────────────────────────────────── -->
     <UModal v-model:open="isRejectOpen" title="Reject Receipt">
       <template #body>
@@ -730,7 +609,7 @@ function bookingDropdownItems(booking: BookingDetail) {
           :maxlength="500"
           class="w-full"
         />
-        <p v-if="rejectError" class="mt-1.5 text-xs text-red-600">
+        <p v-if="rejectError" class="mt-1.5 text-red-600">
           {{ rejectError }}
         </p>
       </template>
@@ -800,203 +679,14 @@ function bookingDropdownItems(booking: BookingDetail) {
     </UModal>
 
     <!-- ── Walk-in modal ─────────────────────────────────────────────── -->
-    <UModal
+    <BookingWalkInModal
       v-model:open="isWalkInOpen"
-      title="Add Walk-in Booking"
-      :ui="{ width: 'sm:max-w-xl' }"
-    >
-      <template #body>
-        <div class="space-y-4">
-          <!-- Court -->
-          <div>
-            <label class="mb-1 block text-sm font-medium text-[#0f1728]"
-              >Court</label
-            >
-            <USelect
-              v-model="walkInForm.courtId"
-              :items="walkInCourtOptions"
-              class="w-full"
-            />
-            <p v-if="walkInErrors.court" class="mt-1 text-xs text-red-600">
-              {{ walkInErrors.court }}
-            </p>
-          </div>
-
-          <!-- Sport -->
-          <div>
-            <label class="mb-1 block text-sm font-medium text-[#0f1728]"
-              >Sport</label
-            >
-            <USelect
-              v-model="walkInForm.sport"
-              :items="walkInSportOptions"
-              :disabled="!walkInForm.courtId"
-              class="w-full"
-            />
-            <p v-if="walkInErrors.sport" class="mt-1 text-xs text-red-600">
-              {{ walkInErrors.sport }}
-            </p>
-          </div>
-
-          <!-- Date + time -->
-          <div class="grid grid-cols-3 gap-3">
-            <div class="col-span-1">
-              <label class="mb-1 block text-sm font-medium text-[#0f1728]"
-                >Date</label
-              >
-              <UInput
-                v-model="walkInForm.date"
-                type="date"
-                :min="todayStr"
-                class="w-full"
-              />
-              <p v-if="walkInErrors.date" class="mt-1 text-xs text-red-600">
-                {{ walkInErrors.date }}
-              </p>
-            </div>
-            <div>
-              <label class="mb-1 block text-sm font-medium text-[#0f1728]"
-                >Start</label
-              >
-              <USelect
-                v-model="walkInForm.startHour"
-                :items="startTimeHourOptions"
-                class="w-full"
-              />
-            </div>
-            <div>
-              <label class="mb-1 block text-sm font-medium text-[#0f1728]"
-                >Duration</label
-              >
-              <USelect
-                v-model="walkInForm.duration"
-                :items="durationOptions"
-                class="w-full"
-              />
-            </div>
-          </div>
-
-          <!-- Customer -->
-          <div>
-            <label class="mb-1.5 block text-sm font-medium text-[#0f1728]"
-              >Customer</label
-            >
-            <div class="mb-2 flex gap-2">
-              <UButton
-                size="sm"
-                :variant="
-                  walkInForm.customerMode === 'guest' ? 'solid' : 'outline'
-                "
-                :color="
-                  walkInForm.customerMode === 'guest' ? 'primary' : 'neutral'
-                "
-                @click="walkInForm.customerMode = 'guest'"
-              >
-                Guest
-              </UButton>
-              <UButton
-                size="sm"
-                :variant="
-                  walkInForm.customerMode === 'registered' ? 'solid' : 'outline'
-                "
-                :color="
-                  walkInForm.customerMode === 'registered'
-                    ? 'primary'
-                    : 'neutral'
-                "
-                @click="walkInForm.customerMode = 'registered'"
-              >
-                Registered User
-              </UButton>
-            </div>
-
-            <!-- Guest fields -->
-            <template v-if="walkInForm.customerMode === 'guest'">
-              <UInput
-                v-model="walkInForm.guestName"
-                placeholder="Full name"
-                class="w-full"
-              />
-              <UInput
-                v-model="walkInForm.guestPhone"
-                placeholder="Phone number (optional)"
-                class="mt-2 w-full"
-              />
-            </template>
-
-            <!-- Registered user search -->
-            <template v-else>
-              <div
-                v-if="selectedUser"
-                class="flex items-center justify-between rounded-xl border border-[#dbe4ef] bg-[#f8fafc] px-3 py-2"
-              >
-                <div>
-                  <p class="text-sm font-medium text-[#0f1728]">
-                    {{ selectedUser.name }}
-                  </p>
-                  <p class="text-xs text-[#64748b]">{{ selectedUser.email }}</p>
-                </div>
-                <UButton
-                  icon="i-heroicons-x-mark"
-                  color="neutral"
-                  variant="ghost"
-                  size="xs"
-                  @click="clearSelectedUser"
-                />
-              </div>
-              <div v-else class="relative">
-                <UInput
-                  v-model="userSearchQuery"
-                  placeholder="Search by name, email, or phone…"
-                  :loading="userSearchLoading"
-                  class="w-full"
-                  icon="i-heroicons-magnifying-glass"
-                />
-                <!-- Results dropdown -->
-                <div
-                  v-if="userSearchResults.length"
-                  class="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-[#dbe4ef] bg-white shadow-lg"
-                >
-                  <button
-                    v-for="u in userSearchResults"
-                    :key="u.id"
-                    class="w-full px-3 py-2 text-left text-sm hover:bg-[#f0f4f8] transition-colors"
-                    type="button"
-                    @click="selectUser(u)"
-                  >
-                    <span class="font-medium text-[#0f1728]">{{ u.name }}</span>
-                    <span class="ml-2 text-xs text-[#64748b]">{{
-                      u.email
-                    }}</span>
-                  </button>
-                </div>
-              </div>
-            </template>
-
-            <p v-if="walkInErrors.customer" class="mt-1 text-xs text-red-600">
-              {{ walkInErrors.customer }}
-            </p>
-          </div>
-        </div>
-      </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            color="neutral"
-            variant="outline"
-            @click="isWalkInOpen = false"
-          >
-            Cancel
-          </UButton>
-          <UButton
-            class="bg-[#004e89] hover:bg-[#003d6b]"
-            :loading="walkInLoading"
-            @click="submitWalkIn"
-          >
-            Confirm Walk-in
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+      :hub-id="selectedHubId"
+      :courts="hubCourts"
+      :initial-date="calendarSlot?.date"
+      :initial-hour="calendarSlot?.hour"
+      :initial-court-id="calendarSlot?.courtId"
+      @created="onWalkInCreated"
+    />
   </div>
 </template>

@@ -76,6 +76,25 @@ function onRemoveSlots(slots: SelectedSlot[]) {
 function onBookingCreated() {
   loadAllBookings();
 }
+
+// ── Receipt upload (own pending_payment slots) ─────────────────
+const receiptModalOpen = ref(false);
+const pendingReceiptBooking = ref<CalendarBooking | null>(null);
+const pendingReceiptCourtId = ref<number | null>(null);
+const pendingReceiptCourtName = ref('');
+
+function onOwnBookingClick({
+  booking,
+  court
+}: {
+  booking: CalendarBooking;
+  court: Court;
+}) {
+  pendingReceiptBooking.value = booking;
+  pendingReceiptCourtId.value = court.id;
+  pendingReceiptCourtName.value = court.name;
+  receiptModalOpen.value = true;
+}
 </script>
 
 <template>
@@ -113,6 +132,7 @@ function onBookingCreated() {
           :selected-slots="selectedSlots"
           @slot-click="onSlotClick"
           @update:selected-date="selectedDate = $event"
+          @own-booking-click="onOwnBookingClick"
         />
         <!-- ③ Booking summary: sticky floating sidebar on desktop -->
         <div class="lg:sticky lg:top-4">
@@ -127,5 +147,14 @@ function onBookingCreated() {
         </div>
       </div>
     </template>
+
+    <SchedulerReceiptUploadModal
+      v-model:open="receiptModalOpen"
+      :booking="pendingReceiptBooking"
+      :hub-id="hubId"
+      :court-id="String(pendingReceiptCourtId ?? '')"
+      :court-name="pendingReceiptCourtName"
+      @receipt-uploaded="onBookingCreated"
+    />
   </div>
 </template>

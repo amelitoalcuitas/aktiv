@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
+use App\Http\Requests\Booking\UploadReceiptRequest;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
+use App\Services\ImageUploadService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 
@@ -22,7 +24,7 @@ class BookingController extends Controller
 
         $bookings = Booking::where('court_id', $court->id)
             ->whereNotIn('status', ['cancelled'])
-            ->where('end_time', '>', now())
+            ->where('end_time', '>=', now()->startOfDay())
             ->orderBy('start_time')
             ->get();
 
@@ -99,5 +101,45 @@ class BookingController extends Controller
                 'created_at' => $booking->created_at->toIso8601String(),
             ],
         ], 201);
+    }
+
+    /**
+     * Upload a GCash/bank-transfer receipt for a pending_payment booking.
+     * Only the customer who made the booking may upload their receipt.
+     */
+    public function uploadReceipt(
+        UploadReceiptRequest $request,
+        Hub $hub,
+        Court $court,
+        Booking $booking,
+        ImageUploadService $imageUploadService
+    ): JsonResponse {
+        abort_if($court->hub_id !== $hub->id, 404);
+        abort_if($booking->court_id !== $court->id, 404);
+        abort_if($booking->booked_by !== $request->user()->id, 403);
+
+        if ($booking->status !== 'pending_payment') {
+            return response()->json([
+                'message' => 'Receipt can only be uploaded for bookings awaiting payment.',
+            ], 422);
+        }
+
+        $result = $imageUploadService->upload($request->file('receipt_image'), 'receipts');
+
+        $booking->update([
+            'receipt_image_url' => $result['url'],
+            'receipt_uploaded_at' => now(),
+            'status' => 'payment_sent',
+        ]);
+
+        return response()->json([
+            'message' => 'Receipt uploaded. The hub owner will review your payment.',
+            'data' => [
+                'id' => $booking->id,
+                'status' => $booking->status,
+                'receipt_image_url' => $booking->receipt_image_url,
+                'receipt_uploaded_at' => $booking->receipt_uploaded_at->toIso8601String(),
+            ],
+        ]);
     }
 }

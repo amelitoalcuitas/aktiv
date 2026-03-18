@@ -6,7 +6,12 @@ const route = useRoute();
 
 const navLinks = [
   { label: 'My Hubs', icon: 'i-heroicons-building-office-2', to: '/dashboard' },
-  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: '/dashboard/courts' }
+  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: '/dashboard/courts' },
+  {
+    label: 'Bookings',
+    icon: 'i-heroicons-calendar-days',
+    to: '/dashboard/bookings'
+  }
 ];
 
 const isActive = (to: string) => {

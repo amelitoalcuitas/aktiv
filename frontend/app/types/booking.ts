@@ -33,6 +33,18 @@ export interface Booking {
   created_at: string;
 }
 
+/** Full booking shape returned by owner dashboard endpoints (includes eager-loaded relations). */
+export interface BookingDetail extends Booking {
+  court: { id: number; name: string; hub_id: number } | null;
+  booked_by_user: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string | null;
+    avatar_url: string | null;
+  } | null;
+}
+
 /** A time slot the user has selected in the resource grid (UI state only). */
 export interface SelectedSlot {
   courtId: number;

@@ -1,4 +1,5 @@
 import type { Booking, CalendarBooking, SessionType } from '~/types/booking';
+import { useApi } from '~/utils/api';
 
 export function useBooking() {
   const { apiFetch } = useApi();
@@ -33,5 +34,34 @@ export function useBooking() {
     return response.data;
   }
 
-  return { fetchBookings, createBooking };
+  async function uploadReceipt(
+    hubId: string | number,
+    courtId: string | number,
+    bookingId: number,
+    file: File
+  ): Promise<{
+    id: number;
+    status: string;
+    receipt_image_url: string;
+    receipt_uploaded_at: string;
+  }> {
+    const formData = new FormData();
+    formData.append('receipt_image', file);
+
+    const response = await apiFetch<{
+      message: string;
+      data: {
+        id: number;
+        status: string;
+        receipt_image_url: string;
+        receipt_uploaded_at: string;
+      };
+    }>(`/hubs/${hubId}/courts/${courtId}/bookings/${bookingId}/receipt`, {
+      method: 'POST',
+      body: formData
+    });
+    return response.data;
+  }
+
+  return { fetchBookings, createBooking, uploadReceipt };
 }

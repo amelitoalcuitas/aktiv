@@ -25,6 +25,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   'slot-click': [{ court: Court; date: Date }];
   'update:selectedDate': [Date];
+  'own-booking-click': [{ booking: CalendarBooking; court: Court }];
 }>();
 
 // ── Time slot generation ───────────────────────────────────────
@@ -270,6 +271,14 @@ function handleCellClick(court: Court, slotIdx: number) {
   const date = slotStartDate(slot);
   emit('slot-click', { court, date });
 }
+
+function handleBookedCellClick(court: Court, slotIdx: number) {
+  const cell = getCellState(court.id, slotIdx);
+  if (cell.type !== 'booked' || !cell.booking) return;
+  if (cell.booking.is_own && cell.booking.status === 'pending_payment') {
+    emit('own-booking-click', { booking: cell.booking, court });
+  }
+}
 </script>
 
 <template>
@@ -386,20 +395,51 @@ function handleCellClick(court: Court, slotIdx: number) {
               />
 
               <!-- Booked slot -->
-              <div
+              <template
                 v-else-if="getCellState(court.id, slotIdx).type === 'booked'"
-                class="flex h-12 items-center justify-center rounded-md px-2 text-center text-sm font-medium"
-                :style="{
-                  backgroundColor: bookingBg(
-                    getCellBooking(court.id, slotIdx).status
-                  ),
-                  color: bookingTextColor(
-                    getCellBooking(court.id, slotIdx).status
-                  )
-                }"
               >
-                {{ bookingLabel(getCellBooking(court.id, slotIdx)) }}
-              </div>
+                <!-- Own pending_payment booking: clickable to upload receipt -->
+                <button
+                  v-if="
+                    getCellBooking(court.id, slotIdx).is_own &&
+                    getCellBooking(court.id, slotIdx).status ===
+                      'pending_payment'
+                  "
+                  type="button"
+                  class="flex h-12 w-full items-center justify-center gap-1 rounded-md px-2 text-center text-sm font-medium transition-opacity hover:opacity-70 active:scale-95"
+                  :style="{
+                    backgroundColor: bookingBg(
+                      getCellBooking(court.id, slotIdx).status
+                    ),
+                    color: bookingTextColor(
+                      getCellBooking(court.id, slotIdx).status
+                    )
+                  }"
+                  :title="'Upload receipt'"
+                  @click="handleBookedCellClick(court, slotIdx)"
+                >
+                  <UIcon
+                    name="i-heroicons-arrow-up-tray"
+                    class="h-3.5 w-3.5 flex-shrink-0"
+                  />
+                  {{ bookingLabel(getCellBooking(court.id, slotIdx)) }}
+                </button>
+                <!-- Other bookings: not clickable -->
+                <div
+                  v-else
+                  class="flex h-12 items-center justify-center rounded-md px-2 text-center text-sm font-medium"
+                  :style="{
+                    backgroundColor: bookingBg(
+                      getCellBooking(court.id, slotIdx).status
+                    ),
+                    color: bookingTextColor(
+                      getCellBooking(court.id, slotIdx).status
+                    )
+                  }"
+                >
+                  {{ bookingLabel(getCellBooking(court.id, slotIdx)) }}
+                </div>
+              </template>
 
               <!-- Available slot (unselected or selected) -->
               <button
@@ -438,7 +478,9 @@ function handleCellClick(court: Court, slotIdx: number) {
       </div>
       <div class="flex items-center gap-1.5">
         <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#fef9c3]" />
-        <span class="text-sm text-[var(--aktiv-muted)]">Pending</span>
+        <span class="text-sm text-[var(--aktiv-muted)]"
+          >Pending (tap to upload receipt)</span
+        >
       </div>
       <div class="flex items-center gap-1.5">
         <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#fee2e2]" />

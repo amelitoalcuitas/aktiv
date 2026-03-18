@@ -3,7 +3,7 @@ import type { Hub } from '~/types/hub';
 
 definePageMeta({ layout: 'explore' });
 
-const search = ref('');
+
 const exploreSection = ref<HTMLElement | null>(null);
 
 const { fetchHubs } = useHubs();
@@ -14,21 +14,7 @@ const { data: hubs, error: hubsError } = await useAsyncData<Hub[]>(
   { default: () => [] as Hub[] }
 );
 
-const filteredHubs = computed(() => {
-  const term = search.value.trim().toLowerCase();
-
-  if (!term) {
-    return hubs.value ?? [];
-  }
-
-  return (hubs.value ?? []).filter((hub) => {
-    return (
-      hub.name.toLowerCase().includes(term) ||
-      hub.city.toLowerCase().includes(term) ||
-      (hub.sports ?? []).some((sport) => sport.includes(term))
-    );
-  });
-});
+const filteredHubs = computed(() => hubs.value ?? []);
 
 const scrollToExploreSection = () => {
   exploreSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -71,40 +57,16 @@ const scrollToExploreSection = () => {
           </p>
         </div>
 
-        <div class="mt-10 w-full max-w-[1040px] px-4 md:px-6">
-          <div
-            class="grid gap-4 rounded-3xl border border-white/70 bg-white/95 p-4 shadow-[0_24px_45px_rgba(19,48,77,0.16)] backdrop-blur md:grid-cols-[1fr_1fr_auto] md:items-center md:gap-5 md:p-6"
+        <div class="mt-10 flex w-full justify-center px-4 md:px-6">
+          <UButton
+            type="button"
+            size="xl"
+            @click="scrollToExploreSection"
+            class="h-14 rounded-2xl bg-[#0f76bf] px-8 text-base font-bold text-white shadow-[0_16px_32px_rgba(12,102,167,0.3)] transition hover:bg-[#0b66a5]"
+            :ui="{ base: 'justify-center' }"
           >
-            <div class="rounded-2xl bg-[#e8f0f3] px-4 py-3">
-              <p
-                class="m-0 text-xs font-semibold uppercase tracking-wide text-[#66809d]"
-              >
-                Search by city, sport, or hub name
-              </p>
-              <p class="mt-1 text-base font-bold text-[#0f1728]">Any City</p>
-            </div>
-
-            <div class="rounded-2xl bg-[#e8f0f3] px-4 py-3">
-              <p
-                class="m-0 text-xs font-semibold uppercase tracking-wide text-[#66809d]"
-              >
-                Availability
-              </p>
-              <p class="mt-1 text-base font-bold text-[#0f1728]">
-                Open This Week
-              </p>
-            </div>
-
-            <UButton
-              type="button"
-              size="xl"
-              @click="scrollToExploreSection"
-              class="h-14 rounded-2xl bg-[#0f76bf] px-8 text-base font-bold text-white shadow-[0_16px_32px_rgba(12,102,167,0.3)] transition hover:bg-[#0b66a5]"
-              :ui="{ base: 'justify-center' }"
-            >
-              Explore Now
-            </UButton>
-          </div>
+            Explore Now
+          </UButton>
         </div>
       </div>
     </section>

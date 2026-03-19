@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { z } from 'zod';
-import type { HubContactNumber, HubWebsite } from '~/types/hub';
+import type { HubContactNumber, HubWebsite, OperatingHoursEntry } from '~/types/hub';
 import {
   HUB_IMAGE_MAX_BYTES,
   HUB_IMAGE_MAX_SIZE_MB
@@ -25,6 +25,7 @@ export interface HubFormPayload {
   galleryImages: File[];
   removeGalleryImageIds: number[];
   is_active: boolean;
+  operating_hours: OperatingHoursEntry[];
 }
 
 interface GalleryImage {
@@ -49,6 +50,7 @@ interface InitialData {
   contact_numbers: HubContactNumber[];
   websites: HubWebsite[];
   is_active?: boolean;
+  operating_hours?: OperatingHoursEntry[];
 }
 
 const props = withDefaults(
@@ -90,6 +92,25 @@ const form = reactive({
   is_active: true
 });
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+function defaultOperatingHours(): OperatingHoursEntry[] {
+  return Array.from({ length: 7 }, (_, i) => ({
+    day_of_week: i,
+    opens_at: '06:00',
+    closes_at: '23:00',
+    is_closed: false
+  }));
+}
+
+const operatingHours = ref<OperatingHoursEntry[]>(defaultOperatingHours());
+
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => {
+  const label = h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
+  const value = `${String(h).padStart(2, '0')}:00`;
+  return { label, value };
+});
+
 const coverImage = ref<File | null>(null);
 const coverPreview = ref('');
 const currentCoverUrl = ref(props.existingCoverUrl ?? '');
@@ -116,6 +137,18 @@ watch(
     form.contact_numbers = data.contact_numbers.map((c) => ({ ...c }));
     form.websites = (data.websites ?? []).map((w) => ({ url: w.url }));
     form.is_active = data.is_active ?? true;
+    if (data.operating_hours && data.operating_hours.length > 0) {
+      const base = defaultOperatingHours();
+      for (const oh of data.operating_hours) {
+        const entry = base[oh.day_of_week];
+        if (entry) {
+          entry.opens_at = oh.opens_at?.slice(0, 5) ?? oh.opens_at;
+          entry.closes_at = oh.closes_at?.slice(0, 5) ?? oh.closes_at;
+          entry.is_closed = oh.is_closed;
+        }
+      }
+      operatingHours.value = base;
+    }
   },
   { immediate: true }
 );
@@ -390,7 +423,8 @@ function handleSubmit() {
     coverImage: coverImage.value,
     galleryImages: newGalleryImages.value,
     removeGalleryImageIds: removeGalleryImageIds.value,
-    is_active: parsed.data.is_active
+    is_active: parsed.data.is_active,
+    operating_hours: operatingHours.value.map((oh) => ({ ...oh }))
   });
 }
 
@@ -421,6 +455,57 @@ onUnmounted(() => {
         class="w-full"
       />
     </UFormField>
+
+    <!-- Operating Hours -->
+    <div class="space-y-2">
+      <p class="text-sm font-medium text-[var(--aktiv-ink)]">Operating Hours</p>
+      <p class="text-xs text-[var(--aktiv-muted)]">
+        Set the opening and closing times for each day. These define the booking grid range.
+      </p>
+      <div class="overflow-hidden rounded-lg border border-[var(--aktiv-border)]">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]">
+              <th class="py-2 pl-3 pr-2 text-left font-medium text-[var(--aktiv-muted)]">Day</th>
+              <th class="px-2 py-2 text-left font-medium text-[var(--aktiv-muted)]">Opens</th>
+              <th class="px-2 py-2 text-left font-medium text-[var(--aktiv-muted)]">Closes</th>
+              <th class="py-2 pl-2 pr-3 text-center font-medium text-[var(--aktiv-muted)]">Closed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="oh in operatingHours"
+              :key="oh.day_of_week"
+              class="border-b border-[var(--aktiv-border)] last:border-b-0"
+              :class="oh.is_closed ? 'opacity-50' : ''"
+            >
+              <td class="py-2 pl-3 pr-2 font-medium text-[var(--aktiv-ink)]">
+                {{ DAY_NAMES[oh.day_of_week] }}
+              </td>
+              <td class="px-2 py-1.5">
+                <USelect
+                  v-model="oh.opens_at"
+                  :items="HOUR_OPTIONS"
+                  :disabled="oh.is_closed"
+                  class="w-28"
+                />
+              </td>
+              <td class="px-2 py-1.5">
+                <USelect
+                  v-model="oh.closes_at"
+                  :items="HOUR_OPTIONS"
+                  :disabled="oh.is_closed"
+                  class="w-28"
+                />
+              </td>
+              <td class="py-1.5 pl-2 pr-3 text-center">
+                <UCheckbox v-model="oh.is_closed" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
     <!-- Contact Numbers -->
     <div class="space-y-2">

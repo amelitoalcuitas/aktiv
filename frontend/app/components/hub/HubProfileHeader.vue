@@ -33,6 +33,7 @@ const { data: activeHub, error: hubError } = await useAsyncData<Hub>(
         is_active: true,
         owner_id: 0,
         sports: [],
+        operating_hours: [],
         courts_count: 0,
         lowest_price_per_hour: null,
         created_at: ''
@@ -91,6 +92,18 @@ const tabs = computed(() => {
 
 const isTabActive = (to: string) => route.path === to;
 
+const isCurrentlyOpen = computed(() => {
+  const hours = activeHub.value?.operating_hours;
+  if (!hours?.length) return false;
+  const now = new Date();
+  const todayHours = hours.find((oh) => oh.day_of_week === now.getDay());
+  if (!todayHours || todayHours.is_closed) return false;
+  const [openH, openM] = todayHours.opens_at.split(':').map(Number);
+  const [closeH, closeM] = todayHours.closes_at.split(':').map(Number);
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  return nowMins >= openH * 60 + openM && nowMins < closeH * 60 + closeM;
+});
+
 const coverImage = computed(
   () => activeHub.value?.cover_image_url ?? activeHub.value?.coverImageUrl ?? ''
 );
@@ -130,12 +143,25 @@ const coverImage = computed(
       <div class="absolute inset-x-0 bottom-0">
         <div class="mx-auto w-full max-w-[1160px] px-4 pb-6 md:px-6">
           <div class="max-w-[760px] p-5">
-            <p
-              class="m-0 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white"
-            >
-              <UIcon name="i-heroicons-map-pin" class="h-4 w-4" />
-              {{ activeHub?.city }}
-            </p>
+            <div class="flex flex-wrap items-center gap-2">
+              <p
+                class="m-0 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white"
+              >
+                <UIcon name="i-heroicons-map-pin" class="h-4 w-4" />
+                {{ activeHub?.city }}
+              </p>
+              <p
+                v-if="activeHub?.operating_hours?.length"
+                class="m-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide"
+                :class="isCurrentlyOpen ? 'bg-green-500/25 text-green-300' : 'bg-red-500/25 text-red-300'"
+              >
+                <span
+                  class="h-1.5 w-1.5 rounded-full"
+                  :class="isCurrentlyOpen ? 'bg-green-400' : 'bg-red-400'"
+                />
+                {{ isCurrentlyOpen ? 'Open Now' : 'Closed' }}
+              </p>
+            </div>
 
             <h1
               class="mt-3 text-3xl font-black leading-tight text-white md:text-5xl"

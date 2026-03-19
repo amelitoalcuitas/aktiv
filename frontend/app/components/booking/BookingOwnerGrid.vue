@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Court } from '~/types/hub';
+import type { Court, OperatingHoursEntry } from '~/types/hub';
 import type { BookingDetail, BookingStatus } from '~/types/booking';
 
 const props = withDefaults(
@@ -9,10 +9,12 @@ const props = withDefaults(
     selectedDate: Date;
     minTime?: string;
     maxTime?: string;
+    operatingHours?: OperatingHoursEntry[];
   }>(),
   {
     minTime: '06:00',
-    maxTime: '23:00'
+    maxTime: '23:00',
+    operatingHours: () => []
   }
 );
 
@@ -31,9 +33,27 @@ function parseMinutes(t: string): number {
   return Number(parts[0] ?? 0) * 60 + Number(parts[1] ?? 0);
 }
 
+const effectiveMinTime = computed(() => {
+  if (!props.operatingHours.length) return props.minTime;
+  const entry = props.operatingHours.find(
+    (e) => e.day_of_week === props.selectedDate.getDay()
+  );
+  if (!entry || entry.is_closed) return props.minTime;
+  return entry.opens_at;
+});
+
+const effectiveMaxTime = computed(() => {
+  if (!props.operatingHours.length) return props.maxTime;
+  const entry = props.operatingHours.find(
+    (e) => e.day_of_week === props.selectedDate.getDay()
+  );
+  if (!entry || entry.is_closed) return props.maxTime;
+  return entry.closes_at;
+});
+
 const timeSlots = computed<string[]>(() => {
-  const start = parseMinutes(props.minTime);
-  const end = parseMinutes(props.maxTime);
+  const start = parseMinutes(effectiveMinTime.value);
+  const end = parseMinutes(effectiveMaxTime.value);
   const slots: string[] = [];
   for (let min = start; min < end; min += 60) {
     const h = Math.floor(min / 60);
@@ -59,9 +79,17 @@ function slotStartDate(timeStr: string): Date {
   return d;
 }
 
+// ── Closed day detection ───────────────────────────────────────
+const isDayClosed = computed(() => {
+  if (!props.operatingHours.length) return false;
+  const dow = props.selectedDate.getDay();
+  const entry = props.operatingHours.find((e) => e.day_of_week === dow);
+  return entry?.is_closed ?? false;
+});
+
 // ── Cell state ─────────────────────────────────────────────────
 interface CellState {
-  type: 'past' | 'available' | 'booked';
+  type: 'past' | 'available' | 'booked' | 'closed';
   booking: BookingDetail | null;
 }
 
@@ -95,6 +123,7 @@ const grid = computed(() => {
         }) ?? null;
 
       if (booking) return { type: 'booked', booking };
+      if (isDayClosed.value) return { type: 'closed', booking: null };
       if (start <= now.value) return { type: 'past', booking: null };
       return { type: 'available', booking: null };
     });
@@ -149,7 +178,7 @@ function bookingTextColor(status: BookingStatus): string {
   switch (status) {
     case 'pending_payment':
     case 'payment_sent':
-      return '#854d0e'; // Yellow 800
+      return '#92400e'; // Yellow 800
     case 'confirmed':
       return '#166534'; // Green 800
     default:
@@ -235,7 +264,6 @@ function nextDay() {
   d.setDate(d.getDate() + 1);
   emit('update:selectedDate', d);
 }
-
 
 // ── Auto-scroll ───────────────────────────────────────────────
 const scrollWrapper = useTemplateRef<HTMLDivElement>('scrollWrapper');
@@ -360,9 +388,21 @@ function handleCellClick(court: Court, slotIdx: number) {
                 :style="{ minWidth: `${block.span * 88 - 12}px` }"
                 class="w-full"
               >
+                <!-- Closed slot -->
+                <div
+                  v-if="block.type === 'closed'"
+                  class="h-12 rounded-lg bg-[#fee2e2] flex items-center justify-center"
+                  :style="{ minWidth: `${block.span * 88 - 12}px` }"
+                >
+                  <span
+                    class="text-xs font-bold tracking-widest text-[#991b1b] uppercase"
+                    >Closed</span
+                  >
+                </div>
+
                 <!-- Booked slot -->
                 <div
-                  v-if="block.type === 'booked'"
+                  v-else-if="block.type === 'booked'"
                   class="group relative flex h-12 cursor-pointer flex-col justify-center rounded-lg px-2 transition-opacity hover:opacity-90"
                   :style="{
                     backgroundColor: bookingBg(block.booking!.status)
@@ -421,12 +461,12 @@ function handleCellClick(court: Court, slotIdx: number) {
                 <!-- Available slot -->
                 <div
                   v-else
-                  class="relative h-12 rounded-lg border border-dashed border-[#93c5fd] bg-[#dbeafe] transition-all duration-75 group-hover:border-[#3b82f6] group-hover:bg-[#bfdbfe]"
+                  class="relative h-12 rounded-lg border border-dashed border-[#93c5fd] bg-[#dbeafe] transition-all duration-75 group-hover:border-none group-hover:bg-[#bfdbfe]"
                   :style="{ minWidth: `${block.span * 88 - 12}px` }"
                 >
                   <button
                     type="button"
-                    class="absolute cursor-pointer inset-0 flex items-center justify-center gap-1 rounded-lg bg-[#004e89] text-white opacity-0 transition-opacity duration-75 group-hover:opacity-100"
+                    class="absolute cursor-pointer inset-0 flex items-center justify-center gap-1 rounded-lg bg-[var(--aktiv-primary)] text-white opacity-0 transition-opacity duration-75 group-hover:opacity-100"
                     @click="handleCellClick(court, block.slotIdx)"
                   >
                     <UIcon name="i-heroicons-plus" class="h-3.5 w-3.5" />
@@ -469,10 +509,14 @@ function handleCellClick(court: Court, slotIdx: number) {
       </div>
 
       <div class="flex items-center gap-1.5">
+        <span class="h-3 w-3 rounded-sm bg-[#fee2e2]" />
+        <span class="text-xs text-[var(--aktiv-muted)]">Closed</span>
+      </div>
+      <div class="flex items-center gap-1.5">
         <span
           class="h-3 w-3 rounded-sm bg-[var(--aktiv-border)] opacity-50 border border-[#dbe4ef]"
         />
-        <span class="text-xs text-[var(--aktiv-muted)]">Past / Closed</span>
+        <span class="text-xs text-[var(--aktiv-muted)]">Past</span>
       </div>
     </div>
   </div>

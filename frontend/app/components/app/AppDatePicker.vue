@@ -18,6 +18,7 @@ const props = withDefaults(
 const emit = defineEmits<{ 'update:modelValue': [Date] }>();
 
 const inputRef = useTemplateRef<any>('inputDate');
+const open = ref(false);
 
 const today = (() => {
   const d = new Date();
@@ -31,6 +32,7 @@ const calendarDate = computed({
   },
   set(val: CalendarDate) {
     emit('update:modelValue', new Date(val.year, val.month - 1, val.day));
+    open.value = false;
   }
 });
 
@@ -41,7 +43,7 @@ const minValue = computed(() => (props.allowPast ? undefined : today));
   <!-- ── Input variant ─────────────────────────────────────── -->
   <UInputDate v-if="variant === 'input'" ref="inputDate" v-model="calendarDate">
     <template #trailing>
-      <UPopover :reference="inputRef?.inputsRef[3]?.$el">
+      <UPopover v-model:open="open" :reference="inputRef?.inputsRef[3]?.$el">
         <UButton
           color="neutral"
           variant="link"
@@ -63,7 +65,7 @@ const minValue = computed(() => (props.allowPast ? undefined : today));
   </UInputDate>
 
   <!-- ── Nav variant ───────────────────────────────────────── -->
-  <UPopover v-else>
+  <UPopover v-else v-model:open="open">
     <button
       type="button"
       class="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-[var(--aktiv-border,#f1f5f9)]"

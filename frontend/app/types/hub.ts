@@ -22,6 +22,13 @@ export interface HubWebsite {
   url: string;
 }
 
+export interface OperatingHoursEntry {
+  day_of_week: number; // 0 = Sunday … 6 = Saturday
+  opens_at: string;    // 'HH:mm'
+  closes_at: string;   // 'HH:mm'
+  is_closed: boolean;
+}
+
 /** Matches the Hub object returned by the API */
 export interface Hub {
   id: number;
@@ -48,6 +55,7 @@ export interface Hub {
   websites: HubWebsite[];
   courts_count: number;
   lowest_price_per_hour: string | null;
+  operating_hours: OperatingHoursEntry[];
   created_at: string;
 
   // Client-side helpers used on legacy listing pages (computed from API data)

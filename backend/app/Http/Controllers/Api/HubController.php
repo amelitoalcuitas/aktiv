@@ -66,7 +66,7 @@ class HubController extends Controller
             abort(404);
         }
 
-        $hub->load(['sports', 'courts.sports', 'owner:id,name,avatar_url', 'images', 'contactNumbers', 'websites']);
+        $hub->load(['sports', 'courts.sports', 'owner:id,name,avatar_url', 'images', 'contactNumbers', 'websites', 'operatingHours']);
         $hub->loadCount('courts');
         $hub->loadAggregate('courts', 'min(price_per_hour)');
 
@@ -82,9 +82,10 @@ class HubController extends Controller
         $sports = $validated['sports'] ?? [];
         $contactNumbers = $validated['contact_numbers'] ?? [];
         $websites = $validated['websites'] ?? [];
+        $operatingHours = $validated['operating_hours'] ?? null;
         $galleryImages = $request->file('gallery_images', []);
         unset($validated['sports'], $validated['contact_numbers'], $validated['websites']);
-        unset($validated['cover_image'], $validated['gallery_images']);
+        unset($validated['cover_image'], $validated['gallery_images'], $validated['operating_hours']);
 
         if ($request->hasFile('cover_image')) {
             $coverImage = $this->imageUploadService->upload($request->file('cover_image'), 'hubs/covers');
@@ -104,8 +105,9 @@ class HubController extends Controller
         $this->syncContactNumbers($hub, $contactNumbers);
         $this->syncWebsites($hub, $websites);
         $this->uploadGalleryImages($hub, $galleryImages);
+        $this->syncOperatingHours($hub, $operatingHours);
 
-        $hub->load(['sports', 'images', 'contactNumbers', 'websites']);
+        $hub->load(['sports', 'images', 'contactNumbers', 'websites', 'operatingHours']);
 
         return response()->json(['data' => $this->formatHub($hub)], 201);
     }
@@ -121,10 +123,11 @@ class HubController extends Controller
         $sports = isset($validated['sports']) ? $validated['sports'] : null;
         $contactNumbers = array_key_exists('contact_numbers', $validated) ? $validated['contact_numbers'] : null;
         $websites = array_key_exists('websites', $validated) ? $validated['websites'] : null;
+        $operatingHours = array_key_exists('operating_hours', $validated) ? $validated['operating_hours'] : null;
         $galleryImages = $request->file('gallery_images', []);
         $removeGalleryImageIds = $validated['remove_gallery_image_ids'] ?? [];
         unset($validated['sports'], $validated['contact_numbers'], $validated['websites']);
-        unset($validated['remove_gallery_image_ids']);
+        unset($validated['remove_gallery_image_ids'], $validated['operating_hours']);
         unset($validated['cover_image'], $validated['gallery_images']);
 
         if ($request->hasFile('cover_image')) {
@@ -167,7 +170,11 @@ class HubController extends Controller
             $this->syncWebsites($hub, $websites);
         }
 
-        $hub->load(['sports', 'courts.sports', 'images', 'contactNumbers', 'websites']);
+        if ($operatingHours !== null) {
+            $this->syncOperatingHours($hub, $operatingHours);
+        }
+
+        $hub->load(['sports', 'courts.sports', 'images', 'contactNumbers', 'websites', 'operatingHours']);
         $hub->loadCount('courts');
         $hub->loadAggregate('courts', 'min(price_per_hour)');
 
@@ -277,6 +284,29 @@ class HubController extends Controller
     }
 
     /**
+     * Upsert operating hours for the hub.
+     *
+     * @param  list<array{day_of_week: int, opens_at: string|null, closes_at: string|null, is_closed: bool}>|null  $hours
+     */
+    private function syncOperatingHours(Hub $hub, ?array $hours): void
+    {
+        if ($hours === null) {
+            return;
+        }
+
+        foreach ($hours as $oh) {
+            $hub->operatingHours()->updateOrCreate(
+                ['day_of_week' => (int) $oh['day_of_week']],
+                [
+                    'opens_at'  => $oh['opens_at'] ?? null,
+                    'closes_at' => $oh['closes_at'] ?? null,
+                    'is_closed' => (bool) ($oh['is_closed'] ?? false),
+                ]
+            );
+        }
+    }
+
+    /**
      * Derive and sync hub_sports from all court_sports for that hub.
      */
     public static function resyncHubSportsFromCourts(Hub $hub): void
@@ -339,6 +369,14 @@ class HubController extends Controller
                 : [],
             'courts_count'         => $hub->courts_count ?? 0,
             'lowest_price_per_hour' => $hub->courts_min_price_per_hour,
+            'operating_hours'      => $hub->operatingHours
+                ? $hub->operatingHours->map(fn ($oh): array => [
+                    'day_of_week' => $oh->day_of_week,
+                    'opens_at'    => $oh->opens_at,
+                    'closes_at'   => $oh->closes_at,
+                    'is_closed'   => $oh->is_closed,
+                ])->values()
+                : [],
             'created_at'           => $hub->created_at,
         ];
     }

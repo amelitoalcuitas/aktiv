@@ -16,6 +16,30 @@ const { data: courts, error } = await useAsyncData<Court[]>(
   () => fetchCourts(hubId.value)
 );
 
+// ── Open/closed status ────────────────────────────────────────────────────
+const isCurrentlyOpen = computed(() => {
+  if (!hub.value?.operating_hours?.length) return false;
+  const now = new Date();
+  const todayHours = hub.value.operating_hours.find(
+    (oh) => oh.day_of_week === now.getDay()
+  );
+  if (!todayHours || todayHours.is_closed) return false;
+  const [openH, openM] = todayHours.opens_at.split(':').map(Number);
+  const [closeH, closeM] = todayHours.closes_at.split(':').map(Number);
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  return nowMins >= openH * 60 + openM && nowMins < closeH * 60 + closeM;
+});
+
+// ── Time helpers ──────────────────────────────────────────────────────────
+function formatTime(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour = h % 12 || 12;
+  return m === 0
+    ? `${hour} ${period}`
+    : `${hour}:${String(m).padStart(2, '0')} ${period}`;
+}
+
 // ── Address helpers ────────────────────────────────────────────────────────
 const fullAddress = computed(() => {
   if (!hub.value) return '';
@@ -198,7 +222,7 @@ onUnmounted(() => {
             <h2 class="text-base font-bold text-[var(--aktiv-ink)]">Courts</h2>
             <div
               v-if="courts && courts.length > 0"
-              class="mt-3 grid gap-3 grid-cols-[repeat(auto-fill,minmax(220px,280px))]"
+              class="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(220px,280px))]"
             >
               <div
                 v-for="court in courts"
@@ -293,6 +317,62 @@ onUnmounted(() => {
             </div>
             <p v-else class="mt-1 text-sm text-[var(--aktiv-muted)]">
               No courts listed.
+            </p>
+          </div>
+        </div>
+
+        <!-- Schedule -->
+        <div class="flex items-start gap-3">
+          <UIcon
+            name="i-heroicons-clock"
+            class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
+          />
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
+                Schedule
+              </h2>
+              <UBadge
+                :label="isCurrentlyOpen ? 'Currently Open' : 'Currently Closed'"
+                :color="isCurrentlyOpen ? 'success' : 'error'"
+                variant="subtle"
+              />
+            </div>
+            <div
+              v-if="hub.operating_hours && hub.operating_hours.length > 0"
+              class="mt-3 overflow-hidden rounded-xl border border-[var(--aktiv-border)] sm:max-w-sm"
+            >
+              <div
+                v-for="(oh, index) in [...hub.operating_hours].sort(
+                  (a, b) => a.day_of_week - b.day_of_week
+                )"
+                :key="oh.day_of_week"
+                class="flex items-center justify-between px-4 py-2.5 text-sm"
+                :class="
+                  index % 2 === 0
+                    ? 'bg-[var(--aktiv-bg)]'
+                    : 'bg-[var(--aktiv-surface)]'
+                "
+              >
+                <span class="font-medium text-[var(--aktiv-ink)]">
+                  {{
+                    ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][
+                      oh.day_of_week
+                    ]
+                  }}
+                </span>
+                <span
+                  v-if="oh.is_closed"
+                  class="rounded-full bg-[var(--aktiv-border)] px-2.5 py-0.5 text-xs font-medium text-[var(--aktiv-muted)]"
+                  >Closed</span
+                >
+                <span v-else class="text-[var(--aktiv-muted)]">
+                  {{ formatTime(oh.opens_at) }} – {{ formatTime(oh.closes_at) }}
+                </span>
+              </div>
+            </div>
+            <p v-else class="mt-1 text-sm text-[var(--aktiv-muted)]">
+              No schedule listed.
             </p>
           </div>
         </div>

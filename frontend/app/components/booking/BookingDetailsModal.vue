@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { z } from 'zod';
+import { CalendarDate } from '@internationalized/date';
 import type { FormSubmitEvent } from '#ui/types';
 import type { BookingDetail, BookingStatus } from '~/types/booking';
 import type { Court } from '~/types/hub';
@@ -156,6 +157,16 @@ const isConfirmable = computed(() => {
 const dateString = computed(() => {
   return state.date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
 });
+
+const calendarDate = computed({
+  get() {
+    const d = state.date;
+    return new CalendarDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
+  },
+  set(val: CalendarDate) {
+    state.date = new Date(val.year, val.month - 1, val.day);
+  }
+});
 </script>
 
 <template>
@@ -202,7 +213,7 @@ const dateString = computed(() => {
               </UButton>
               <template #content>
                 <div class="p-2">
-                  <VCalendarDatePicker v-model="state.date" transparent borderless />
+                  <UCalendar v-model="calendarDate" class="p-0" />
                 </div>
               </template>
             </UPopover>

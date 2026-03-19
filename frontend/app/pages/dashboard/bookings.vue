@@ -38,6 +38,26 @@ const hubOptions = computed(() =>
   hubStore.myHubs.map((h: Hub) => ({ label: h.name, value: h.id }))
 );
 
+const selectedHub = computed<Hub | undefined>(() =>
+  hubStore.myHubs.find((h: Hub) => h.id === selectedHubId.value)
+);
+
+const gridMinTime = computed(() => {
+  const oh = selectedHub.value?.operating_hours;
+  if (!oh?.length) return '06:00';
+  const open = oh.filter((e) => !e.is_closed);
+  if (!open.length) return '06:00';
+  return open.reduce((min, e) => (e.opens_at < min ? e.opens_at : min), open[0]!.opens_at);
+});
+
+const gridMaxTime = computed(() => {
+  const oh = selectedHub.value?.operating_hours;
+  if (!oh?.length) return '23:00';
+  const open = oh.filter((e) => !e.is_closed);
+  if (!open.length) return '23:00';
+  return open.reduce((max, e) => (e.closes_at > max ? e.closes_at : max), open[0]!.closes_at);
+});
+
 // ── Courts for this hub ─────────────────────────────────────
 
 const hubCourts = ref<Court[]>([]);
@@ -71,10 +91,14 @@ async function loadBookings() {
   bookingsLoading.value = true;
   try {
     const date = viewMode.value === 'table' ? tableDate.value : selectedDate.value;
-    const dateStr = formatDateString(date);
+    const y = date.getFullYear();
+    const mo = date.getMonth();
+    const d = date.getDate();
+    const dayStart = new Date(y, mo, d, 0, 0, 0, 0).toISOString();
+    const dayEnd = new Date(y, mo, d, 23, 59, 59, 999).toISOString();
     allBookings.value = await fetchHubBookings(selectedHubId.value, {
-      date_from: dateStr,
-      date_to: dateStr
+      date_from: dayStart,
+      date_to: dayEnd
     });
   } catch {
     toast.add({ title: 'Failed to load bookings', color: 'error' });
@@ -522,17 +546,7 @@ function bookingDropdownItems(booking: BookingDetail) {
         <USelect v-model="selectedHubId" :items="hubOptions" class="w-64" />
       </div>
 
-      <!-- Bookings loading -->
-      <div
-        v-if="bookingsLoading"
-        class="flex items-center gap-2 text-[#64748b]"
-      >
-        <UIcon name="i-heroicons-arrow-path" class="h-5 w-5 animate-spin" />
-        <span class="text-sm">Loading bookings…</span>
-      </div>
-
-      <template v-else>
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div class="flex flex-wrap items-center gap-3">
             <USelectMenu
               v-model="statusFilter"
@@ -553,6 +567,11 @@ function bookingDropdownItems(booking: BookingDetail) {
             <AppDatePicker
               v-if="viewMode === 'table'"
               v-model="tableDate"
+            />
+            <UIcon
+              v-if="bookingsLoading"
+              name="i-heroicons-arrow-path"
+              class="h-4 w-4 animate-spin text-[#64748b]"
             />
           </div>
           <UButton
@@ -681,6 +700,9 @@ function bookingDropdownItems(booking: BookingDetail) {
             v-model:selected-date="selectedDate"
             :courts="filteredCourts"
             :bookings="filteredBookings"
+            :min-time="gridMinTime"
+            :max-time="gridMaxTime"
+            :operating-hours="selectedHub?.operating_hours ?? []"
             @book-slot="openWalkIn"
             @action-confirm="handleConfirm"
             @action-reject="openReject"
@@ -688,7 +710,6 @@ function bookingDropdownItems(booking: BookingDetail) {
             @view-booking="openDetails"
           />
         </div>
-      </template>
     </template>
     <!-- ── Reject modal ──────────────────────────────────────────── -->
     <UModal v-model:open="isRejectOpen" title="Reject Receipt">

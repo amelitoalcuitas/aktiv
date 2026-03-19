@@ -57,14 +57,40 @@ const selectedSlots = ref<SelectedSlot[]>([]);
 
 function onSlotClick({ court, date }: { court: Court; date: Date }) {
   const t = date.getTime();
-  const idx = selectedSlots.value.findIndex(
-    (s) => s.courtId === court.id && s.slotStart.getTime() === t
-  );
-  if (idx >= 0) {
-    selectedSlots.value.splice(idx, 1);
-  } else {
-    selectedSlots.value.push({ courtId: court.id, slotStart: date });
+  const existing = selectedSlots.value;
+  const HOUR = 3_600_000;
+
+  if (existing.length === 0 || existing[0]!.courtId !== court.id) {
+    selectedSlots.value = [{ courtId: court.id, slotStart: date }];
+    return;
   }
+
+  const sorted = [...existing].sort((a, b) => a.slotStart.getTime() - b.slotStart.getTime());
+  const minT = sorted[0]!.slotStart.getTime();
+  const maxT = sorted[sorted.length - 1]!.slotStart.getTime();
+
+  if (t >= minT && t <= maxT) {
+    if (t === minT) {
+      selectedSlots.value = sorted.slice(1);
+    } else if (t === maxT) {
+      selectedSlots.value = sorted.slice(0, -1);
+    } else {
+      selectedSlots.value = [{ courtId: court.id, slotStart: date }];
+    }
+    return;
+  }
+
+  if (t === minT - HOUR) {
+    selectedSlots.value = [{ courtId: court.id, slotStart: date }, ...sorted];
+    return;
+  }
+
+  if (t === maxT + HOUR) {
+    selectedSlots.value = [...sorted, { courtId: court.id, slotStart: date }];
+    return;
+  }
+
+  selectedSlots.value = [{ courtId: court.id, slotStart: date }];
 }
 
 function onClearSlots() {
@@ -102,6 +128,23 @@ function onOwnBookingClick({
   pendingReceiptCourtName.value = court.name;
   receiptModalOpen.value = true;
 }
+
+// ── Operating hours → grid bounds (widest range across all open days) ──
+const gridMinTime = computed(() => {
+  const oh = hub.value?.operating_hours;
+  if (!oh?.length) return '06:00';
+  const open = oh.filter((e) => !e.is_closed);
+  if (!open.length) return '06:00';
+  return open.reduce((min, e) => (e.opens_at < min ? e.opens_at : min), open[0]!.opens_at);
+});
+
+const gridMaxTime = computed(() => {
+  const oh = hub.value?.operating_hours;
+  if (!oh?.length) return '23:00';
+  const open = oh.filter((e) => !e.is_closed);
+  if (!open.length) return '23:00';
+  return open.reduce((max, e) => (e.closes_at > max ? e.closes_at : max), open[0]!.closes_at);
+});
 </script>
 
 <template>
@@ -137,6 +180,9 @@ function onOwnBookingClick({
           :bookings-map="bookingsMap"
           :selected-date="selectedDate"
           :selected-slots="selectedSlots"
+          :min-time="gridMinTime"
+          :max-time="gridMaxTime"
+          :operating-hours="hub?.operating_hours ?? []"
           @slot-click="onSlotClick"
           @update:selected-date="selectedDate = $event"
           @own-booking-click="onOwnBookingClick"

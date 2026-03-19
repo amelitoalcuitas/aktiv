@@ -32,7 +32,8 @@ async function handleSubmit(payload: HubFormPayload) {
       sports: payload.sports,
       contact_numbers: payload.contact_numbers,
       websites: payload.websites,
-      is_active: payload.is_active
+      is_active: payload.is_active,
+      operating_hours: payload.operating_hours
     });
     toast.add({ title: 'Hub created successfully!', color: 'success' });
     await navigateTo('/dashboard');

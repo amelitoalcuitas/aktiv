@@ -1,4 +1,4 @@
-import type { Hub, Court, HubContactNumber, HubWebsite } from '~/types/hub';
+import type { Hub, Court, HubContactNumber, HubWebsite, OperatingHoursEntry } from '~/types/hub';
 import { useApi } from '~/utils/api';
 
 export const HUB_IMAGE_MAX_SIZE_MB = 10;
@@ -36,6 +36,7 @@ export function useHubs() {
       cover_image: File | null;
       gallery_images: File[];
       remove_gallery_image_ids: number[];
+      operating_hours: OperatingHoursEntry[];
     }>
   ) {
     const appendIfDefined = (key: string, value: unknown) => {
@@ -85,6 +86,12 @@ export function useHubs() {
     (payload.remove_gallery_image_ids ?? []).forEach((id) =>
       formData.append('remove_gallery_image_ids[]', String(id))
     );
+    (payload.operating_hours ?? []).forEach((oh, i) => {
+      formData.append(`operating_hours[${i}][day_of_week]`, String(oh.day_of_week));
+      formData.append(`operating_hours[${i}][opens_at]`, oh.opens_at);
+      formData.append(`operating_hours[${i}][closes_at]`, oh.closes_at);
+      formData.append(`operating_hours[${i}][is_closed]`, oh.is_closed ? '1' : '0');
+    });
   }
 
   // ── Hubs ──────────────────────────────────────────────────────────────────
@@ -122,6 +129,7 @@ export function useHubs() {
     sports?: string[];
     contact_numbers?: HubContactNumber[];
     websites?: HubWebsite[];
+    operating_hours?: OperatingHoursEntry[];
   }): Promise<Hub> {
     const formData = new FormData();
     appendHubFormData(formData, payload);
@@ -154,6 +162,7 @@ export function useHubs() {
       sports: string[];
       contact_numbers: HubContactNumber[];
       websites: HubWebsite[];
+      operating_hours: OperatingHoursEntry[];
     }>
   ): Promise<Hub> {
     const formData = new FormData();

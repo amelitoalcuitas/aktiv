@@ -123,7 +123,7 @@ function bookingBg(status: BookingStatus): string {
     case 'payment_sent':
       return '#fef9c3';
     case 'confirmed':
-      return '#fee2e2';
+      return '#dcfce7';
     default:
       return '#f1f5f9';
   }
@@ -135,7 +135,7 @@ function bookingTextColor(status: BookingStatus): string {
     case 'payment_sent':
       return '#92400e';
     case 'confirmed':
-      return '#9f1239';
+      return '#166534';
     default:
       return '#475569';
   }
@@ -405,7 +405,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
               <!-- Past slot -->
               <div
                 v-if="getCellState(court.id, slotIdx).type === 'past'"
-                class="h-12 rounded-md bg-[var(--aktiv-border)] opacity-40"
+                class="h-12 rounded-md bg-[#f1f5f9] opacity-50"
               />
 
               <!-- Booked slot -->
@@ -460,10 +460,10 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                 v-else
                 type="button"
                 :class="[
-                  'flex h-12 w-full items-center justify-center gap-1 rounded-md text-sm font-semibold transition-colors active:scale-95',
+                  'flex cursor-pointer h-12 w-full items-center justify-center gap-1 rounded-md text-sm font-semibold transition-colors active:scale-95',
                   isSlotSelected(court.id, slotIdx)
                     ? 'bg-[var(--aktiv-primary)] text-white hover:bg-[var(--aktiv-primary-hover)]'
-                    : 'bg-[var(--aktiv-success-bg)] text-[var(--aktiv-success-fg)] hover:brightness-95'
+                    : 'bg-[#dbeafe] text-[var(--aktiv-primary)] border border-dashed border-[#93c5fd] hover:brightness-95'
                 ]"
                 @click="handleCellClick(court, slotIdx)"
               >
@@ -486,7 +486,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
     >
       <div class="flex items-center gap-1.5">
         <span
-          class="inline-block h-3.5 w-3.5 rounded-sm bg-[var(--aktiv-success-bg)]"
+          class="inline-block h-3.5 w-3.5 rounded-sm bg-[#dbeafe] border border-dashed border-[#93c5fd]"
         />
         <span class="text-sm text-[var(--aktiv-muted)]">Available</span>
       </div>

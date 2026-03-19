@@ -145,7 +145,6 @@ function bookingBg(status: BookingStatus): string {
   }
 }
 
-
 function bookingTextColor(status: BookingStatus): string {
   switch (status) {
     case 'pending_payment':
@@ -157,7 +156,6 @@ function bookingTextColor(status: BookingStatus): string {
       return '#475569';
   }
 }
-
 
 function statusLabel(status: BookingStatus): string {
   switch (status) {
@@ -186,7 +184,7 @@ function getBookingActions(booking: BookingDetail) {
     color?: 'error';
     onSelect: () => void;
   }[][] = [];
-  
+
   if (booking.status === 'payment_sent') {
     groups.push([
       {
@@ -202,7 +200,7 @@ function getBookingActions(booking: BookingDetail) {
       }
     ]);
   }
-  
+
   if (isCancellable(booking.status)) {
     groups.push([
       {
@@ -404,11 +402,14 @@ function handleCellClick(court: Court, slotIdx: number) {
               :colspan="block.span"
               class="group relative border-r border-[#dbe4ef] p-1.5 last:border-r-0"
             >
-              <div :style="{ minWidth: `${(block.span * 88) - 12}px` }" class="w-full">
+              <div
+                :style="{ minWidth: `${block.span * 88 - 12}px` }"
+                class="w-full"
+              >
                 <!-- Booked slot -->
                 <div
                   v-if="block.type === 'booked'"
-                  class="group relative flex h-12 cursor-pointer flex-col justify-center rounded-lg px-2 shadow-sm transition-opacity hover:opacity-90"
+                  class="group relative flex h-12 cursor-pointer flex-col justify-center rounded-lg px-2 transition-opacity hover:opacity-90"
                   :style="{
                     backgroundColor: bookingBg(block.booking!.status)
                   }"
@@ -438,9 +439,7 @@ function handleCellClick(court: Court, slotIdx: number) {
                     v-if="getBookingActions(block.booking!).length"
                     class="absolute right-1 top-1"
                   >
-                    <UDropdownMenu
-                      :items="getBookingActions(block.booking!)"
-                    >
+                    <UDropdownMenu :items="getBookingActions(block.booking!)">
                       <button
                         type="button"
                         class="flex items-center justify-center rounded p-0.5 transition-colors hover:bg-black/10"
@@ -449,7 +448,10 @@ function handleCellClick(court: Court, slotIdx: number) {
                         }"
                         @click.stop
                       >
-                        <UIcon name="i-heroicons-ellipsis-vertical" class="h-4 w-4" />
+                        <UIcon
+                          name="i-heroicons-ellipsis-vertical"
+                          class="h-4 w-4"
+                        />
                       </button>
                     </UDropdownMenu>
                   </div>
@@ -459,18 +461,18 @@ function handleCellClick(court: Court, slotIdx: number) {
                 <div
                   v-else-if="block.type === 'past'"
                   class="h-12 rounded-lg bg-[#f1f5f9] opacity-50"
-                  :style="{ minWidth: `${(block.span * 88) - 12}px` }"
+                  :style="{ minWidth: `${block.span * 88 - 12}px` }"
                 />
 
                 <!-- Available slot -->
                 <div
                   v-else
                   class="relative h-12 rounded-lg border border-dashed border-[#93c5fd] bg-[#dbeafe] transition-all duration-75 group-hover:border-[#3b82f6] group-hover:bg-[#bfdbfe]"
-                  :style="{ minWidth: `${(block.span * 88) - 12}px` }"
+                  :style="{ minWidth: `${block.span * 88 - 12}px` }"
                 >
                   <button
                     type="button"
-                    class="absolute inset-0 flex items-center justify-center gap-1 rounded-lg bg-[#004e89] text-white opacity-0 transition-opacity duration-75 group-hover:opacity-100"
+                    class="absolute cursor-pointer inset-0 flex items-center justify-center gap-1 rounded-lg bg-[#004e89] text-white opacity-0 transition-opacity duration-75 group-hover:opacity-100"
                     @click="handleCellClick(court, block.slotIdx)"
                   >
                     <UIcon name="i-heroicons-plus" class="h-3.5 w-3.5" />
@@ -501,21 +503,22 @@ function handleCellClick(court: Court, slotIdx: number) {
           class="h-3 w-3 rounded-sm"
           :style="{ backgroundColor: bookingBg(s) }"
         />
-        <span class="text-xs text-[#64748b]">{{ statusLabel(s) }}</span>
+        <span class="text-xs text-[var(--aktiv-muted)]">{{
+          statusLabel(s)
+        }}</span>
       </div>
       <div class="flex items-center gap-1.5">
         <span
           class="h-3 w-3 rounded-sm bg-[#dbeafe] border border-dashed border-[#93c5fd]"
         />
-        <span class="text-xs text-[#64748b]">Available</span>
+        <span class="text-xs text-[var(--aktiv-muted)]">Available</span>
       </div>
 
       <div class="flex items-center gap-1.5">
-
         <span
-          class="h-3 w-3 rounded-sm bg-[#f1f5f9] opacity-50 border border-[#dbe4ef]"
+          class="h-3 w-3 rounded-sm bg-[var(--aktiv-border)] opacity-50 border border-[#dbe4ef]"
         />
-        <span class="text-xs text-[#64748b]">Past / Unavailable</span>
+        <span class="text-xs text-[var(--aktiv-muted)]">Past / Closed</span>
       </div>
     </div>
   </div>

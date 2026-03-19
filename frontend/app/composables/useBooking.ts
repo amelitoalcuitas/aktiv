@@ -1,15 +1,26 @@
 import type { Booking, CalendarBooking, SessionType } from '~/types/booking';
 import { useApi } from '~/utils/api';
 
+interface FetchBookingsParams {
+  date_from?: string;
+  date_to?: string;
+}
+
 export function useBooking() {
   const { apiFetch } = useApi();
 
   async function fetchBookings(
     hubId: string | number,
-    courtId: string | number
+    courtId: string | number,
+    params?: FetchBookingsParams
   ): Promise<CalendarBooking[]> {
+    const query = new URLSearchParams();
+    if (params?.date_from) query.set('date_from', params.date_from);
+    if (params?.date_to) query.set('date_to', params.date_to);
+
+    const qs = query.toString();
     const response = await apiFetch<{ data: CalendarBooking[] }>(
-      `/hubs/${hubId}/courts/${courtId}/bookings`
+      `/hubs/${hubId}/courts/${courtId}/bookings${qs ? `?${qs}` : ''}`
     );
     return response.data;
   }

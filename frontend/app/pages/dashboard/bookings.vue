@@ -56,11 +56,22 @@ async function loadCourts() {
 const bookingsLoading = ref(false);
 const allBookings = ref<BookingDetail[]>([]);
 
+function formatDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 async function loadBookings() {
   if (!selectedHubId.value) return;
   bookingsLoading.value = true;
   try {
-    allBookings.value = await fetchHubBookings(selectedHubId.value);
+    const dateStr = formatDateString(selectedDate.value);
+    allBookings.value = await fetchHubBookings(selectedHubId.value, {
+      date_from: dateStr,
+      date_to: dateStr
+    });
   } catch {
     toast.add({ title: 'Failed to load bookings', color: 'error' });
   } finally {
@@ -273,8 +284,15 @@ async function onModalUpdate({ id, data }: { id: number; data: any }) {
     toast.add({ title: 'Booking updated successfully', color: 'success' });
     isDetailsOpen.value = false;
   } catch (err: any) {
-    const msg = err?.data?.message || err?.message || 'Conflicting schedules exist or invalid data.';
-    toast.add({ title: 'Failed to update booking', description: msg, color: 'error' });
+    const msg =
+      err?.data?.message ||
+      err?.message ||
+      'Conflicting schedules exist or invalid data.';
+    toast.add({
+      title: 'Failed to update booking',
+      description: msg,
+      color: 'error'
+    });
   } finally {
     updatingId.value = null;
   }

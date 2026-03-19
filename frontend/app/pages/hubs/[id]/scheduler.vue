@@ -24,12 +24,23 @@ const selectedDate = ref(new Date());
 // ── Bookings map keyed by court.id ─────────────────────────────
 const bookingsMap = ref<Record<number, CalendarBooking[]>>({});
 
+function formatDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 async function loadAllBookings() {
   if (!courts.value || courts.value.length === 0) return;
+  const dateStr = formatDateString(selectedDate.value);
   const entries = await Promise.all(
     courts.value.map(async (court) => {
       try {
-        const bookings = await fetchBookings(hubId.value, court.id);
+        const bookings = await fetchBookings(hubId.value, court.id, {
+          date_from: dateStr,
+          date_to: dateStr
+        });
         return [court.id, bookings] as [number, CalendarBooking[]];
       } catch {
         return [court.id, []] as [number, CalendarBooking[]];
@@ -44,6 +55,8 @@ watch(
   () => loadAllBookings(),
   { immediate: true }
 );
+
+watch(selectedDate, () => loadAllBookings());
 
 // ── Multi-slot selection ────────────────────────────────────────
 const selectedSlots = ref<SelectedSlot[]>([]);

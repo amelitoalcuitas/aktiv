@@ -195,47 +195,6 @@ function isSlotSelected(courtId: number, slotIdx: number): boolean {
   );
 }
 
-// ── Native date-picker ────────────────────────────────────────
-const dateInput = useTemplateRef<HTMLInputElement>('dateInput');
-
-const todayStr = computed(() => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-});
-
-const selectedDateStr = computed(() => {
-  const d = props.selectedDate;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-});
-
-function openDatePicker() {
-  dateInput.value?.showPicker?.();
-  dateInput.value?.click();
-}
-
-function onDateInputChange(e: Event) {
-  const val = (e.target as HTMLInputElement).value;
-  if (!val) return;
-  const [y, mo, day] = val.split('-').map(Number);
-  const d = new Date(props.selectedDate);
-  d.setFullYear(y ?? 0, (mo ?? 1) - 1, day ?? 1);
-  d.setHours(0, 0, 0, 0);
-
-  // Guard against past dates (in case browser allows selection)
-  if (d < todayMidnight) {
-    // Reset to today if it's in the past
-    emit('update:selectedDate', new Date(todayMidnight));
-    return;
-  }
-
-  emit('update:selectedDate', d);
-}
 
 // ── Auto-scroll to current time ───────────────────────────────
 const scrollWrapper = useTemplateRef<HTMLDivElement>('scrollWrapper');
@@ -312,32 +271,13 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
         <UIcon name="i-heroicons-chevron-left" class="h-5 w-5" />
       </button>
 
-      <!-- Clickable date label — opens native date picker -->
-      <div class="relative">
-        <input
-          ref="dateInput"
-          type="date"
-          :value="selectedDateStr"
-          :min="todayStr"
-          class="sr-only"
-          tabindex="-1"
-          aria-hidden="true"
-          @change="onDateInputChange"
-        />
-        <button
-          type="button"
-          class="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-[var(--aktiv-border)]"
-          @click="openDatePicker"
-        >
-          <UIcon
-            name="i-heroicons-calendar-days"
-            class="h-4 w-4 text-[var(--aktiv-muted)]"
-          />
-          <span class="text-sm font-semibold text-[var(--aktiv-ink)]">
-            {{ headerLabel }}
-          </span>
-        </button>
-      </div>
+      <AppDatePicker
+        variant="nav"
+        :model-value="selectedDate"
+        :label="headerLabel"
+        :allow-past="false"
+        @update:model-value="emit('update:selectedDate', $event)"
+      />
 
       <button
         type="button"

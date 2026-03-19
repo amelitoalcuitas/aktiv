@@ -9,6 +9,21 @@ interface FetchBookingsParams {
 export function useBooking() {
   const { apiFetch } = useApi();
 
+  async function fetchHubBookings(
+    hubId: string | number,
+    params?: FetchBookingsParams
+  ): Promise<Record<number, CalendarBooking[]>> {
+    const query = new URLSearchParams();
+    if (params?.date_from) query.set('date_from', params.date_from);
+    if (params?.date_to) query.set('date_to', params.date_to);
+
+    const qs = query.toString();
+    const response = await apiFetch<{ data: Record<number, CalendarBooking[]> }>(
+      `/hubs/${hubId}/bookings${qs ? `?${qs}` : ''}`
+    );
+    return response.data;
+  }
+
   async function fetchBookings(
     hubId: string | number,
     courtId: string | number,
@@ -74,5 +89,5 @@ export function useBooking() {
     return response.data;
   }
 
-  return { fetchBookings, createBooking, uploadReceipt };
+  return { fetchHubBookings, fetchBookings, createBooking, uploadReceipt };
 }

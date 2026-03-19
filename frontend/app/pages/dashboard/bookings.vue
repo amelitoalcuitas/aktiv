@@ -55,6 +55,7 @@ async function loadCourts() {
 
 const bookingsLoading = ref(false);
 const allBookings = ref<BookingDetail[]>([]);
+const tableDate = ref(new Date());
 
 function formatDateString(date: Date): string {
   const y = date.getFullYear();
@@ -63,11 +64,14 @@ function formatDateString(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+const tableDateStr = computed(() => formatDateString(tableDate.value));
+
 async function loadBookings() {
   if (!selectedHubId.value) return;
   bookingsLoading.value = true;
   try {
-    const dateStr = formatDateString(selectedDate.value);
+    const date = viewMode.value === 'table' ? tableDate.value : selectedDate.value;
+    const dateStr = formatDateString(date);
     allBookings.value = await fetchHubBookings(selectedHubId.value, {
       date_from: dateStr,
       date_to: dateStr
@@ -98,6 +102,10 @@ const courtFilterOptions = computed(() =>
 
 const filteredBookings = computed(() => {
   let list = allBookings.value;
+  if (viewMode.value === 'table') {
+    const ds = tableDateStr.value;
+    list = list.filter((b) => formatDateString(new Date(b.start_time)) === ds);
+  }
   if (statusFilter.value.length > 0)
     list = list.filter((b) => statusFilter.value.includes(b.status));
   if (courtFilter.value.length > 0)
@@ -135,6 +143,16 @@ watch(selectedDate, async () => {
   if (viewMode.value === 'calendar') {
     await loadBookings();
   }
+});
+
+watch(tableDate, async () => {
+  if (viewMode.value === 'table') {
+    await loadBookings();
+  }
+});
+
+watch(viewMode, async () => {
+  await loadBookings();
 });
 
 // ── Confirm ───────────────────────────────────────────────────
@@ -531,6 +549,10 @@ function bookingDropdownItems(booking: BookingDetail) {
               value-key="value"
               placeholder="All Courts"
               class="w-48"
+            />
+            <AppDatePicker
+              v-if="viewMode === 'table'"
+              v-model="tableDate"
             />
           </div>
           <UButton

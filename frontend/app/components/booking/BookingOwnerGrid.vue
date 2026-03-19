@@ -236,33 +236,6 @@ function nextDay() {
   emit('update:selectedDate', d);
 }
 
-// ── Native date-picker (same as SchedulerResourceGrid) ─────────
-const dateInput = useTemplateRef<HTMLInputElement>('dateInput');
-
-const todayStr = computed(() => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-});
-
-const selectedDateStr = computed(() => {
-  const d = props.selectedDate;
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-});
-
-function openDatePicker() {
-  dateInput.value?.showPicker?.();
-  dateInput.value?.click();
-}
-
-function onDateInputChange(e: Event) {
-  const val = (e.target as HTMLInputElement).value;
-  if (!val) return;
-  const [y, mo, day] = val.split('-').map(Number);
-  const d = new Date(props.selectedDate);
-  d.setFullYear(y ?? 0, (mo ?? 1) - 1, day ?? 1);
-  d.setHours(0, 0, 0, 0);
-  emit('update:selectedDate', d);
-}
 
 // ── Auto-scroll ───────────────────────────────────────────────
 const scrollWrapper = useTemplateRef<HTMLDivElement>('scrollWrapper');
@@ -302,7 +275,7 @@ function handleCellClick(court: Court, slotIdx: number) {
 
 <template>
   <div
-    class="w-full min-w-0 rounded-2xl border border-[#dbe4ef] bg-white shadow-sm"
+    class="overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] shadow-sm"
   >
     <!-- Date nav header -->
     <div
@@ -316,32 +289,13 @@ function handleCellClick(court: Court, slotIdx: number) {
         <UIcon name="i-heroicons-chevron-left" class="h-5 w-5 text-[#64748b]" />
       </button>
 
-      <!-- Clickable date label — opens native date picker -->
-      <div class="relative">
-        <input
-          ref="dateInput"
-          type="date"
-          :value="selectedDateStr"
-          :min="todayStr"
-          class="sr-only"
-          tabindex="-1"
-          aria-hidden="true"
-          @change="onDateInputChange"
-        />
-        <button
-          type="button"
-          class="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-[#f1f5f9]"
-          @click="openDatePicker"
-        >
-          <UIcon
-            name="i-heroicons-calendar-days"
-            class="h-4 w-4 text-[#64748b]"
-          />
-          <span class="text-sm font-semibold text-[#0f1728]">
-            {{ headerLabel }}
-          </span>
-        </button>
-      </div>
+      <AppDatePicker
+        variant="nav"
+        :model-value="selectedDate"
+        :label="headerLabel"
+        :allow-past="true"
+        @update:model-value="emit('update:selectedDate', $event)"
+      />
 
       <button
         type="button"

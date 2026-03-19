@@ -59,4 +59,5 @@ export interface CalendarBooking {
   session_type: SessionType;
   status: BookingStatus;
   is_own: boolean;
+  court_id?: number;
 }

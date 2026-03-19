@@ -8,12 +8,53 @@ use App\Http\Requests\Booking\UploadReceiptRequest;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
+use Illuminate\Http\Request;
 use App\Services\ImageUploadService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 
 class BookingController extends Controller
 {
+    /**
+     * List non-cancelled bookings for ALL courts in a hub in a single request.
+     * Public — no auth required. Returns minimal data grouped by court_id.
+     * Supports optional date_from / date_to query params (YYYY-MM-DD).
+     */
+    public function hubIndex(Request $request, Hub $hub): JsonResponse
+    {
+        $courtIds = $hub->courts()->pluck('id');
+
+        $query = Booking::whereIn('court_id', $courtIds)
+            ->whereNotIn('status', ['cancelled']);
+
+        if ($request->filled('date_from')) {
+            $query->where('end_time', '>=', Carbon::parse($request->date_from)->startOfDay());
+        } else {
+            $query->where('end_time', '>=', now()->startOfDay());
+        }
+
+        if ($request->filled('date_to')) {
+            $query->where('start_time', '<=', Carbon::parse($request->date_to)->endOfDay());
+        }
+
+        $bookings = $query->orderBy('start_time')->get();
+        $userId = auth()->id();
+
+        $grouped = [];
+        foreach ($bookings as $b) {
+            $grouped[$b->court_id][] = [
+                'id' => $b->id,
+                'start_time' => $b->start_time->toIso8601String(),
+                'end_time' => $b->end_time->toIso8601String(),
+                'session_type' => $b->session_type,
+                'status' => $b->status,
+                'is_own' => $userId !== null && (int) $b->booked_by === (int) $userId,
+            ];
+        }
+
+        return response()->json(['data' => $grouped]);
+    }
+
     /**
      * List non-cancelled upcoming bookings for a court (used to render the calendar).
      * Public — no auth required. Returns minimal data; no personal info exposed.

@@ -6,7 +6,7 @@ definePageMeta({ layout: 'hub' });
 
 const route = useRoute();
 const { fetchCourts } = useHubs();
-const { fetchBookings } = useBooking();
+const { fetchHubBookings } = useBooking();
 
 const hubId = computed(() => String(route.params.id ?? ''));
 
@@ -34,20 +34,14 @@ function formatDateString(date: Date): string {
 async function loadAllBookings() {
   if (!courts.value || courts.value.length === 0) return;
   const dateStr = formatDateString(selectedDate.value);
-  const entries = await Promise.all(
-    courts.value.map(async (court) => {
-      try {
-        const bookings = await fetchBookings(hubId.value, court.id, {
-          date_from: dateStr,
-          date_to: dateStr
-        });
-        return [court.id, bookings] as [number, CalendarBooking[]];
-      } catch {
-        return [court.id, []] as [number, CalendarBooking[]];
-      }
-    })
-  );
-  bookingsMap.value = Object.fromEntries(entries);
+  try {
+    bookingsMap.value = await fetchHubBookings(hubId.value, {
+      date_from: dateStr,
+      date_to: dateStr
+    });
+  } catch {
+    bookingsMap.value = {};
+  }
 }
 
 watch(

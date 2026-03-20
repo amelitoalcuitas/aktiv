@@ -91,14 +91,10 @@ async function loadBookings() {
   bookingsLoading.value = true;
   try {
     const date = viewMode.value === 'table' ? tableDate.value : selectedDate.value;
-    const y = date.getFullYear();
-    const mo = date.getMonth();
-    const d = date.getDate();
-    const dayStart = new Date(y, mo, d, 0, 0, 0, 0).toISOString();
-    const dayEnd = new Date(y, mo, d, 23, 59, 59, 999).toISOString();
+    const dayStr = formatDateString(date);
     allBookings.value = await fetchHubBookings(selectedHubId.value, {
-      date_from: dayStart,
-      date_to: dayEnd
+      date_from: dayStr,
+      date_to: dayStr
     });
   } catch {
     toast.add({ title: 'Failed to load bookings', color: 'error' });

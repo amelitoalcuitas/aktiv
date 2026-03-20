@@ -16,7 +16,7 @@ trait SendsBookingNotification
     private function notifyBookingActivity(User $recipient, Booking $booking, string $activityType): void
     {
         $notification = new BookingActivityNotification($booking, $activityType);
-        $recipient->notify($notification);
+        $recipient->notifyNow($notification);
 
         // Retrieve the just-created DB notification to get its ID and formatted data
         $dbNotification = $recipient->notifications()->latest()->first();

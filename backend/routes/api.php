@@ -9,7 +9,11 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OwnerBookingController;
 use App\Http\Controllers\Api\PasswordResetController;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
+
+// Register the broadcasting auth endpoint at /api/broadcasting/auth
+Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
 Route::prefix('auth')->group(function (): void {
     Route::post('/register', [AuthController::class, 'register'])->name('api.auth.register');

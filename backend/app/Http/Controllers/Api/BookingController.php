@@ -35,13 +35,13 @@ class BookingController extends Controller
             ->whereNotIn('status', ['cancelled']);
 
         if ($request->filled('date_from')) {
-            $query->where('end_time', '>=', Carbon::parse($request->date_from)->startOfDay());
+            $query->where('end_time', '>=', Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay());
         } else {
-            $query->where('end_time', '>=', now()->startOfDay());
+            $query->where('end_time', '>=', now('Asia/Manila')->startOfDay());
         }
 
         if ($request->filled('date_to')) {
-            $query->where('start_time', '<=', Carbon::parse($request->date_to)->endOfDay());
+            $query->where('start_time', '<=', Carbon::parse($request->date_to, 'Asia/Manila')->endOfDay());
         }
 
         $bookings = $query->orderBy('start_time')->get();
@@ -101,9 +101,10 @@ class BookingController extends Controller
         $startTime = Carbon::parse($request->start_time);
         $endTime = Carbon::parse($request->end_time);
 
-        // Conflict detection: any non-cancelled booking whose interval overlaps
+        // Conflict detection: any non-cancelled, non-expired booking whose interval overlaps
         $conflict = Booking::where('court_id', $court->id)
             ->whereNotIn('status', ['cancelled'])
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->where('start_time', '<', $endTime)
             ->where('end_time', '>', $startTime)
             ->exists();

@@ -16,12 +16,12 @@ onMounted(() => {
 <template>
   <header
     :class="[
-      'sticky top-0 z-50 bg-[var(--aktiv-surface)] transition-shadow duration-300',
+      'inset-x-0 sticky top-0 z-30 bg-[var(--aktiv-surface)] transition-shadow duration-300',
       scrolled ? 'shadow-md' : ''
     ]"
   >
     <div
-      class="mx-auto flex h-[76px] w-full max-w-[1120px] items-center justify-between px-4 md:px-8"
+      class="mx-auto flex h-[76px] w-full max-w-[1280px] items-center justify-between px-4 md:px-8"
     >
       <!-- Logo -->
       <NuxtLink

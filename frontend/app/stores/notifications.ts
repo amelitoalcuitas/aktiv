@@ -57,14 +57,8 @@ export const useNotificationStore = defineStore('notifications', () => {
     const { $echo } = useNuxtApp();
     if (!$echo) return;
 
-    const authStore = useAuthStore();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const echoInstance = $echo as any;
-
-    // Update auth header with current token
-    echoInstance.options.auth = {
-      headers: { Authorization: `Bearer ${authStore.token}` },
-    };
 
     // Reconnect if previously disconnected
     echoInstance.connector.pusher.connection.connect();

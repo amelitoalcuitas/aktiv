@@ -104,9 +104,10 @@ class GuestBookingController extends Controller
             ], 422);
         }
 
-        // Conflict detection
+        // Conflict detection: any non-cancelled, non-expired booking whose interval overlaps
         $conflict = Booking::where('court_id', $court->id)
             ->whereNotIn('status', ['cancelled'])
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->where('start_time', '<', $endTime)
             ->where('end_time', '>', $startTime)
             ->exists();

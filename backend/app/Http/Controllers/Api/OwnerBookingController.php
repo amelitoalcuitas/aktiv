@@ -44,11 +44,11 @@ class OwnerBookingController extends Controller
         }
 
         if ($request->filled('date_from')) {
-            $query->where('start_time', '>=', Carbon::parse($request->date_from)->startOfDay());
+            $query->where('end_time', '>=', Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay());
         }
 
         if ($request->filled('date_to')) {
-            $query->where('start_time', '<=', Carbon::parse($request->date_to)->endOfDay());
+            $query->where('start_time', '<=', Carbon::parse($request->date_to, 'Asia/Manila')->endOfDay());
         }
 
         $bookings = $query->get()->map(fn (Booking $b) => $this->formatBooking($b));
@@ -90,10 +90,11 @@ class OwnerBookingController extends Controller
         $startTime = Carbon::parse($validated['start_time']);
         $endTime = Carbon::parse($validated['end_time']);
 
-        // Check conflicts excluding current booking
+        // Check conflicts excluding current booking and expired bookings
         $conflict = Booking::where('court_id', $court->id)
             ->where('id', '!=', $booking->id)
             ->whereNotIn('status', ['cancelled'])
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->where('start_time', '<', $endTime)
             ->where('end_time', '>', $startTime)
             ->exists();
@@ -235,9 +236,10 @@ class OwnerBookingController extends Controller
         $startTime = Carbon::parse($request->start_time);
         $endTime = Carbon::parse($request->end_time);
 
-        // Conflict detection — same logic as self-booked
+        // Conflict detection — same logic as self-booked, excluding expired bookings
         $conflict = Booking::where('court_id', $court->id)
             ->whereNotIn('status', ['cancelled'])
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->where('start_time', '<', $endTime)
             ->where('end_time', '>', $startTime)
             ->exists();

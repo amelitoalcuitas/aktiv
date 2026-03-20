@@ -23,7 +23,7 @@ return new class extends Migration
         // Migrate existing data from hubs to hub_settings
         DB::statement('
             INSERT INTO hub_settings (hub_id, require_account_to_book, payment_methods, payment_qr_url, digital_bank_name, digital_bank_account, created_at, updated_at)
-            SELECT id, require_account_to_book, payment_methods, payment_qr_url, digital_bank_name, digital_bank_account, NOW(), NOW()
+            SELECT id, require_account_to_book, payment_methods, payment_qr_url, digital_bank_name, digital_bank_account, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
             FROM hubs
         ');
 
@@ -50,14 +50,13 @@ return new class extends Migration
 
         // Restore data from hub_settings back to hubs
         DB::statement('
-            UPDATE hubs h
-            SET require_account_to_book = hs.require_account_to_book,
-                payment_methods = hs.payment_methods,
-                payment_qr_url = hs.payment_qr_url,
-                digital_bank_name = hs.digital_bank_name,
-                digital_bank_account = hs.digital_bank_account
-            FROM hub_settings hs
-            WHERE hs.hub_id = h.id
+            UPDATE hubs
+            SET require_account_to_book = (SELECT hs.require_account_to_book FROM hub_settings hs WHERE hs.hub_id = hubs.id),
+                payment_methods         = (SELECT hs.payment_methods         FROM hub_settings hs WHERE hs.hub_id = hubs.id),
+                payment_qr_url          = (SELECT hs.payment_qr_url          FROM hub_settings hs WHERE hs.hub_id = hubs.id),
+                digital_bank_name       = (SELECT hs.digital_bank_name       FROM hub_settings hs WHERE hs.hub_id = hubs.id),
+                digital_bank_account    = (SELECT hs.digital_bank_account    FROM hub_settings hs WHERE hs.hub_id = hubs.id)
+            WHERE EXISTS (SELECT 1 FROM hub_settings hs WHERE hs.hub_id = hubs.id)
         ');
 
         Schema::dropIfExists('hub_settings');

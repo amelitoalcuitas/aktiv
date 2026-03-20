@@ -94,6 +94,41 @@ Laravel Sanctum API tokens. Frontend stores the token in a cookie (`aktiv_token`
 - **Models**: Casts defined via `casts()` method, not `$casts` property
 - **env()**: Never call `env()` outside of config files; always use `config('...')`
 
+### Timezone Rules
+
+All timestamps are stored as **UTC** in PostgreSQL `timestamp without timezone` columns (Laravel default). The app's local timezone is **Asia/Manila (UTC+8)**.
+
+**Backend — date-range queries:** When filtering by a YYYY-MM-DD calendar date from the frontend, always convert through the Manila timezone AND call `.utc()` before passing to Eloquent:
+
+```php
+// CORRECT
+Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay()->utc()
+Carbon::parse($request->date_to,   'Asia/Manila')->endOfDay()->utc()
+now('Asia/Manila')->startOfDay()->utc()
+
+// WRONG — naive string passed to PostgreSQL, compared against UTC-stored values
+Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay()
+now()->startOfDay()
+```
+
+**Backend — relative-time comparisons:** Bare `now()` (UTC) is correct for `expires_at` storage and expiry checks — both sides of the comparison are UTC.
+
+**Frontend → API date params:** Send `YYYY-MM-DD` strings built from local JS date methods (`.getFullYear()` etc.). This is correct — it represents the Manila calendar date the user is viewing. The backend's `Asia/Manila` Carbon parse will interpret it correctly.
+
+**Frontend — displaying API timestamps:** API responses contain ISO strings with a UTC offset (e.g. `2026-03-20T22:00:00+00:00`). When passing these to `toLocaleString` / `toLocaleDateString` / `toLocaleTimeString`, always include `timeZone: 'Asia/Manila'` so display is correct regardless of the browser's system timezone:
+
+```ts
+// CORRECT
+new Date(iso).toLocaleString('en-PH', { timeZone: 'Asia/Manila', ... })
+
+// WRONG — depends on browser's system timezone
+new Date(iso).toLocaleString('en-PH', { ... })
+```
+
+**Frontend — booking time construction:** `setHours(h, m, 0, 0)` then `.toISOString()` is correct — it sets the local Manila hour and converts to UTC ISO for the API.
+
+---
+
 ### Key Backend Conventions
 
 - Prefer `Model::query()` over `DB::` raw queries

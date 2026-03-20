@@ -2,6 +2,7 @@
 import type { Hub, Court } from '~/types/hub';
 import type { BookingDetail, BookingStatus } from '~/types/booking';
 import { useHubStore } from '~/stores/hub';
+import { useNotificationStore } from '~/stores/notifications';
 import { useHubs } from '~/composables/useHubs';
 import { useOwnerBookings } from '~/composables/useOwnerBookings';
 
@@ -86,6 +87,14 @@ function formatDateString(date: Date): string {
 
 const tableDateStr = computed(() => formatDateString(tableDate.value));
 
+const tableDateLabel = computed(() =>
+  tableDate.value.toLocaleDateString('en-PH', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric'
+  })
+);
+
 async function loadBookings() {
   if (!selectedHubId.value) return;
   bookingsLoading.value = true;
@@ -169,6 +178,21 @@ onMounted(async () => {
   }
 });
 
+watch(
+  () => route.query.bookingId,
+  async (bookingIdRaw) => {
+    if (!bookingIdRaw || !selectedHubId.value) return;
+    try {
+      const res = await apiFetch<{ data: BookingDetail }>(
+        `/dashboard/hubs/${selectedHubId.value}/bookings/${bookingIdRaw}`
+      );
+      openDetails(res.data);
+    } catch {
+      // booking not found or not accessible — silently ignore
+    }
+  }
+);
+
 watch(selectedHubId, async () => {
   allBookings.value = [];
   hubCourts.value = [];
@@ -190,6 +214,22 @@ watch(tableDate, async () => {
 watch(viewMode, async () => {
   await loadBookings();
 });
+
+// ── Auto-reload on real-time booking events ────────────────────
+const notificationStore = useNotificationStore();
+
+watch(
+  () => notificationStore.items[0],
+  (latest) => {
+    if (!latest || !selectedHubId.value) return;
+    if (
+      latest.data.hub_id === selectedHubId.value &&
+      ['booking_created', 'receipt_uploaded'].includes(latest.data.activity_type)
+    ) {
+      loadBookings();
+    }
+  }
+);
 
 // ── Confirm ───────────────────────────────────────────────────
 
@@ -367,6 +407,7 @@ function customerLabel(b: BookingDetail): string {
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('en-PH', {
+    timeZone: 'Asia/Manila',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -380,16 +421,19 @@ function formatDateRange(start: string, end: string): string {
   const s = new Date(start);
   const e = new Date(end);
   const dateStr = s.toLocaleDateString('en-PH', {
+    timeZone: 'Asia/Manila',
     month: 'short',
     day: 'numeric',
     year: 'numeric'
   });
   const timeStart = s.toLocaleTimeString('en-PH', {
+    timeZone: 'Asia/Manila',
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
   });
   const timeEnd = e.toLocaleTimeString('en-PH', {
+    timeZone: 'Asia/Manila',
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
@@ -576,10 +620,30 @@ function bookingDropdownItems(booking: BookingDetail) {
               placeholder="All Courts"
               class="w-48"
             />
-            <AppDatePicker
-              v-if="viewMode === 'table'"
-              v-model="tableDate"
-            />
+            <div v-if="viewMode === 'table'" class="flex items-center gap-0.5">
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-[#f1f5f9]"
+                aria-label="Previous day"
+                @click="tableDate = new Date(tableDate.getFullYear(), tableDate.getMonth(), tableDate.getDate() - 1)"
+              >
+                <UIcon name="i-heroicons-chevron-left" class="h-5 w-5 text-[#64748b]" />
+              </button>
+              <AppDatePicker
+                variant="nav"
+                v-model="tableDate"
+                :label="tableDateLabel"
+                :allow-past="true"
+              />
+              <button
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-[#f1f5f9]"
+                aria-label="Next day"
+                @click="tableDate = new Date(tableDate.getFullYear(), tableDate.getMonth(), tableDate.getDate() + 1)"
+              >
+                <UIcon name="i-heroicons-chevron-right" class="h-5 w-5 text-[#64748b]" />
+              </button>
+            </div>
             <UIcon
               v-if="bookingsLoading"
               name="i-heroicons-arrow-path"

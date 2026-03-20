@@ -44,11 +44,11 @@ class OwnerBookingController extends Controller
         }
 
         if ($request->filled('date_from')) {
-            $query->where('end_time', '>=', Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay());
+            $query->where('end_time', '>=', Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay()->utc());
         }
 
         if ($request->filled('date_to')) {
-            $query->where('start_time', '<=', Carbon::parse($request->date_to, 'Asia/Manila')->endOfDay());
+            $query->where('start_time', '<=', Carbon::parse($request->date_to, 'Asia/Manila')->endOfDay()->utc());
         }
 
         $bookings = $query->get()->map(fn (Booking $b) => $this->formatBooking($b));

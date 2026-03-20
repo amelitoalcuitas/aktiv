@@ -35,13 +35,13 @@ class BookingController extends Controller
             ->whereNotIn('status', ['cancelled']);
 
         if ($request->filled('date_from')) {
-            $query->where('end_time', '>=', Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay());
+            $query->where('end_time', '>=', Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay()->utc());
         } else {
-            $query->where('end_time', '>=', now('Asia/Manila')->startOfDay());
+            $query->where('end_time', '>=', now('Asia/Manila')->startOfDay()->utc());
         }
 
         if ($request->filled('date_to')) {
-            $query->where('start_time', '<=', Carbon::parse($request->date_to, 'Asia/Manila')->endOfDay());
+            $query->where('start_time', '<=', Carbon::parse($request->date_to, 'Asia/Manila')->endOfDay()->utc());
         }
 
         $bookings = $query->orderBy('start_time')->get();
@@ -72,7 +72,7 @@ class BookingController extends Controller
 
         $bookings = Booking::where('court_id', $court->id)
             ->whereNotIn('status', ['cancelled'])
-            ->where('end_time', '>=', now()->startOfDay())
+            ->where('end_time', '>=', now('Asia/Manila')->startOfDay()->utc())
             ->orderBy('start_time')
             ->get();
 

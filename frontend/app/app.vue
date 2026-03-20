@@ -5,6 +5,7 @@ import { useNotificationStore } from '~/stores/notifications';
 const { init } = useAuth();
 const authStore = useAuthStore();
 const notificationStore = useNotificationStore();
+const toaster = { position: 'bottom-left' };
 
 // Rehydrate auth state from cookie on every page load
 await init();
@@ -25,7 +26,7 @@ watch(
 </script>
 
 <template>
-  <UApp>
+  <UApp :toaster="toaster">
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>

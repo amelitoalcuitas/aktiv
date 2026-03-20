@@ -14,11 +14,15 @@ export const useNotificationStore = defineStore('notifications', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const echoChannel = ref<any>(null);
 
-  const unreadCount = computed(() => items.value.filter(n => n.read_at === null).length);
+  const unreadCount = computed(
+    () => items.value.filter((n) => n.read_at === null).length
+  );
 
   async function fetchInitial() {
     const { apiFetch } = useApi();
-    const data = await apiFetch<NotificationsResponse>('/notifications?per_page=50');
+    const data = await apiFetch<NotificationsResponse>(
+      '/notifications?per_page=50'
+    );
     items.value = data.data;
     hasMore.value = data.has_more;
     nextCursor.value = data.next_cursor;
@@ -27,8 +31,12 @@ export const useNotificationStore = defineStore('notifications', () => {
   async function fetchMore() {
     if (!hasMore.value) return;
     const { apiFetch } = useApi();
-    const cursor = nextCursor.value ? `&cursor=${encodeURIComponent(nextCursor.value)}` : '';
-    const data = await apiFetch<NotificationsResponse>(`/notifications?per_page=20${cursor}`);
+    const cursor = nextCursor.value
+      ? `&cursor=${encodeURIComponent(nextCursor.value)}`
+      : '';
+    const data = await apiFetch<NotificationsResponse>(
+      `/notifications?per_page=20${cursor}`
+    );
     items.value.push(...data.data);
     hasMore.value = data.has_more;
     nextCursor.value = data.next_cursor;
@@ -36,8 +44,11 @@ export const useNotificationStore = defineStore('notifications', () => {
 
   async function markRead(id: string) {
     const { apiFetch } = useApi();
-    const updated = await apiFetch<{ data: AppNotification }>(`/notifications/${id}`, { method: 'PATCH' });
-    const idx = items.value.findIndex(n => n.id === id);
+    const updated = await apiFetch<{ data: AppNotification }>(
+      `/notifications/${id}`,
+      { method: 'PATCH' }
+    );
+    const idx = items.value.findIndex((n) => n.id === id);
     if (idx !== -1) items.value[idx] = updated.data;
   }
 
@@ -45,15 +56,17 @@ export const useNotificationStore = defineStore('notifications', () => {
     const { apiFetch } = useApi();
     await apiFetch('/notifications/read-all', { method: 'POST' });
     const now = new Date().toISOString();
-    items.value = items.value.map(n => ({ ...n, read_at: n.read_at ?? now }));
+    items.value = items.value.map((n) => ({ ...n, read_at: n.read_at ?? now }));
   }
 
   function prependNotification(notification: AppNotification) {
-    if (items.value.some(n => n.id === notification.id)) return;
+    if (items.value.some((n) => n.id === notification.id)) return;
     items.value.unshift(notification);
   }
 
   function subscribe(userId: number) {
+    if (echoChannel.value) return;
+
     const { $echo } = useNuxtApp();
     if (!$echo) return;
 
@@ -63,9 +76,31 @@ export const useNotificationStore = defineStore('notifications', () => {
     // Reconnect if previously disconnected
     echoInstance.connector.pusher.connection.connect();
 
+    const toast = useToast();
+
     const channel = echoInstance.private(`App.Models.User.${userId}`);
     channel.listen('.notification.new', (payload: AppNotification) => {
       prependNotification(payload);
+      const t = toast.add({
+        title: 'New Notification',
+        description: payload.data.message,
+        duration: 0,
+        orientation: 'horizontal',
+        actions: [
+          {
+            label: 'View',
+            color: 'secondary' as const,
+            variant: 'outline' as const,
+            onClick: () => {
+              toast.remove(t.id);
+              markRead(payload.id);
+              navigateTo(
+                `/dashboard/bookings?hubId=${payload.data.hub_id}&bookingId=${payload.data.booking_id}`
+              );
+            }
+          }
+        ]
+      });
     });
     echoChannel.value = channel;
   }
@@ -97,6 +132,6 @@ export const useNotificationStore = defineStore('notifications', () => {
     markAllRead,
     prependNotification,
     subscribe,
-    unsubscribe,
+    unsubscribe
   };
 });

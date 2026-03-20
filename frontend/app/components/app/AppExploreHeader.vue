@@ -46,11 +46,7 @@ const menuItems = computed(() => {
         class="inline-flex items-center gap-2.5"
         aria-label="Aktiv home"
       >
-        <span
-          class="text-xl font-extrabold tracking-tight text-[var(--aktiv-primary)]"
-        >
-          Aktiv
-        </span>
+        <AppLogo class="h-6 w-auto" />
       </NuxtLink>
 
       <nav class="flex items-center gap-2">
@@ -67,14 +63,8 @@ const menuItems = computed(() => {
           </UDropdownMenu>
         </template>
         <template v-else>
-          <NuxtLink
-            to="/auth/login"
-            class="rounded-lg px-3 py-2 text-sm font-medium text-[var(--aktiv-ink)] transition hover:text-[var(--aktiv-primary)]"
-          >
+          <UButton to="/auth/login" size="sm" color="primary">
             Sign In
-          </NuxtLink>
-          <UButton to="/auth/register" size="sm" color="primary">
-            Register
           </UButton>
         </template>
       </nav>

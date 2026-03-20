@@ -59,11 +59,22 @@ export function useAuth() {
     });
   }
 
+  async function forgotPassword(email: string): Promise<void> {
+    await $fetch('/api/auth/password/forgot', { method: 'POST', body: { email } });
+  }
+
+  async function resetPassword(token: string, email: string, password: string, password_confirmation: string): Promise<void> {
+    await $fetch('/api/auth/password/reset', {
+      method: 'POST',
+      body: { token, email, password, password_confirmation }
+    });
+  }
+
   async function init(): Promise<void> {
     if (authStore.token && !authStore.user) {
       await authStore.fetchUser();
     }
   }
 
-  return { isAuthenticated, isAdmin, user, login, register, logout, init, resendVerification };
+  return { isAuthenticated, isAdmin, user, login, register, logout, init, resendVerification, forgotPassword, resetPassword };
 }

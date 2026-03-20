@@ -462,7 +462,8 @@ onUnmounted(() => {
       <p class="text-xs text-[var(--aktiv-muted)]">
         Set the opening and closing times for each day. These define the booking grid range.
       </p>
-      <div class="overflow-hidden rounded-lg border border-[var(--aktiv-border)]">
+      <!-- Desktop table -->
+      <div class="hidden overflow-hidden rounded-lg border border-[var(--aktiv-border)] sm:block">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]">
@@ -504,6 +505,44 @@ onUnmounted(() => {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- Mobile cards -->
+      <div class="divide-y divide-[var(--aktiv-border)] rounded-lg border border-[var(--aktiv-border)] sm:hidden">
+        <div
+          v-for="oh in operatingHours"
+          :key="oh.day_of_week"
+          class="px-3 py-3"
+          :class="oh.is_closed ? 'opacity-50' : ''"
+        >
+          <div class="mb-2 flex items-center justify-between">
+            <span class="text-sm font-medium text-[var(--aktiv-ink)]">{{ DAY_NAMES[oh.day_of_week] }}</span>
+            <label class="flex items-center gap-1.5 text-xs text-[var(--aktiv-muted)]">
+              <UCheckbox v-model="oh.is_closed" />
+              Closed
+            </label>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <p class="mb-1 text-xs text-[var(--aktiv-muted)]">Opens</p>
+              <USelect
+                v-model="oh.opens_at"
+                :items="HOUR_OPTIONS"
+                :disabled="oh.is_closed"
+                class="w-full"
+              />
+            </div>
+            <div>
+              <p class="mb-1 text-xs text-[var(--aktiv-muted)]">Closes</p>
+              <USelect
+                v-model="oh.closes_at"
+                :items="HOUR_OPTIONS"
+                :disabled="oh.is_closed"
+                class="w-full"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

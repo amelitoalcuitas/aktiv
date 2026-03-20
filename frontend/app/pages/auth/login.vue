@@ -7,6 +7,8 @@ definePageMeta({ layout: 'auth' });
 const { login } = useAuth();
 const route = useRoute();
 
+const resetSuccess = computed(() => route.query.reset === 'success');
+
 // Safe redirect: only allow same-origin paths starting with /
 const redirectPath = computed(() => {
   const r = route.query.redirect;
@@ -71,6 +73,14 @@ async function handleSubmit() {
     </template>
 
     <UAlert
+      v-if="resetSuccess"
+      color="success"
+      variant="subtle"
+      description="Your password has been reset. Sign in below."
+      class="mb-4"
+    />
+
+    <UAlert
       v-if="error"
       color="error"
       variant="subtle"
@@ -104,6 +114,15 @@ async function handleSubmit() {
           class="w-full"
         />
       </UFormField>
+
+      <div class="text-right">
+        <NuxtLink
+          to="/auth/forgot-password"
+          class="text-sm text-[#004e89] hover:underline"
+        >
+          Forgot password?
+        </NuxtLink>
+      </div>
 
       <UButton
         type="submit"

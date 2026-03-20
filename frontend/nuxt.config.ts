@@ -3,6 +3,9 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'Aktiv',
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }
+      ],
       meta: [
         {
           name: 'description',

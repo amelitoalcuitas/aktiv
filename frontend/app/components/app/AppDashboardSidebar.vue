@@ -2,6 +2,9 @@
 import { useAuth } from '~/composables/useAuth';
 import { useHubStore } from '~/stores/hub';
 
+const props = defineProps<{ open?: boolean }>();
+const emit = defineEmits<{ 'update:open': [value: boolean] }>();
+
 const { user, logout } = useAuth();
 const route = useRoute();
 const hubStore = useHubStore();
@@ -29,25 +32,47 @@ const isActive = (to: string) => {
   if (to === '/dashboard') return route.path === '/dashboard';
   return route.path.startsWith(to);
 };
+
+const close = () => emit('update:open', false);
+
+// Close sidebar on route change (mobile)
+watch(() => route.path, close);
 </script>
 
 <template>
+  <!-- Overlay (mobile only) -->
+  <Transition name="fade">
+    <div
+      v-if="open"
+      class="fixed inset-0 z-20 bg-black/40 md:hidden"
+      @click="close"
+    />
+  </Transition>
+
   <aside
-    class="fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-[#dbe4ef] bg-white"
+    :class="[
+      'fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-[#dbe4ef] bg-white transition-transform duration-300',
+      open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+    ]"
   >
     <!-- Logo -->
     <div class="flex h-16 items-center border-b border-[#dbe4ef] px-6">
-      <NuxtLink
-        to="/"
-        class="text-xl font-extrabold tracking-tight text-[#004e89]"
-      >
-        Aktiv
+      <NuxtLink to="/">
+        <AppLogo class="h-5 w-auto" />
       </NuxtLink>
       <span
         class="ml-2 rounded-md bg-[#e8f0f8] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#004e89]"
       >
         Dashboard
       </span>
+      <!-- Close button (mobile only) -->
+      <button
+        class="ml-auto rounded-lg p-1 text-[#64748b] hover:bg-[#f0f4f8] md:hidden"
+        aria-label="Close sidebar"
+        @click="close"
+      >
+        <UIcon name="i-heroicons-x-mark" class="h-5 w-5" />
+      </button>
     </div>
 
     <!-- Verify Booking button -->
@@ -114,3 +139,14 @@ const isActive = (to: string) => {
     :hub="verifyHub"
   />
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

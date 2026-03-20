@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\GuestBookingController;
 use App\Http\Controllers\Api\HubController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OwnerBookingController;
+use App\Http\Controllers\Api\PasswordResetController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -14,6 +15,9 @@ Route::prefix('auth')->group(function (): void {
     Route::post('/login', [AuthController::class, 'login'])->name('api.auth.login');
     Route::get('/google/redirect', [OAuthController::class, 'redirect'])->name('api.auth.google.redirect');
     Route::get('/google/callback', [OAuthController::class, 'callback'])->name('api.auth.google.callback');
+
+    Route::post('/password/forgot', [PasswordResetController::class, 'forgotPassword'])->name('api.auth.password.forgot');
+    Route::post('/password/reset', [PasswordResetController::class, 'resetPassword'])->name('api.auth.password.reset');
 
     Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
         ->middleware(['throttle:6,1'])

@@ -1,7 +1,39 @@
 <script setup lang="ts">
 import { useAuth } from '~/composables/useAuth';
 
-const { isAuthenticated, user, logout: doLogout } = useAuth();
+const { isAuthenticated, isAdmin, user, logout: doLogout } = useAuth();
+
+const menuItems = computed(() => {
+  const items = [];
+
+  if (isAdmin.value) {
+    items.push([
+      {
+        label: 'Dashboard',
+        icon: 'i-heroicons-squares-2x2',
+        to: '/dashboard'
+      }
+    ]);
+  }
+
+  items.push([
+    {
+      label: 'Profile',
+      icon: 'i-heroicons-user',
+      to: '/profile'
+    }
+  ]);
+
+  items.push([
+    {
+      label: 'Sign Out',
+      icon: 'i-heroicons-arrow-right-on-rectangle',
+      onSelect: doLogout
+    }
+  ]);
+
+  return items;
+});
 </script>
 
 <template>
@@ -27,21 +59,16 @@ const { isAuthenticated, user, logout: doLogout } = useAuth();
       <!-- Nav -->
       <nav class="flex items-center gap-2">
         <template v-if="isAuthenticated">
-          <NuxtLink
-            to="/dashboard"
-            class="rounded-lg px-3 py-2 text-sm font-medium text-[var(--aktiv-ink)] transition hover:text-[var(--aktiv-primary)]"
-          >
-            Dashboard
-          </NuxtLink>
-          <UButton
-            color="neutral"
-            variant="ghost"
-            size="sm"
-            icon="i-heroicons-arrow-right-on-rectangle"
-            @click="doLogout"
-          >
-            Sign Out
-          </UButton>
+          <UDropdownMenu :modal="false" :items="menuItems">
+            <UButton variant="ghost" color="neutral" class="rounded-full p-0.5">
+              <UAvatar
+                :src="user?.avatar_url ?? undefined"
+                :alt="user?.name"
+                icon="i-heroicons-user"
+                size="sm"
+              />
+            </UButton>
+          </UDropdownMenu>
         </template>
         <template v-else>
           <NuxtLink

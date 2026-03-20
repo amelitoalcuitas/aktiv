@@ -84,11 +84,13 @@ const isActive = (to: string) => {
     <!-- User footer -->
     <div class="border-t border-[#dbe4ef] p-4">
       <div class="flex items-center gap-3">
-        <div
-          class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-[#004e89] text-sm font-bold text-white"
-        >
-          {{ user?.name?.charAt(0)?.toUpperCase() ?? '?' }}
-        </div>
+        <UAvatar
+          :src="user?.avatar_url ?? undefined"
+          :alt="user?.name"
+          icon="i-heroicons-user"
+          size="sm"
+          class="flex-shrink-0"
+        />
         <div class="min-w-0 flex-1">
           <p class="truncate text-sm font-semibold text-[#0f1728]">
             {{ user?.name }}

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <AppExploreHeader />
+    <AppHeaderOverlay />
     <main>
       <slot />
     </main>

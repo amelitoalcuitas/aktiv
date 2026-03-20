@@ -19,11 +19,9 @@ const sidebarOpen = ref(false);
         >
           <UIcon name="i-heroicons-bars-3" class="h-5 w-5" />
         </button>
-        <AppLogo class="ml-3 h-5 w-auto" />
-        <span
-          class="ml-2 rounded-md bg-[#e8f0f8] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#004e89]"
-        >
-          Dashboard
+        <span class="ml-3 inline-flex items-center gap-2">
+          <AppIcon class="h-5 w-auto" />
+          <AppLogo class="h-5 w-auto" />
         </span>
       </div>
       <main class="flex-1 min-w-0 p-6 md:p-8">

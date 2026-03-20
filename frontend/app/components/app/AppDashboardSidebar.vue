@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { useAuth } from '~/composables/useAuth';
 import { useHubStore } from '~/stores/hub';
 
 const props = defineProps<{ open?: boolean }>();
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
 
-const { user, logout } = useAuth();
 const route = useRoute();
 const hubStore = useHubStore();
 
@@ -57,14 +55,10 @@ watch(() => route.path, close);
   >
     <!-- Logo -->
     <div class="flex h-16 items-center border-b border-[#dbe4ef] px-6">
-      <NuxtLink to="/">
+      <NuxtLink to="/" class="inline-flex items-center gap-2">
+        <AppIcon class="h-5 w-auto" />
         <AppLogo class="h-5 w-auto" />
       </NuxtLink>
-      <span
-        class="ml-2 rounded-md bg-[#e8f0f8] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#004e89]"
-      >
-        Dashboard
-      </span>
       <!-- Close button (mobile only) -->
       <button
         class="ml-auto rounded-lg p-1 text-[#64748b] hover:bg-[#f0f4f8] md:hidden"
@@ -107,30 +101,8 @@ watch(() => route.path, close);
     </nav>
 
     <!-- User footer -->
-    <div class="border-t border-[#dbe4ef] p-4">
-      <div class="flex items-center gap-3">
-        <UAvatar
-          :src="user?.avatar_url ?? undefined"
-          :alt="user?.name"
-          icon="i-heroicons-user"
-          size="sm"
-          class="flex-shrink-0"
-        />
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-sm font-semibold text-[#0f1728]">
-            {{ user?.name }}
-          </p>
-          <p class="truncate text-xs text-[#64748b]">{{ user?.email }}</p>
-        </div>
-        <UButton
-          icon="i-heroicons-arrow-right-on-rectangle"
-          color="neutral"
-          variant="ghost"
-          size="sm"
-          aria-label="Logout"
-          @click="logout"
-        />
-      </div>
+    <div class="border-t border-[#dbe4ef] p-3">
+      <AppUserMenu variant="sidebar" />
     </div>
   </aside>
 

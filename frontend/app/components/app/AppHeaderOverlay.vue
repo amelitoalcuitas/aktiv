@@ -5,13 +5,10 @@ const { isAuthenticated } = useAuth();
 </script>
 
 <template>
-  <header
-    class="border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
-  >
+  <header class="absolute inset-x-0 top-0 z-30">
     <div
-      class="mx-auto flex h-[76px] w-full max-w-[1120px] items-center justify-between px-8"
+      class="mx-auto flex h-[76px] w-full max-w-[1280px] items-center justify-between px-4 md:px-8"
     >
-      <!-- Logo -->
       <NuxtLink
         to="/"
         class="inline-flex items-center gap-2.5"
@@ -21,7 +18,6 @@ const { isAuthenticated } = useAuth();
         <AppLogo class="h-6 w-auto" />
       </NuxtLink>
 
-      <!-- Nav -->
       <nav class="flex items-center gap-2">
         <template v-if="isAuthenticated">
           <AppUserMenu variant="header" />

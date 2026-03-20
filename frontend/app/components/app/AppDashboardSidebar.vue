@@ -42,14 +42,14 @@ watch(() => route.path, close);
   <Transition name="fade">
     <div
       v-if="open"
-      class="fixed inset-0 z-20 bg-black/40 md:hidden"
+      class="fixed inset-0 z-40 bg-black/40 md:hidden"
       @click="close"
     />
   </Transition>
 
   <aside
     :class="[
-      'fixed inset-y-0 left-0 z-30 flex w-60 flex-col border-r border-[#dbe4ef] bg-white transition-transform duration-300',
+      'fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-[#dbe4ef] bg-white transition-transform duration-300',
       open ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
     ]"
   >

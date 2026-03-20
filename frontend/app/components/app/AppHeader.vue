@@ -2,11 +2,23 @@
 import { useAuth } from '~/composables/useAuth';
 
 const { isAuthenticated } = useAuth();
+const scrolled = ref(false);
+
+onMounted(() => {
+  const onScroll = () => {
+    scrolled.value = window.scrollY > 0;
+  };
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onUnmounted(() => window.removeEventListener('scroll', onScroll));
+});
 </script>
 
 <template>
   <header
-    class="border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
+    :class="[
+      'sticky top-0 z-50 bg-[var(--aktiv-surface)] transition-shadow duration-300',
+      scrolled ? 'shadow-md' : ''
+    ]"
   >
     <div
       class="mx-auto flex h-[76px] w-full max-w-[1120px] items-center justify-between px-8"

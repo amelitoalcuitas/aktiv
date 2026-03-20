@@ -35,6 +35,10 @@ services:
       # Bind to all interfaces inside the container so Nginx can reach it
       - NUXT_HOST=0.0.0.0
       - NUXT_PORT=3000
+      - NUXT_PUBLIC_REVERB_KEY=x4gvvtgeb2bmwhefxmup
+      - NUXT_PUBLIC_REVERB_HOST=localhost
+      - NUXT_PUBLIC_REVERB_PORT=8081
+      - NUXT_PUBLIC_REVERB_SCHEME=http
     command: sh -c "npm install && npm run dev"
     expose:
       - "3000"
@@ -67,6 +71,13 @@ services:
       - REDIS_PORT=6379
       - CACHE_DRIVER=redis
       - QUEUE_CONNECTION=redis
+      - BROADCAST_CONNECTION=reverb
+      - REVERB_APP_ID=603170
+      - REVERB_APP_KEY=x4gvvtgeb2bmwhefxmup
+      - REVERB_APP_SECRET=sfh9gksi1hpfcnhbxq7y
+      - REVERB_HOST=reverb
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
       - MAIL_MAILER=smtp
       - MAIL_HOST=mailpit
       - MAIL_PORT=1025
@@ -95,6 +106,93 @@ services:
       sh -c "chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache &&
       chmod -R ug+rwX /var/www/storage /var/www/bootstrap/cache &&
       php-fpm"
+    restart: unless-stopped
+
+  # ─── Laravel Reverb (WebSocket server) ────────────────────────────────────
+  reverb:
+    image: aktiv-backend
+    container_name: aktiv_reverb
+    working_dir: /var/www
+    volumes:
+      - ./backend:/var/www
+    environment:
+      - APP_ENV=local
+      - APP_KEY=base64:zuOmY4RWcbJ3af4plEp+n9hsiiR15ikhAZsUrJElP0k=
+      - APP_DEBUG=true
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-aktiv}
+      - DB_USERNAME=${DB_USERNAME:-aktiv_user}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - BROADCAST_CONNECTION=reverb
+      - REVERB_APP_ID=603170
+      - REVERB_APP_KEY=x4gvvtgeb2bmwhefxmup
+      - REVERB_APP_SECRET=sfh9gksi1hpfcnhbxq7y
+      - REVERB_HOST=0.0.0.0
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
+    command: sh -c "docker-php-ext-install pcntl && php artisan reverb:start --host=0.0.0.0 --port=8080 --no-interaction"
+    ports:
+      - "8081:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  # ─── Laravel Queue Worker ─────────────────────────────────────────────────
+  queue:
+    image: aktiv-backend
+    container_name: aktiv_queue
+    working_dir: /var/www
+    volumes:
+      - ./backend:/var/www
+    environment:
+      - APP_ENV=local
+      - APP_KEY=base64:zuOmY4RWcbJ3af4plEp+n9hsiiR15ikhAZsUrJElP0k=
+      - APP_DEBUG=true
+      - APP_URL=http://localhost:8080
+      - FILESYSTEM_DISK=s3
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-aktiv}
+      - DB_USERNAME=${DB_USERNAME:-aktiv_user}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+      - BROADCAST_CONNECTION=reverb
+      - REVERB_APP_ID=603170
+      - REVERB_APP_KEY=x4gvvtgeb2bmwhefxmup
+      - REVERB_APP_SECRET=sfh9gksi1hpfcnhbxq7y
+      - REVERB_HOST=reverb
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
+      - MAIL_MAILER=smtp
+      - MAIL_HOST=mailpit
+      - MAIL_PORT=1025
+      - MAIL_USERNAME=null
+      - MAIL_PASSWORD=null
+      - MAIL_ENCRYPTION=null
+      - MAIL_FROM_ADDRESS=hello@aktiv.local
+      - MAIL_FROM_NAME=Aktiv
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_BUCKET=aktiv-media
+      - AWS_ENDPOINT=http://minio:9000
+      - AWS_URL=http://localhost:9000/aktiv-media
+      - AWS_USE_PATH_STYLE_ENDPOINT=true
+    command: php artisan queue:work --sleep=3 --tries=3
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
     restart: unless-stopped
 
   # ─── PostgreSQL database ───────────────────────────────────────────────────

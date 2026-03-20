@@ -34,6 +34,7 @@ onMounted(() => {
 
       <nav class="flex items-center gap-2">
         <template v-if="isAuthenticated">
+          <AppNotificationBell />
           <AppUserMenu variant="header" />
         </template>
         <template v-else>

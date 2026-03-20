@@ -20,7 +20,11 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE ?? '/api',
-      googleMapsKey: process.env.NUXT_PUBLIC_GOOGLE_MAPS_KEY ?? 'DUMMY_KEY'
+      googleMapsKey: process.env.NUXT_PUBLIC_GOOGLE_MAPS_KEY ?? 'DUMMY_KEY',
+      reverbKey: process.env.NUXT_PUBLIC_REVERB_KEY ?? '',
+      reverbHost: process.env.NUXT_PUBLIC_REVERB_HOST ?? 'localhost',
+      reverbPort: parseInt(process.env.NUXT_PUBLIC_REVERB_PORT ?? '8081'),
+      reverbScheme: process.env.NUXT_PUBLIC_REVERB_SCHEME ?? 'http',
     }
   },
   modules: ['@nuxt/ui', '@pinia/nuxt', '@nuxt/image', '@nuxt/icon'],

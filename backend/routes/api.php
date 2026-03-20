@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CourtController;
 use App\Http\Controllers\Api\GuestBookingController;
 use App\Http\Controllers\Api\HubController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OwnerBookingController;
 use App\Http\Controllers\Api\PasswordResetController;
@@ -47,6 +48,11 @@ Route::post('/hubs/{hub}/courts/{court}/guest-bookings/{booking}/receipt', [Gues
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'store'])->name('api.hubs.courts.bookings.store');
     Route::post('/hubs/{hub}/courts/{court}/bookings/{booking}/receipt', [BookingController::class, 'uploadReceipt'])->name('api.hubs.courts.bookings.receipt');
+
+    // Notifications
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('api.notifications.index');
+    Route::post('/notifications/read-all', [NotificationController::class, 'readAll'])->name('api.notifications.read-all');
+    Route::patch('/notifications/{id}', [NotificationController::class, 'toggle'])->name('api.notifications.toggle');
 });
 
 // Admin-only routes (admin + super_admin, email verified)
@@ -61,6 +67,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function (): void {
 
     // Owner booking management
     Route::get('/dashboard/hubs/{hub}/bookings', [OwnerBookingController::class, 'index'])->name('api.dashboard.hubs.bookings.index');
+    Route::get('/dashboard/hubs/{hub}/bookings/{booking}', [OwnerBookingController::class, 'show'])->name('api.dashboard.hubs.bookings.show');
     Route::put('/dashboard/hubs/{hub}/bookings/{booking}', [OwnerBookingController::class, 'update'])->name('api.dashboard.hubs.bookings.update');
     Route::post('/dashboard/hubs/{hub}/bookings/{booking}/confirm', [OwnerBookingController::class, 'confirm'])->name('api.dashboard.hubs.bookings.confirm');
     Route::post('/dashboard/hubs/{hub}/bookings/{booking}/reject', [OwnerBookingController::class, 'reject'])->name('api.dashboard.hubs.bookings.reject');

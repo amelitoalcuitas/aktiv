@@ -21,7 +21,7 @@ onMounted(() => {
     ]"
   >
     <div
-      class="mx-auto flex h-[76px] w-full max-w-[1120px] items-center justify-between px-8"
+      class="mx-auto flex h-[76px] w-full max-w-[1120px] items-center justify-between px-4 md:px-8"
     >
       <!-- Logo -->
       <NuxtLink
@@ -36,6 +36,7 @@ onMounted(() => {
       <!-- Nav -->
       <nav class="flex items-center gap-2">
         <template v-if="isAuthenticated">
+          <AppNotificationBell />
           <AppUserMenu variant="header" />
         </template>
         <template v-else>

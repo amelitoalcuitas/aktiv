@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\SendsBookingNotification;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\SendGuestVerificationRequest;
 use App\Http\Requests\Booking\StoreGuestBookingRequest;
+use App\Mail\AdminBookingNotification;
 use App\Mail\BookingConfirmation;
 use App\Mail\GuestBookingVerification;
 use App\Models\Booking;
@@ -19,6 +21,7 @@ use Illuminate\Support\Facades\Mail;
 
 class GuestBookingController extends Controller
 {
+    use SendsBookingNotification;
     /**
      * Send a 6-digit OTP to the guest's email for booking verification.
      */
@@ -139,6 +142,14 @@ class GuestBookingController extends Controller
 
         Mail::to($booking->guest_email)->send(new BookingConfirmation($booking, $hub, $court->name));
 
+        // Notify hub owner (in-app + email)
+        $owner = $hub->owner()->first();
+        if ($owner) {
+            $booking->load('court.hub');
+            $this->notifyBookingActivity($owner, $booking, 'booking_created');
+            Mail::to($owner->email)->send(new AdminBookingNotification($booking, $hub, $court->name));
+        }
+
         return response()->json([
             'message' => 'Booking created successfully.',
             'data' => [
@@ -193,6 +204,13 @@ class GuestBookingController extends Controller
             'receipt_uploaded_at'  => now(),
             'status'               => 'payment_sent',
         ]);
+
+        // Notify hub owner about the uploaded receipt
+        $owner = $hub->owner()->first();
+        if ($owner) {
+            $booking->load('court.hub');
+            $this->notifyBookingActivity($owner, $booking, 'receipt_uploaded');
+        }
 
         return response()->json([
             'message' => 'Receipt uploaded. The hub owner will review your payment.',

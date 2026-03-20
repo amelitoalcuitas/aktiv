@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\SendsBookingNotification;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\RejectBookingRequest;
 use App\Http\Requests\Booking\WalkInBookingRequest;
@@ -15,6 +16,7 @@ use Illuminate\Http\Request;
 
 class OwnerBookingController extends Controller
 {
+    use SendsBookingNotification;
     /**
      * List all bookings for a hub the authenticated user owns.
      * Supports optional filters: ?status, ?court_id, ?date_from, ?date_to
@@ -52,6 +54,19 @@ class OwnerBookingController extends Controller
         $bookings = $query->get()->map(fn (Booking $b) => $this->formatBooking($b));
 
         return response()->json(['data' => $bookings]);
+    }
+
+    /**
+     * Return a single booking belonging to the given hub.
+     */
+    public function show(Hub $hub, Booking $booking, Request $request): JsonResponse
+    {
+        abort_if($hub->owner_id !== $request->user()->id, 403);
+        $this->assertBelongsToHub($booking, $hub);
+
+        return response()->json([
+            'data' => $this->formatBooking($booking->load(['court', 'bookedBy'])),
+        ]);
     }
 
     /**
@@ -128,6 +143,12 @@ class OwnerBookingController extends Controller
             'payment_confirmed_at' => now(),
         ]);
 
+        // Notify the booker (registered users only)
+        if ($booking->bookedBy) {
+            $booking->load('court.hub');
+            $this->notifyBookingActivity($booking->bookedBy, $booking, 'booking_confirmed');
+        }
+
         return response()->json([
             'message' => 'Booking confirmed.',
             'data' => $this->formatBooking($booking->fresh(['court', 'bookedBy'])),
@@ -158,6 +179,12 @@ class OwnerBookingController extends Controller
             'expires_at' => now()->addHour(),
         ]);
 
+        // Notify the booker (registered users only)
+        if ($booking->bookedBy) {
+            $booking->load('court.hub');
+            $this->notifyBookingActivity($booking->bookedBy, $booking, 'booking_rejected');
+        }
+
         return response()->json([
             'message' => 'Booking rejected. User can re-upload their receipt.',
             'data' => $this->formatBooking($booking->fresh(['court', 'bookedBy'])),
@@ -182,6 +209,12 @@ class OwnerBookingController extends Controller
             'status' => 'cancelled',
             'cancelled_by' => 'owner',
         ]);
+
+        // Notify the booker (registered users only)
+        if ($booking->bookedBy) {
+            $booking->load('court.hub');
+            $this->notifyBookingActivity($booking->bookedBy, $booking, 'booking_cancelled');
+        }
 
         return response()->json([
             'message' => 'Booking cancelled.',

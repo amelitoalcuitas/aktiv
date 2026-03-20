@@ -144,6 +144,8 @@ const filteredCourts = computed(() => {
 
 // ── Init ──────────────────────────────────────────────────────
 
+const { apiFetch } = useApi();
+
 onMounted(async () => {
   await hubStore.fetchMyHubs();
   if (hubStore.myHubs.length) {
@@ -154,6 +156,20 @@ onMounted(async () => {
     const match = hubStore.myHubs.find((h: Hub) => h.id === qId);
     selectedHubId.value = match ? qId : hubStore.myHubs[0]?.id;
     await Promise.all([loadBookings(), loadCourts()]);
+
+    const bookingIdRaw = Array.isArray(route.query.bookingId)
+      ? route.query.bookingId[0]
+      : route.query.bookingId;
+    if (bookingIdRaw && selectedHubId.value) {
+      try {
+        const res = await apiFetch<{ data: BookingDetail }>(
+          `/dashboard/hubs/${selectedHubId.value}/bookings/${bookingIdRaw}`
+        );
+        openDetails(res.data);
+      } catch {
+        // booking not found or not accessible — silently ignore
+      }
+    }
   }
 });
 

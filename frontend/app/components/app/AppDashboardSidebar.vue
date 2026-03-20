@@ -100,10 +100,6 @@ watch(() => route.path, close);
       </ul>
     </nav>
 
-    <!-- User footer -->
-    <div class="border-t border-[#dbe4ef] p-3">
-      <AppUserMenu variant="sidebar" />
-    </div>
   </aside>
 
   <BookingVerifyModal

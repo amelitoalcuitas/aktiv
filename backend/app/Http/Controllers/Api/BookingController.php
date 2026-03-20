@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Concerns\SendsBookingNotification;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Http\Requests\Booking\UploadReceiptRequest;
+use App\Mail\AdminBookingNotification;
 use App\Mail\BookingConfirmation;
 use App\Models\Booking;
 use App\Models\Court;
@@ -19,6 +21,7 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode as QrCodeFacade;
 
 class BookingController extends Controller
 {
+    use SendsBookingNotification;
     /**
      * List non-cancelled bookings for ALL courts in a hub in a single request.
      * Public — no auth required. Returns minimal data grouped by court_id.
@@ -133,6 +136,14 @@ class BookingController extends Controller
         $userEmail = $request->user()->email;
         Mail::to($userEmail)->send(new BookingConfirmation($booking, $hub, $court->name));
 
+        // Notify hub owner (in-app + email)
+        $owner = $hub->owner()->with([])->first();
+        if ($owner) {
+            $booking->load('court.hub');
+            $this->notifyBookingActivity($owner, $booking, 'booking_created');
+            Mail::to($owner->email)->send(new AdminBookingNotification($booking, $hub, $court->name));
+        }
+
         return response()->json([
             'message' => 'Booking created successfully.',
             'data' => [
@@ -180,6 +191,13 @@ class BookingController extends Controller
             'receipt_uploaded_at' => now(),
             'status' => 'payment_sent',
         ]);
+
+        // Notify hub owner about the uploaded receipt
+        $owner = $hub->owner()->first();
+        if ($owner) {
+            $booking->load('court.hub');
+            $this->notifyBookingActivity($owner, $booking, 'receipt_uploaded');
+        }
 
         return response()->json([
             'message' => 'Receipt uploaded. The hub owner will review your payment.',

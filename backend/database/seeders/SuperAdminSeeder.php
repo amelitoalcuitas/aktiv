@@ -10,11 +10,18 @@ class SuperAdminSeeder extends Seeder
 {
     public function run(): void
     {
+        $password = env('SUPER_ADMIN_PASSWORD');
+
+        if (! $password) {
+            $this->command->error('SUPER_ADMIN_PASSWORD env variable is not set.');
+            return;
+        }
+
         User::query()->updateOrCreate(
             ['email' => 'admin@aktivhub.app'],
             [
                 'name'              => 'Super Admin',
-                'password'          => env('SUPER_ADMIN_PASSWORD', 'HSt%9raX9K!UIz'),
+                'password'          => $password,
                 'role'              => UserRole::SuperAdmin->value,
                 'email_verified_at' => now(),
             ]

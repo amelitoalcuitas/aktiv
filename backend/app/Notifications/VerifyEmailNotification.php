@@ -8,6 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\URL;
 
+
 class VerifyEmailNotification extends VerifyEmail
 {
     protected function verificationUrl(mixed $notifiable): string
@@ -28,10 +29,9 @@ class VerifyEmailNotification extends VerifyEmail
 
         return (new MailMessage)
             ->subject('Verify Your Email Address')
-            ->greeting('Hi ' . $notifiable->name . ',')
-            ->line('Thanks for signing up for Aktiv! Please verify your email address by clicking the button below.')
-            ->action('Verify Email Address', $verificationUrl)
-            ->line('This link will expire in 60 minutes.')
-            ->line('If you did not create an account, no further action is required.');
+            ->view('emails.verify-email', [
+                'name'            => $notifiable->name,
+                'verificationUrl' => $verificationUrl,
+            ]);
     }
 }

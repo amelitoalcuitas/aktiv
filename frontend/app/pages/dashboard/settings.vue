@@ -3,7 +3,7 @@ import type { Hub } from '~/types/hub';
 import { useHubStore } from '~/stores/hub';
 import { useHubs } from '~/composables/useHubs';
 
-definePageMeta({ layout: 'dashboard', middleware: 'auth' });
+definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] });
 
 const hubStore = useHubStore();
 const { updateHub } = useHubs();

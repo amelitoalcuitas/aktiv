@@ -57,7 +57,7 @@ async function handleSubmit() {
       parsed.data.password,
       parsed.data.password_confirmation
     );
-    await navigateTo('/dashboard');
+    await navigateTo('/auth/verify-email');
   } catch (e: unknown) {
     const err = e as {
       data?: { message?: string; errors?: Record<string, string[]> };

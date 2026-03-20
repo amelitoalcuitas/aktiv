@@ -14,7 +14,7 @@ class HubSettingsTest extends TestCase
 
     public function test_require_account_to_book_defaults_to_true_on_new_hub(): void
     {
-        $owner = User::factory()->create();
+        $owner = User::factory()->admin()->create();
 
         $response = $this->actingAs($owner)->postJson('/api/hubs', [
             'name'     => 'Test Hub',
@@ -35,7 +35,7 @@ class HubSettingsTest extends TestCase
 
     public function test_hub_owner_can_toggle_require_account_to_book_off(): void
     {
-        $owner = User::factory()->create();
+        $owner = User::factory()->admin()->create();
         $hub = Hub::factory()->create([
             'owner_id'                => $owner->id,
             'require_account_to_book' => true,

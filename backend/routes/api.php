@@ -15,9 +15,14 @@ Route::prefix('auth')->group(function (): void {
     Route::get('/google/redirect', [OAuthController::class, 'redirect'])->name('api.auth.google.redirect');
     Route::get('/google/callback', [OAuthController::class, 'callback'])->name('api.auth.google.callback');
 
+    Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
+        ->middleware(['throttle:6,1'])
+        ->name('verification.verify');
+
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/me', [AuthController::class, 'me'])->name('api.auth.me');
         Route::post('/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
+        Route::post('/email/resend-verification', [AuthController::class, 'resendVerification'])->name('api.auth.email.resend');
     });
 });
 
@@ -34,8 +39,14 @@ Route::post('/hubs/{hub}/courts/{court}/guest-verify', [GuestBookingController::
 Route::post('/hubs/{hub}/courts/{court}/guest-bookings', [GuestBookingController::class, 'store'])->name('api.hubs.courts.guest-bookings.store');
 Route::post('/hubs/{hub}/courts/{court}/guest-bookings/{booking}/receipt', [GuestBookingController::class, 'uploadReceipt'])->name('api.hubs.courts.guest-bookings.receipt');
 
-// Authenticated hub + court management
+// Authenticated routes (any logged-in user)
 Route::middleware('auth:sanctum')->group(function (): void {
+    Route::post('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'store'])->name('api.hubs.courts.bookings.store');
+    Route::post('/hubs/{hub}/courts/{court}/bookings/{booking}/receipt', [BookingController::class, 'uploadReceipt'])->name('api.hubs.courts.bookings.receipt');
+});
+
+// Admin-only routes (admin + super_admin, email verified)
+Route::middleware(['auth:sanctum', 'admin'])->group(function (): void {
     Route::get('/dashboard/hubs', [HubController::class, 'myHubs'])->name('api.dashboard.hubs');
     Route::post('/hubs', [HubController::class, 'store'])->name('api.hubs.store');
     Route::match(['put', 'post'], '/hubs/{hub}', [HubController::class, 'update'])->name('api.hubs.update');
@@ -43,10 +54,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/hubs/{hub}/courts', [CourtController::class, 'store'])->name('api.hubs.courts.store');
     Route::put('/hubs/{hub}/courts/{court}', [CourtController::class, 'update'])->name('api.hubs.courts.update');
     Route::delete('/hubs/{hub}/courts/{court}', [CourtController::class, 'destroy'])->name('api.hubs.courts.destroy');
-    Route::post('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'store'])->name('api.hubs.courts.bookings.store');
-
-    // Receipt upload (customer)
-    Route::post('/hubs/{hub}/courts/{court}/bookings/{booking}/receipt', [BookingController::class, 'uploadReceipt'])->name('api.hubs.courts.bookings.receipt');
 
     // Owner booking management
     Route::get('/dashboard/hubs/{hub}/bookings', [OwnerBookingController::class, 'index'])->name('api.dashboard.hubs.bookings.index');

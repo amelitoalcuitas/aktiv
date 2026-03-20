@@ -4,7 +4,7 @@ import { useHubs } from '~/composables/useHubs';
 import { useHubStore } from '~/stores/hub';
 import type { Court, Hub } from '~/types/hub';
 
-definePageMeta({ layout: 'dashboard', middleware: 'auth' });
+definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] });
 
 const hubStore = useHubStore();
 const { fetchCourts, createCourt, updateCourt, deleteCourt } = useHubs();

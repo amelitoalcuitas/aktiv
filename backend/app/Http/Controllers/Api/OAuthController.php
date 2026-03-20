@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
@@ -39,6 +41,7 @@ class OAuthController extends Controller
 
         if (! $user->exists) {
             $user->name = $socialiteUser->getName() ?: 'Google User';
+            $user->role = UserRole::User;
         }
 
         $user->google_id = $socialiteUser->getId();
@@ -49,8 +52,8 @@ class OAuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user' => $user,
-            'token' => $token,
+            'user'       => new UserResource($user),
+            'token'      => $token,
             'token_type' => 'Bearer',
         ]);
     }

@@ -10,7 +10,9 @@ const emit = defineEmits<{
   'update:modelValue': [value: 'pay_on_site' | 'digital_bank'];
 }>();
 
-const hubPaymentMethods = computed(() => props.hub?.payment_methods ?? ['pay_on_site']);
+const hubPaymentMethods = computed(
+  () => props.hub?.payment_methods ?? ['pay_on_site']
+);
 const multipleOptions = computed(() => hubPaymentMethods.value.length > 1);
 
 // Auto-select pay_on_site as default when multiple options and nothing chosen
@@ -22,13 +24,17 @@ onMounted(() => {
   }
 });
 
-watch(hubPaymentMethods, (methods) => {
-  if (methods.includes('pay_on_site')) {
-    emit('update:modelValue', 'pay_on_site');
-  } else if (methods.length > 0) {
-    emit('update:modelValue', methods[0]!);
-  }
-}, { immediate: false });
+watch(
+  hubPaymentMethods,
+  (methods) => {
+    if (methods.includes('pay_on_site')) {
+      emit('update:modelValue', 'pay_on_site');
+    } else if (methods.length > 0) {
+      emit('update:modelValue', methods[0]!);
+    }
+  },
+  { immediate: false }
+);
 
 async function downloadQr() {
   const url = props.hub?.payment_qr_url;
@@ -54,9 +60,11 @@ async function downloadQr() {
         v-if="hubPaymentMethods.includes('pay_on_site')"
         type="button"
         class="flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-center transition-colors"
-        :class="modelValue === 'pay_on_site'
-          ? 'border-[#004e89] bg-[#f0f7ff]'
-          : 'border-[#dbe4ef] bg-white hover:border-[#004e89]/40'"
+        :class="
+          modelValue === 'pay_on_site'
+            ? 'border-[#004e89] bg-[#f0f7ff]'
+            : 'border-[#dbe4ef] bg-white hover:border-[#004e89]/40'
+        "
         @click="emit('update:modelValue', 'pay_on_site')"
       >
         <UIcon name="i-heroicons-qr-code" class="h-5 w-5 text-[#004e89]" />
@@ -67,12 +75,17 @@ async function downloadQr() {
         v-if="hubPaymentMethods.includes('digital_bank')"
         type="button"
         class="flex flex-col items-center gap-1.5 rounded-xl border-2 p-3 text-center transition-colors"
-        :class="modelValue === 'digital_bank'
-          ? 'border-[#004e89] bg-[#f0f7ff]'
-          : 'border-[#dbe4ef] bg-white hover:border-[#004e89]/40'"
+        :class="
+          modelValue === 'digital_bank'
+            ? 'border-[#004e89] bg-[#f0f7ff]'
+            : 'border-[#dbe4ef] bg-white hover:border-[#004e89]/40'
+        "
         @click="emit('update:modelValue', 'digital_bank')"
       >
-        <UIcon name="i-heroicons-device-phone-mobile" class="h-5 w-5 text-[#004e89]" />
+        <UIcon
+          name="i-heroicons-device-phone-mobile"
+          class="h-5 w-5 text-[#004e89]"
+        />
         <span class="text-sm font-medium text-[#0f1728]">Digital Bank</span>
         <span class="text-xs text-[#64748b]">GCash, Maya, etc.</span>
       </button>
@@ -80,38 +93,48 @@ async function downloadQr() {
 
     <!-- Digital bank info when selected -->
     <div
-      v-if="modelValue === 'digital_bank' && (hub?.payment_qr_url || hub?.digital_bank_name || hub?.digital_bank_account)"
-      class="rounded-lg border border-[#dbe4ef] bg-[#f9fdf2] p-3 space-y-2"
+      v-if="
+        modelValue === 'digital_bank' &&
+        (hub?.payment_qr_url ||
+          hub?.digital_bank_name ||
+          hub?.digital_bank_account)
+      "
+      class="rounded-lg border border-[#dbe4ef] bg-[#f9fdf2] p-3 space-y-0.5"
     >
       <!-- Account info -->
-      <div v-if="hub?.digital_bank_name || hub?.digital_bank_account" class="text-sm space-y-0.5">
-        <div v-if="hub?.digital_bank_name" class="flex justify-between">
-          <span class="text-[#64748b]">Digital Bank</span>
-          <span class="font-medium text-[#0f1728]">{{ hub.digital_bank_name }}</span>
+      <div
+        v-if="hub?.digital_bank_name || hub?.digital_bank_account"
+        class="text-sm pb-3 flex flex-col items-center gap-0.5"
+      >
+        <div v-if="hub?.digital_bank_name" class="flex gap-2">
+          <span class="text-[#64748b]">Digital Bank:</span>
+          <span class="font-medium text-[#0f1728]">{{
+            hub.digital_bank_name
+          }}</span>
         </div>
-        <div v-if="hub?.digital_bank_account" class="flex justify-between">
-          <span class="text-[#64748b]">Account No.</span>
-          <span class="font-mono font-medium text-[#0f1728]">{{ hub.digital_bank_account }}</span>
+        <div v-if="hub?.digital_bank_account" class="flex gap-2">
+          <span class="text-[#64748b]">Account No.:</span>
+          <span class="font-mono font-medium text-[#0f1728]">{{
+            hub.digital_bank_account
+          }}</span>
         </div>
       </div>
       <!-- QR image -->
-      <div v-if="hub?.payment_qr_url" class="flex items-start gap-3">
+      <div v-if="hub?.payment_qr_url" class="flex flex-col items-center gap-2 px-4">
         <img
           :src="hub.payment_qr_url"
           alt="Payment QR"
-          class="h-28 w-28 shrink-0 rounded-lg border border-[#dbe4ef] object-contain bg-white"
+          class="h-28 w-28 rounded-lg border border-[#dbe4ef] object-contain bg-white"
         />
-        <div class="space-y-1.5">
-          <p class="text-xs text-[#64748b]">Scan to send payment</p>
-          <button
-            type="button"
-            class="flex items-center gap-1 text-xs font-medium text-[#004e89] hover:underline"
-            @click="downloadQr"
-          >
-            <UIcon name="i-heroicons-arrow-down-tray" class="h-3.5 w-3.5" />
-            Download QR
-          </button>
-        </div>
+        <p class="text-xs text-[#64748b]">Scan to send payment</p>
+        <button
+          type="button"
+          class="flex items-center gap-1 text-xs font-medium text-[#004e89] hover:underline"
+          @click="downloadQr"
+        >
+          <UIcon name="i-heroicons-arrow-down-tray" class="h-3.5 w-3.5" />
+          Download QR
+        </button>
       </div>
     </div>
   </div>
@@ -123,54 +146,74 @@ async function downloadQr() {
   >
     <div class="flex items-center gap-2 text-sm">
       <UIcon
-        :name="modelValue === 'pay_on_site' ? 'i-heroicons-qr-code' : 'i-heroicons-device-phone-mobile'"
+        :name="
+          modelValue === 'pay_on_site'
+            ? 'i-heroicons-qr-code'
+            : 'i-heroicons-device-phone-mobile'
+        "
         class="h-4 w-4 shrink-0 text-[#004e89]"
       />
       <div>
         <span class="font-medium text-[#0f1728]">
-          {{ modelValue === 'pay_on_site' ? 'Pay on Site' : 'Digital Bank (GCash, Maya, etc.)' }}
+          {{
+            modelValue === 'pay_on_site'
+              ? 'Pay on Site'
+              : 'Digital Bank (GCash, Maya, etc.)'
+          }}
         </span>
         <span class="ml-1 text-[#64748b]">·</span>
         <span class="ml-1 text-[#64748b]">
-          {{ modelValue === 'pay_on_site'
-            ? "You'll receive a QR code to show at the venue."
-            : 'Upload your receipt after sending payment.' }}
+          {{
+            modelValue === 'pay_on_site'
+              ? "You'll receive a QR code to show at the venue."
+              : 'Upload your receipt after sending payment.'
+          }}
         </span>
       </div>
     </div>
 
     <!-- Digital bank account info + QR for single-method digital bank -->
     <div
-      v-if="modelValue === 'digital_bank' && (hub?.payment_qr_url || hub?.digital_bank_name || hub?.digital_bank_account)"
-      class="mt-2 ml-6 space-y-1.5"
+      v-if="
+        modelValue === 'digital_bank' &&
+        (hub?.payment_qr_url ||
+          hub?.digital_bank_name ||
+          hub?.digital_bank_account)
+      "
+      class="mt-2 space-y-2 flex flex-col items-center px-4"
     >
-      <div v-if="hub?.digital_bank_name || hub?.digital_bank_account" class="text-xs space-y-0.5">
+      <div
+        v-if="hub?.digital_bank_name || hub?.digital_bank_account"
+        class="text-xs flex flex-col items-center gap-0.5"
+      >
         <div v-if="hub?.digital_bank_name" class="flex gap-2">
           <span class="text-[#64748b]">Bank:</span>
-          <span class="font-medium text-[#0f1728]">{{ hub.digital_bank_name }}</span>
+          <span class="font-medium text-[#0f1728]">{{
+            hub.digital_bank_name
+          }}</span>
         </div>
         <div v-if="hub?.digital_bank_account" class="flex gap-2">
           <span class="text-[#64748b]">Account:</span>
-          <span class="font-mono font-medium text-[#0f1728]">{{ hub.digital_bank_account }}</span>
+          <span class="font-mono font-medium text-[#0f1728]">{{
+            hub.digital_bank_account
+          }}</span>
         </div>
       </div>
-      <div v-if="hub?.payment_qr_url" class="flex items-start gap-3">
+      <div v-if="hub?.payment_qr_url" class="flex flex-col items-center gap-2 px-4">
         <img
           :src="hub.payment_qr_url"
           alt="Payment QR"
           class="h-28 w-28 rounded-lg border border-[#dbe4ef] object-contain bg-white"
         />
-        <div class="space-y-1.5">
-          <p class="text-xs text-[#64748b]">Scan to send payment</p>
-          <button
-            type="button"
-            class="flex items-center gap-1 text-xs font-medium text-[#004e89] hover:underline"
-            @click="downloadQr"
-          >
-            <UIcon name="i-heroicons-arrow-down-tray" class="h-3.5 w-3.5" />
-            Download QR
-          </button>
-        </div>
+        <p class="text-xs text-[#64748b]">Scan to send payment</p>
+        <button
+          type="button"
+          class="flex items-center gap-1 text-xs font-medium text-[#004e89] hover:underline"
+          @click="downloadQr"
+        >
+          <UIcon name="i-heroicons-arrow-down-tray" class="h-3.5 w-3.5" />
+          Download QR
+        </button>
       </div>
     </div>
   </div>

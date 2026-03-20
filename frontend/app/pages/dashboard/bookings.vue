@@ -5,7 +5,7 @@ import { useHubStore } from '~/stores/hub';
 import { useHubs } from '~/composables/useHubs';
 import { useOwnerBookings } from '~/composables/useOwnerBookings';
 
-definePageMeta({ layout: 'dashboard', middleware: 'auth' });
+definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] });
 
 const hubStore = useHubStore();
 const { fetchCourts } = useHubs();

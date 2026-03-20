@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useHubStore } from '~/stores/hub';
 
-definePageMeta({ layout: 'dashboard', middleware: 'auth' });
+definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] });
 
 const hubStore = useHubStore();
 const toast = useToast();

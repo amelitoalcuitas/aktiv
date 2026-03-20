@@ -6,6 +6,7 @@ export function useAuth() {
   const router = useRouter();
 
   const isAuthenticated = computed(() => authStore.isAuthenticated);
+  const isAdmin = computed(() => authStore.isAdmin);
   const user = computed(() => authStore.user);
 
   async function login(email: string, password: string): Promise<void> {
@@ -49,11 +50,20 @@ export function useAuth() {
     await router.push('/');
   }
 
+  async function resendVerification(): Promise<void> {
+    await $fetch('/api/auth/email/resend-verification', {
+      method: 'POST',
+      headers: authStore.token
+        ? { Authorization: `Bearer ${authStore.token}` }
+        : {}
+    });
+  }
+
   async function init(): Promise<void> {
     if (authStore.token && !authStore.user) {
       await authStore.fetchUser();
     }
   }
 
-  return { isAuthenticated, user, login, register, logout, init };
+  return { isAuthenticated, isAdmin, user, login, register, logout, init, resendVerification };
 }

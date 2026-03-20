@@ -35,7 +35,7 @@ services:
       # Bind to all interfaces inside the container so Nginx can reach it
       - NUXT_HOST=0.0.0.0
       - NUXT_PORT=3000
-      - NUXT_PUBLIC_REVERB_KEY=x4gvvtgeb2bmwhefxmup
+      - NUXT_PUBLIC_REVERB_KEY=${REVERB_APP_KEY}
       - NUXT_PUBLIC_REVERB_HOST=localhost
       - NUXT_PUBLIC_REVERB_PORT=8081
       - NUXT_PUBLIC_REVERB_SCHEME=http
@@ -72,9 +72,9 @@ services:
       - CACHE_DRIVER=redis
       - QUEUE_CONNECTION=redis
       - BROADCAST_CONNECTION=reverb
-      - REVERB_APP_ID=603170
-      - REVERB_APP_KEY=x4gvvtgeb2bmwhefxmup
-      - REVERB_APP_SECRET=sfh9gksi1hpfcnhbxq7y
+      - REVERB_APP_ID=${REVERB_APP_ID}
+      - REVERB_APP_KEY=${REVERB_APP_KEY}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET}
       - REVERB_HOST=reverb
       - REVERB_PORT=8080
       - REVERB_SCHEME=http
@@ -117,7 +117,7 @@ services:
       - ./backend:/var/www
     environment:
       - APP_ENV=local
-      - APP_KEY=base64:zuOmY4RWcbJ3af4plEp+n9hsiiR15ikhAZsUrJElP0k=
+      - APP_KEY=${APP_KEY}
       - APP_DEBUG=true
       - DB_CONNECTION=pgsql
       - DB_HOST=db
@@ -126,9 +126,9 @@ services:
       - DB_USERNAME=${DB_USERNAME:-aktiv_user}
       - DB_PASSWORD=${DB_PASSWORD:-secret}
       - BROADCAST_CONNECTION=reverb
-      - REVERB_APP_ID=603170
-      - REVERB_APP_KEY=x4gvvtgeb2bmwhefxmup
-      - REVERB_APP_SECRET=sfh9gksi1hpfcnhbxq7y
+      - REVERB_APP_ID=${REVERB_APP_ID}
+      - REVERB_APP_KEY=${REVERB_APP_KEY}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET}
       - REVERB_HOST=0.0.0.0
       - REVERB_PORT=8080
       - REVERB_SCHEME=http
@@ -151,7 +151,7 @@ services:
       - ./backend:/var/www
     environment:
       - APP_ENV=local
-      - APP_KEY=base64:zuOmY4RWcbJ3af4plEp+n9hsiiR15ikhAZsUrJElP0k=
+      - APP_KEY=${APP_KEY}
       - APP_DEBUG=true
       - APP_URL=http://localhost:8080
       - FILESYSTEM_DISK=s3
@@ -166,9 +166,9 @@ services:
       - CACHE_DRIVER=redis
       - QUEUE_CONNECTION=redis
       - BROADCAST_CONNECTION=reverb
-      - REVERB_APP_ID=603170
-      - REVERB_APP_KEY=x4gvvtgeb2bmwhefxmup
-      - REVERB_APP_SECRET=sfh9gksi1hpfcnhbxq7y
+      - REVERB_APP_ID=${REVERB_APP_ID}
+      - REVERB_APP_KEY=${REVERB_APP_KEY}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET}
       - REVERB_HOST=reverb
       - REVERB_PORT=8080
       - REVERB_SCHEME=http

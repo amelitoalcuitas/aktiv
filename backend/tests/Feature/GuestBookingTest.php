@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Court;
 use App\Models\CourtSport;
 use App\Models\Hub;
+use App\Models\HubSettings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -19,11 +20,15 @@ class GuestBookingTest extends TestCase
 
     public function makeHub(bool $allowGuests = false): Hub
     {
-        return Hub::factory()->create([
-            'is_approved'             => true,
-            'is_active'               => true,
-            'require_account_to_book' => !$allowGuests,
+        $hub = Hub::factory()->create([
+            'is_approved' => true,
+            'is_active'   => true,
         ]);
+        HubSettings::factory()->create([
+            'hub_id'                  => $hub->id,
+            'require_account_to_book' => ! $allowGuests,
+        ]);
+        return $hub;
     }
 
     public function makeCourt(Hub $hub): Court

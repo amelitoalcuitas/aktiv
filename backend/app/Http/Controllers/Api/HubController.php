@@ -7,6 +7,7 @@ use App\Http\Requests\Hub\StoreHubRequest;
 use App\Http\Requests\Hub\UpdateHubRequest;
 use App\Models\Hub;
 use App\Models\HubContactNumber;
+use App\Models\HubSettings;
 use App\Models\HubImage;
 use App\Models\HubWebsite;
 use App\Models\HubSport;
@@ -30,7 +31,7 @@ class HubController extends Controller
         $hubs = Hub::query()
             ->where('is_approved', true)
             ->where('is_active', true)
-            ->with(['sports', 'images', 'contactNumbers', 'websites'])
+            ->with(['sports', 'images', 'contactNumbers', 'websites', 'settings'])
             ->withCount('courts')
             ->withMin('courts', 'price_per_hour')
             ->orderByDesc('created_at')
@@ -47,7 +48,7 @@ class HubController extends Controller
     {
         $hubs = Hub::query()
             ->where('owner_id', $request->user()->id)
-            ->with(['sports', 'courts.sports', 'images', 'contactNumbers', 'websites'])
+            ->with(['sports', 'courts.sports', 'images', 'contactNumbers', 'websites', 'settings'])
             ->withCount('courts')
             ->withMin('courts', 'price_per_hour')
             ->orderByDesc('created_at')
@@ -66,7 +67,7 @@ class HubController extends Controller
             abort(404);
         }
 
-        $hub->load(['sports', 'courts.sports', 'owner:id,name,avatar_url', 'images', 'contactNumbers', 'websites', 'operatingHours']);
+        $hub->load(['sports', 'courts.sports', 'owner:id,name,avatar_url', 'images', 'contactNumbers', 'websites', 'operatingHours', 'settings']);
         $hub->loadCount('courts');
         $hub->loadAggregate('courts', 'min(price_per_hour)');
 
@@ -94,10 +95,25 @@ class HubController extends Controller
             $validated['cover_image_path'] = $coverImage['path'];
         }
 
+        $paymentQrUrl = null;
         if ($request->hasFile('payment_qr_image')) {
             $paymentQr = $this->imageUploadService->upload($request->file('payment_qr_image'), 'hubs/payment-qr');
-            $validated['payment_qr_url'] = $paymentQr['url'];
+            $paymentQrUrl = $paymentQr['url'];
         }
+
+        $settingsData = [
+            'require_account_to_book' => isset($validated['require_account_to_book']) ? (bool) $validated['require_account_to_book'] : true,
+            'payment_methods'         => $validated['payment_methods'] ?? ['pay_on_site'],
+            'payment_qr_url'          => $paymentQrUrl,
+            'digital_bank_name'       => $validated['digital_bank_name'] ?? null,
+            'digital_bank_account'    => $validated['digital_bank_account'] ?? null,
+        ];
+        unset(
+            $validated['require_account_to_book'],
+            $validated['payment_methods'],
+            $validated['digital_bank_name'],
+            $validated['digital_bank_account'],
+        );
 
         $hub = Hub::query()->create([
             ...$validated,
@@ -107,13 +123,15 @@ class HubController extends Controller
             'is_verified' => false,
         ]);
 
+        HubSettings::query()->create(['hub_id' => $hub->id, ...$settingsData]);
+
         $this->syncHubSports($hub, $sports);
         $this->syncContactNumbers($hub, $contactNumbers);
         $this->syncWebsites($hub, $websites);
         $this->uploadGalleryImages($hub, $galleryImages);
         $this->syncOperatingHours($hub, $operatingHours);
 
-        $hub->load(['sports', 'images', 'contactNumbers', 'websites', 'operatingHours']);
+        $hub->load(['sports', 'images', 'contactNumbers', 'websites', 'operatingHours', 'settings']);
 
         return response()->json(['data' => $this->formatHub($hub)], 201);
     }
@@ -139,11 +157,18 @@ class HubController extends Controller
         $removePaymentQr = (bool) ($validated['remove_payment_qr'] ?? false);
         unset($validated['remove_payment_qr']);
 
+        $settingsData = [];
+        foreach (['require_account_to_book', 'payment_methods', 'digital_bank_name', 'digital_bank_account'] as $field) {
+            if (array_key_exists($field, $validated)) {
+                $settingsData[$field] = $validated[$field];
+                unset($validated[$field]);
+            }
+        }
         if ($removePaymentQr && ! $request->hasFile('payment_qr_image')) {
-            $validated['payment_qr_url'] = null;
+            $settingsData['payment_qr_url'] = null;
         } elseif ($request->hasFile('payment_qr_image')) {
             $paymentQr = $this->imageUploadService->upload($request->file('payment_qr_image'), 'hubs/payment-qr');
-            $validated['payment_qr_url'] = $paymentQr['url'];
+            $settingsData['payment_qr_url'] = $paymentQr['url'];
         }
 
         if ($request->hasFile('cover_image')) {
@@ -172,6 +197,10 @@ class HubController extends Controller
 
         $hub->update($validated);
 
+        if (! empty($settingsData)) {
+            $hub->settings()->firstOrCreate(['hub_id' => $hub->id])->update($settingsData);
+        }
+
         $this->uploadGalleryImages($hub, $galleryImages);
 
         if ($sports !== null) {
@@ -190,7 +219,7 @@ class HubController extends Controller
             $this->syncOperatingHours($hub, $operatingHours);
         }
 
-        $hub->load(['sports', 'courts.sports', 'images', 'contactNumbers', 'websites', 'operatingHours']);
+        $hub->load(['sports', 'courts.sports', 'images', 'contactNumbers', 'websites', 'operatingHours', 'settings']);
         $hub->loadCount('courts');
         $hub->loadAggregate('courts', 'min(price_per_hour)');
 
@@ -371,11 +400,11 @@ class HubController extends Controller
             'is_active'               => $hub->is_active,
             'is_approved'             => $hub->is_approved,
             'is_verified'             => $hub->is_verified,
-            'require_account_to_book' => $hub->require_account_to_book,
-            'payment_methods'         => $hub->payment_methods ?? ['pay_on_site'],
-            'payment_qr_url'          => $hub->payment_qr_url,
-            'digital_bank_name'       => $hub->digital_bank_name,
-            'digital_bank_account'    => $hub->digital_bank_account,
+            'require_account_to_book' => $hub->settings?->require_account_to_book ?? true,
+            'payment_methods'         => $hub->settings?->payment_methods ?? ['pay_on_site'],
+            'payment_qr_url'          => $hub->settings?->payment_qr_url,
+            'digital_bank_name'       => $hub->settings?->digital_bank_name,
+            'digital_bank_account'    => $hub->settings?->digital_bank_account,
             'owner_id'             => $hub->owner_id,
             'owner'                => $hub->owner,
             'sports'               => $hub->sports ? $hub->sports->pluck('sport')->values() : [],

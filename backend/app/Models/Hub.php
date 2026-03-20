@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Hub extends Model
 {
@@ -32,11 +33,6 @@ class Hub extends Model
         'is_approved',
         'is_verified',
         'is_active',
-        'require_account_to_book',
-        'payment_methods',
-        'payment_qr_url',
-        'digital_bank_name',
-        'digital_bank_account',
     ];
 
     /**
@@ -47,12 +43,15 @@ class Hub extends Model
         return [
             'lat' => 'decimal:7',
             'lng' => 'decimal:7',
-            'is_approved'              => 'boolean',
-            'is_verified'              => 'boolean',
-            'is_active'                => 'boolean',
-            'require_account_to_book'  => 'boolean',
-            'payment_methods'          => 'array',
+            'is_approved' => 'boolean',
+            'is_verified' => 'boolean',
+            'is_active'   => 'boolean',
         ];
+    }
+
+    public function settings(): HasOne
+    {
+        return $this->hasOne(HubSettings::class);
     }
 
     public function owner(): BelongsTo

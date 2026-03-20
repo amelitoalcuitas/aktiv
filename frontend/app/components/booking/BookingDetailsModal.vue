@@ -21,7 +21,7 @@ const emit = defineEmits<{
   'action-confirm': [BookingDetail];
   'action-reject': [BookingDetail];
   'action-cancel': [BookingDetail];
-  'action-update': [{ id: number, data: any }];
+  'action-update': [{ id: number; data: any }];
 }>();
 
 const isOpen = computed({
@@ -30,19 +30,24 @@ const isOpen = computed({
 });
 
 // Schema for Editable Fields
-const schema = z.object({
-  court_id: z.number().min(1, 'Court is required'),
-  sport: z.string().min(1, 'Sport is required'),
-  date: z.date(),
-  start_time: z.string().min(1, 'Start time is required'),
-  end_time: z.string().min(1, 'End time is required')
-}).refine(data => {
-  const parse = (t: string) => {
-    const [h, m] = t.split(':').map(Number);
-    return (h || 0) * 60 + (m || 0);
-  };
-  return parse(data.end_time) > parse(data.start_time);
-}, { message: 'End time must be after start time', path: ['end_time'] });
+const schema = z
+  .object({
+    court_id: z.number().min(1, 'Court is required'),
+    sport: z.string().min(1, 'Sport is required'),
+    date: z.date(),
+    start_time: z.string().min(1, 'Start time is required'),
+    end_time: z.string().min(1, 'End time is required')
+  })
+  .refine(
+    (data) => {
+      const parse = (t: string) => {
+        const [h, m] = t.split(':').map(Number);
+        return (h || 0) * 60 + (m || 0);
+      };
+      return parse(data.end_time) > parse(data.start_time);
+    },
+    { message: 'End time must be after start time', path: ['end_time'] }
+  );
 
 type Schema = z.infer<typeof schema>;
 const state = reactive<Schema>({
@@ -54,20 +59,26 @@ const state = reactive<Schema>({
 });
 
 // Initialize form matching the booking prop
-watch(() => props.booking, (b) => {
-  if (b) {
-    state.court_id = b.court_id;
-    state.sport = b.sport;
-    const start = new Date(b.start_time);
-    state.date = start;
-    state.start_time = `${String(start.getHours()).padStart(2, '0')}:00`;
-    const end = new Date(b.end_time);
-    state.end_time = `${String(end.getHours()).padStart(2, '0')}:00`;
-  }
-}, { immediate: true });
+watch(
+  () => props.booking,
+  (b) => {
+    if (b) {
+      state.court_id = b.court_id;
+      state.sport = b.sport;
+      const start = new Date(b.start_time);
+      state.date = start;
+      state.start_time = `${String(start.getHours()).padStart(2, '0')}:00`;
+      const end = new Date(b.end_time);
+      state.end_time = `${String(end.getHours()).padStart(2, '0')}:00`;
+    }
+  },
+  { immediate: true }
+);
 
 // Form Select Options
-const courtOptions = computed(() => props.courts.map(c => ({ label: c.name, value: c.id })));
+const courtOptions = computed(() =>
+  props.courts.map((c) => ({ label: c.name, value: c.id }))
+);
 const sportOptions = computed(() => [
   { label: 'Pickleball', value: 'pickleball' },
   { label: 'Padel', value: 'padel' },
@@ -93,7 +104,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (!props.booking) return;
 
   const { date, start_time, end_time, court_id, sport } = event.data;
-  
+
   const y = date.getFullYear();
   const mo = date.getMonth();
   const d = date.getDate();
@@ -106,14 +117,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   const endDt = new Date(y, mo, d);
   endDt.setHours(endH || 0, endM || 0, 0, 0);
 
-  emit('action-update', { 
-    id: props.booking.id, 
+  emit('action-update', {
+    id: props.booking.id,
     data: {
       court_id,
       sport,
       start_time: startDt.toISOString(),
       end_time: endDt.toISOString()
-    } 
+    }
   });
 }
 
@@ -125,41 +136,64 @@ function customerLabel(b: BookingDetail | null): string {
   return 'Unknown';
 }
 
-function statusColor(status?: BookingStatus): 'warning' | 'success' | 'error' | 'neutral' | 'primary' {
+function statusColor(
+  status?: BookingStatus
+): 'warning' | 'success' | 'error' | 'neutral' | 'primary' {
   switch (status) {
-    case 'pending_payment': return 'warning';
-    case 'payment_sent': return 'primary';
-    case 'confirmed': return 'success';
-    case 'cancelled': return 'error';
-    case 'completed': return 'neutral';
-    default: return 'neutral';
+    case 'pending_payment':
+      return 'warning';
+    case 'payment_sent':
+      return 'primary';
+    case 'confirmed':
+      return 'success';
+    case 'cancelled':
+      return 'error';
+    case 'completed':
+      return 'neutral';
+    default:
+      return 'neutral';
   }
 }
 
 function statusLabel(status?: BookingStatus): string {
   switch (status) {
-    case 'pending_payment': return 'Pending Payment';
-    case 'payment_sent': return 'Receipt Sent';
-    case 'confirmed': return 'Confirmed';
-    case 'cancelled': return 'Cancelled';
-    case 'completed': return 'Completed';
-    default: return status ?? '';
+    case 'pending_payment':
+      return 'Pending Payment';
+    case 'payment_sent':
+      return 'Receipt Sent';
+    case 'confirmed':
+      return 'Confirmed';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'completed':
+      return 'Completed';
+    default:
+      return status ?? '';
   }
 }
 
 const isCancellable = computed(() => {
   if (!props.booking) return false;
-  return !['cancelled', 'completed', 'confirmed'].includes(props.booking.status);
+  return !['cancelled', 'completed', 'confirmed'].includes(
+    props.booking.status
+  );
 });
 
 const isConfirmable = computed(() => {
   if (!props.booking) return false;
-  return props.booking.status === 'payment_sent' || props.booking.status === 'pending_payment';
+  return (
+    props.booking.status === 'payment_sent' ||
+    props.booking.status === 'pending_payment'
+  );
 });
 
 // For Date picker formatting
 const dateString = computed(() => {
-  return state.date.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+  return state.date.toLocaleDateString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
 });
 
 const calendarDate = computed({
@@ -178,30 +212,84 @@ const calendarDate = computed({
     <template #body>
       <div v-if="booking" class="space-y-4">
         <!-- Persistent Read-Only Status & Info -->
-        <div class="rounded-xl border border-[#dbe4ef] bg-[#f8fafc] p-4 text-sm">
+        <div
+          class="rounded-xl border border-[#dbe4ef] bg-[#f8fafc] p-4 text-sm"
+        >
           <div class="mb-3 flex items-center justify-between">
             <span class="text-[#64748b]">Status</span>
-            <UBadge :label="statusLabel(booking.status)" :color="statusColor(booking.status)" variant="subtle" />
+            <UBadge
+              :label="statusLabel(booking.status)"
+              :color="statusColor(booking.status)"
+              variant="subtle"
+            />
           </div>
           <div class="flex justify-between">
             <span class="text-[#64748b]">Customer</span>
-            <span class="font-medium text-[#0f1728]">{{ customerLabel(booking) }}</span>
+            <span class="font-medium text-[#0f1728]">{{
+              customerLabel(booking)
+            }}</span>
           </div>
-          <div v-if="booking.payment_note && booking.status === 'pending_payment'" class="mt-3 flex gap-2 rounded bg-[#fef9c3] p-2 text-[#92400e]">
-            <UIcon name="i-heroicons-information-circle" class="h-5 w-5 shrink-0" />
+          <div
+            v-if="booking.booked_by_user?.email || booking.guest_email"
+            class="mt-2 flex justify-between"
+          >
+            <span class="text-[#64748b]">Email</span>
+            <a
+              :href="`mailto:${booking.booked_by_user?.email ?? booking.guest_email}`"
+              class="font-medium text-[#004e89] hover:underline"
+            >
+              {{ booking.booked_by_user?.email ?? booking.guest_email }}
+            </a>
+          </div>
+          <div
+            v-if="booking.booked_by_user?.phone || booking.guest_phone"
+            class="mt-2 flex justify-between"
+          >
+            <span class="text-[#64748b]">Phone</span>
+            <a
+              :href="`tel:${booking.booked_by_user?.phone ?? booking.guest_phone}`"
+              class="font-medium text-[#004e89] hover:underline"
+            >
+              {{ booking.booked_by_user?.phone ?? booking.guest_phone }}
+            </a>
+          </div>
+          <div
+            v-if="booking.payment_note && booking.status === 'pending_payment'"
+            class="mt-3 flex gap-2 rounded bg-[#fef9c3] p-2 text-[#92400e]"
+          >
+            <UIcon
+              name="i-heroicons-information-circle"
+              class="h-5 w-5 shrink-0"
+            />
             <span class="text-sm">{{ booking.payment_note }}</span>
           </div>
         </div>
 
         <!-- Editable Form Elements -->
-        <UForm ref="formRef" :schema="schema" :state="state" @submit="onSubmit" class="space-y-4">
+        <UForm
+          ref="formRef"
+          :schema="schema"
+          :state="state"
+          @submit="onSubmit"
+          class="space-y-4"
+        >
           <div class="grid grid-cols-2 gap-4">
             <UFormField label="Court" name="court_id">
-              <USelectMenu v-model="state.court_id" :items="courtOptions" value-key="value" class="w-full" />
+              <USelectMenu
+                v-model="state.court_id"
+                :items="courtOptions"
+                value-key="value"
+                class="w-full"
+              />
             </UFormField>
 
             <UFormField label="Sport" name="sport">
-              <USelectMenu v-model="state.sport" :items="sportOptions" value-key="value" class="w-full" />
+              <USelectMenu
+                v-model="state.sport"
+                :items="sportOptions"
+                value-key="value"
+                class="w-full"
+              />
             </UFormField>
           </div>
 
@@ -225,38 +313,65 @@ const calendarDate = computed({
 
           <div class="grid grid-cols-2 gap-4">
             <UFormField label="Start Time" name="start_time">
-              <USelectMenu v-model="state.start_time" :items="timeOptions" value-key="value" class="w-full" />
+              <USelectMenu
+                v-model="state.start_time"
+                :items="timeOptions"
+                value-key="value"
+                class="w-full"
+              />
             </UFormField>
 
             <UFormField label="End Time" name="end_time">
-              <USelectMenu v-model="state.end_time" :items="timeOptions" value-key="value" class="w-full" />
+              <USelectMenu
+                v-model="state.end_time"
+                :items="timeOptions"
+                value-key="value"
+                class="w-full"
+              />
             </UFormField>
           </div>
 
           <!-- Receipt Image -->
-          <div v-if="booking.receipt_image_url" class="rounded-xl border border-[#dbe4ef] p-4 mt-6">
-            <h4 class="mb-2 text-sm font-medium text-[#0f1728]">Receipt Image</h4>
-            <a :href="booking.receipt_image_url" target="_blank" rel="noopener noreferrer">
-              <img :src="booking.receipt_image_url" alt="Receipt" class="max-h-64 w-full rounded-lg object-contain bg-gray-50 border border-[#dbe4ef]" />
+          <div
+            v-if="booking.receipt_image_url"
+            class="rounded-xl border border-[#dbe4ef] p-4 mt-6"
+          >
+            <h4 class="mb-2 text-sm font-medium text-[#0f1728]">
+              Receipt Image
+            </h4>
+            <a
+              :href="booking.receipt_image_url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                :src="booking.receipt_image_url"
+                alt="Receipt"
+                class="max-h-64 w-full rounded-lg object-contain bg-gray-50 border border-[#dbe4ef]"
+              />
             </a>
           </div>
 
           <!-- Note: The form submit will be attached to an invisible button hidden down below. We place the visual button in footer. -->
-          <button type="submit" id="booking-details-modal-submit" class="hidden"></button>
+          <button
+            type="submit"
+            id="booking-details-modal-submit"
+            class="hidden"
+          ></button>
         </UForm>
       </div>
       <div v-else class="py-8 text-center text-sm text-[#64748b]">
         No booking selected.
       </div>
     </template>
-    
+
     <template #footer>
       <div class="flex w-full flex-wrap justify-between gap-2">
         <div>
           <UButton
             v-if="isCancellable"
             color="error"
-            variant="outline"
+            variant="ghost"
             icon="i-heroicons-x-mark"
             :loading="cancelLoading"
             @click="emit('action-cancel', booking!)"
@@ -265,7 +380,6 @@ const calendarDate = computed({
           </UButton>
         </div>
         <div class="flex gap-2">
-          
           <template v-if="isConfirmable">
             <UButton
               color="error"
@@ -276,7 +390,7 @@ const calendarDate = computed({
               Reject
             </UButton>
             <UButton
-              color="success"
+              color="secondary"
               icon="i-heroicons-check-circle"
               :loading="confirmLoading"
               @click="emit('action-confirm', booking!)"
@@ -284,7 +398,7 @@ const calendarDate = computed({
               Confirm
             </UButton>
           </template>
-          
+
           <UButton
             color="primary"
             variant="solid"

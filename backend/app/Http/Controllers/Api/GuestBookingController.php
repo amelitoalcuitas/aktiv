@@ -26,7 +26,7 @@ class GuestBookingController extends Controller
     {
         abort_if($court->hub_id !== $hub->id, 404);
 
-        if ($hub->require_account_to_book) {
+        if ($hub->settings?->require_account_to_book ?? true) {
             return response()->json([
                 'message' => 'This hub requires an account to book.',
             ], 403);
@@ -63,7 +63,7 @@ class GuestBookingController extends Controller
     {
         abort_if($court->hub_id !== $hub->id, 404);
 
-        if ($hub->require_account_to_book) {
+        if ($hub->settings?->require_account_to_book ?? true) {
             return response()->json([
                 'message' => 'This hub requires an account to book.',
             ], 403);

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Hub;
+use App\Models\HubSettings;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -26,8 +27,9 @@ class HubSettingsTest extends TestCase
         ]);
 
         $response->assertCreated();
-        $this->assertDatabaseHas('hubs', [
-            'name'                    => 'Test Hub',
+        $hub = Hub::where('name', 'Test Hub')->firstOrFail();
+        $this->assertDatabaseHas('hub_settings', [
+            'hub_id'                  => $hub->id,
             'require_account_to_book' => true,
         ]);
     }
@@ -36,8 +38,9 @@ class HubSettingsTest extends TestCase
     public function test_hub_owner_can_toggle_require_account_to_book_off(): void
     {
         $owner = User::factory()->admin()->create();
-        $hub = Hub::factory()->create([
-            'owner_id'                => $owner->id,
+        $hub = Hub::factory()->create(['owner_id' => $owner->id]);
+        HubSettings::factory()->create([
+            'hub_id'                  => $hub->id,
             'require_account_to_book' => true,
         ]);
 
@@ -47,8 +50,8 @@ class HubSettingsTest extends TestCase
         ]);
 
         $response->assertOk();
-        $this->assertDatabaseHas('hubs', [
-            'id'                      => $hub->id,
+        $this->assertDatabaseHas('hub_settings', [
+            'hub_id'                  => $hub->id,
             'require_account_to_book' => false,
         ]);
     }
@@ -57,8 +60,11 @@ class HubSettingsTest extends TestCase
     public function test_hub_setting_is_returned_in_api_response(): void
     {
         $hub = Hub::factory()->create([
-            'is_approved'             => true,
-            'is_active'               => true,
+            'is_approved' => true,
+            'is_active'   => true,
+        ]);
+        HubSettings::factory()->create([
+            'hub_id'                  => $hub->id,
             'require_account_to_book' => false,
         ]);
 

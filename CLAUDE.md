@@ -27,26 +27,33 @@ docker compose up -d
 
 ### Backend (Laravel 12)
 
-```bash
-cd backend
+> **All `php artisan` and `composer` commands must be run inside the Docker container:**
+> ```bash
+> docker compose exec backend php artisan <command>
+> docker compose exec backend composer <command>
+> ```
+> Never run these directly on the host — the backend process runs inside Docker and needs access to the database, Redis, and other services.
 
+```bash
 # Dev server + queue + logs + Vite
-composer run dev
+docker compose exec backend composer run dev
 
 # Run all tests
-php artisan test --compact
+docker compose exec backend php artisan test --compact
 
 # Run specific test file or filter
-php artisan test --compact --filter=BookingTest
-php artisan test --compact tests/Feature/BookingTest.php
+docker compose exec backend php artisan test --compact --filter=BookingTest
+docker compose exec backend php artisan test --compact tests/Feature/BookingTest.php
 
 # Format PHP code after changes (required before finalizing)
-vendor/bin/pint --dirty --format agent
+docker compose exec backend vendor/bin/pint --dirty --format agent
 
 # Database migrations
-php artisan migrate
-php artisan migrate:fresh --seed
+docker compose exec backend php artisan migrate
+docker compose exec backend php artisan migrate:fresh --seed
 ```
+
+> **Tests do NOT touch the dev database.** The test suite uses an isolated SQLite in-memory database (configured in `phpunit.xml`). Running `php artisan test` will never affect your PostgreSQL dev data. If your dev data disappears, it was caused by a manual `migrate:fresh` command, not by tests.
 
 ### Frontend (Nuxt 3)
 
@@ -145,12 +152,12 @@ See `SCHEDULER_FLOW.md` for full booking flow details.
 ## Artisan Quickref
 
 ```bash
-# Create files the Laravel way
-php artisan make:model Court --no-interaction
-php artisan make:controller Api/CourtController --no-interaction
-php artisan make:test --pest CourtTest --no-interaction
-php artisan make:request StoreCourt --no-interaction
-php artisan make:job ProcessBookingExpiry --no-interaction
+# Create files the Laravel way (always prefix with docker compose exec backend)
+docker compose exec backend php artisan make:model Court --no-interaction
+docker compose exec backend php artisan make:controller Api/CourtController --no-interaction
+docker compose exec backend php artisan make:test --pest CourtTest --no-interaction
+docker compose exec backend php artisan make:request StoreCourt --no-interaction
+docker compose exec backend php artisan make:job ProcessBookingExpiry --no-interaction
 
 # Always pass --no-interaction to artisan make: commands
 ```

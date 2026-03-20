@@ -35,6 +35,8 @@ class Hub extends Model
         'require_account_to_book',
         'payment_methods',
         'payment_qr_url',
+        'digital_bank_name',
+        'digital_bank_account',
     ];
 
     /**

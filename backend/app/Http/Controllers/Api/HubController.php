@@ -374,6 +374,8 @@ class HubController extends Controller
             'require_account_to_book' => $hub->require_account_to_book,
             'payment_methods'         => $hub->payment_methods ?? ['pay_on_site'],
             'payment_qr_url'          => $hub->payment_qr_url,
+            'digital_bank_name'       => $hub->digital_bank_name,
+            'digital_bank_account'    => $hub->digital_bank_account,
             'owner_id'             => $hub->owner_id,
             'owner'                => $hub->owner,
             'sports'               => $hub->sports ? $hub->sports->pluck('sport')->values() : [],

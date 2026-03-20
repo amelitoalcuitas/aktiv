@@ -36,6 +36,8 @@ class StoreHubRequest extends FormRequest
             'payment_methods'           => ['sometimes', 'array', 'min:1'],
             'payment_methods.*'         => ['string', 'in:pay_on_site,digital_bank'],
             'payment_qr_image'          => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
+            'digital_bank_name'         => ['nullable', 'string', 'max:255'],
+            'digital_bank_account'      => ['nullable', 'string', 'max:255'],
             'sports'                    => ['nullable', 'array'],
             'sports.*'                  => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],
             'contact_numbers'           => ['nullable', 'array', 'max:5'],

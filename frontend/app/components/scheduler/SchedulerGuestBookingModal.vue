@@ -23,7 +23,6 @@ const qrBooking = ref<Booking | null>(null);
 const qrCourtName = ref<string | undefined>(undefined);
 
 const hubPaymentMethods = computed(() => props.hub?.payment_methods ?? ['pay_on_site']);
-const multiplePaymentOptions = computed(() => hubPaymentMethods.value.length > 1);
 
 // ── Step state ────────────────────────────────────────────────
 const step = ref<'details' | 'verify'>('details');
@@ -348,93 +347,11 @@ function handleClose() {
             <UInput v-model="guestPhone" type="tel" placeholder="+63 917 000 0000" class="w-full" />
           </UFormField>
 
-          <!-- Payment method selector (only shown when hub has multiple options) -->
-          <div v-if="multiplePaymentOptions">
-            <p class="mb-2 text-sm font-medium text-[var(--aktiv-ink)]">
-              Payment Method <span class="text-red-500">*</span>
-            </p>
-            <div class="space-y-2">
-              <button
-                v-if="hubPaymentMethods.includes('pay_on_site')"
-                type="button"
-                class="flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors"
-                :class="selectedPaymentMethod === 'pay_on_site'
-                  ? 'border-[#004e89] bg-[#f0f7ff]'
-                  : 'border-[var(--aktiv-border)] bg-white hover:border-[#004e89]/40'"
-                @click="selectedPaymentMethod = 'pay_on_site'"
-              >
-                <div
-                  class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
-                  :class="selectedPaymentMethod === 'pay_on_site' ? 'border-[#004e89]' : 'border-[#94a3b8]'"
-                >
-                  <div v-if="selectedPaymentMethod === 'pay_on_site'" class="h-2 w-2 rounded-full bg-[#004e89]" />
-                </div>
-                <div>
-                  <p class="text-sm font-medium text-[var(--aktiv-ink)]">Pay on Site</p>
-                  <p class="text-xs text-[var(--aktiv-muted)]">Pay when you arrive. You'll receive a QR code to show at the venue.</p>
-                </div>
-              </button>
-
-              <button
-                v-if="hubPaymentMethods.includes('digital_bank')"
-                type="button"
-                class="flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors"
-                :class="selectedPaymentMethod === 'digital_bank'
-                  ? 'border-[#004e89] bg-[#f0f7ff]'
-                  : 'border-[var(--aktiv-border)] bg-white hover:border-[#004e89]/40'"
-                @click="selectedPaymentMethod = 'digital_bank'"
-              >
-                <div
-                  class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors"
-                  :class="selectedPaymentMethod === 'digital_bank' ? 'border-[#004e89]' : 'border-[#94a3b8]'"
-                >
-                  <div v-if="selectedPaymentMethod === 'digital_bank'" class="h-2 w-2 rounded-full bg-[#004e89]" />
-                </div>
-                <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-[var(--aktiv-ink)]">Digital Bank <span class="font-normal text-[var(--aktiv-muted)]">(GCash, Maya, etc.)</span></p>
-                  <p class="text-xs text-[var(--aktiv-muted)]">Send payment online before arriving and upload your receipt to confirm.</p>
-                  <!-- Payment QR preview -->
-                  <div v-if="selectedPaymentMethod === 'digital_bank' && hub?.payment_qr_url" class="mt-2">
-                    <p class="mb-1 text-xs text-[var(--aktiv-muted)]">Send to:</p>
-                    <img
-                      :src="hub.payment_qr_url"
-                      alt="Payment QR"
-                      class="h-36 w-36 rounded-lg border border-[var(--aktiv-border)] object-contain bg-white"
-                    />
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <!-- When only one method: show a subtle inline note -->
-          <div v-else-if="selectedPaymentMethod" class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-background)] px-3 py-2.5">
-            <div class="flex items-center gap-2 text-sm">
-              <UIcon
-                :name="selectedPaymentMethod === 'pay_on_site' ? 'i-heroicons-qr-code' : 'i-heroicons-device-phone-mobile'"
-                class="h-4 w-4 shrink-0 text-[#004e89]"
-              />
-              <div>
-                <span class="font-medium text-[var(--aktiv-ink)]">
-                  {{ selectedPaymentMethod === 'pay_on_site' ? 'Pay on Site' : 'Digital Bank (GCash, Maya, etc.)' }}
-                </span>
-                <span class="ml-1 text-[var(--aktiv-muted)]">·</span>
-                <span class="ml-1 text-[var(--aktiv-muted)]">
-                  {{ selectedPaymentMethod === 'pay_on_site'
-                    ? "You'll receive a QR code to show at the venue."
-                    : 'Upload your receipt after sending payment.' }}
-                </span>
-              </div>
-            </div>
-            <div v-if="selectedPaymentMethod === 'digital_bank' && hub?.payment_qr_url" class="mt-2 ml-6">
-              <p class="mb-1 text-xs text-[var(--aktiv-muted)]">Send to:</p>
-              <img
-                :src="hub.payment_qr_url"
-                alt="Payment QR"
-                class="h-36 w-36 rounded-lg border border-[var(--aktiv-border)] object-contain bg-white"
-              />
-            </div>
-          </div>
+          <!-- Payment method selector -->
+          <BookingPaymentMethodSelector
+            v-model="selectedPaymentMethod"
+            :hub="hub"
+          />
 
           <!-- Email note -->
           <UAlert

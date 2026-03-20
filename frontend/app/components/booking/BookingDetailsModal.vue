@@ -80,7 +80,11 @@ const timeOptions = computed(() => {
   const opts = [];
   for (let h = 5; h <= 23; h++) {
     const hStr = String(h).padStart(2, '0');
-    opts.push({ label: `${hStr}:00`, value: `${hStr}:00` });
+    let label: string;
+    if (h < 12) label = `${h}:00 AM`;
+    else if (h === 12) label = '12:00 PM';
+    else label = `${h - 12}:00 PM`;
+    opts.push({ label, value: `${hStr}:00` });
   }
   return opts;
 });
@@ -150,7 +154,7 @@ const isCancellable = computed(() => {
 
 const isConfirmable = computed(() => {
   if (!props.booking) return false;
-  return props.booking.status === 'payment_sent';
+  return props.booking.status === 'payment_sent' || props.booking.status === 'pending_payment';
 });
 
 // For Date picker formatting

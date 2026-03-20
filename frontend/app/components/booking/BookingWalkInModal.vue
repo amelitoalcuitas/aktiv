@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import type { Court } from '~/types/hub';
+import { z } from 'zod';
+import type { FormSubmitEvent } from '#ui/types';
+import type { Court, OperatingHoursEntry } from '~/types/hub';
 import type { BookingDetail } from '~/types/booking';
 import { useOwnerBookings } from '~/composables/useOwnerBookings';
 
@@ -10,8 +12,8 @@ const props = defineProps<{
   initialDate?: string;
   initialHour?: number;
   initialCourtId?: number;
+  operatingHours?: OperatingHoursEntry[];
 }>();
-
 
 const emit = defineEmits<{
   'update:open': [boolean];
@@ -27,24 +29,48 @@ const isOpen = computed({
 });
 
 const walkInLoading = ref(false);
+const formRef = useTemplateRef('formRef');
 
-const walkInForm = reactive({
-  courtId: undefined as number | undefined,
-  sport: '' as any,
+// Schema
+const schema = z
+  .object({
+    courtId: z.number({ message: 'Select a court.' }).min(1, 'Select a court.'),
+    date: z.string().min(1, 'Select a date.'),
+    startHour: z.number(),
+    endHour: z.number(),
+    customerMode: z.enum(['guest', 'registered']),
+    bookedBy: z.number().optional(),
+    guestName: z.string().optional(),
+    guestPhone: z.string().optional()
+  })
+  .superRefine((data, ctx) => {
+    if (data.customerMode === 'registered' && !data.bookedBy) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Search and select a registered user.',
+        path: ['bookedBy']
+      });
+    }
+    if (data.customerMode === 'guest' && !data.guestName?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Guest name is required.',
+        path: ['guestName']
+      });
+    }
+  });
+
+type Schema = z.infer<typeof schema>;
+
+const walkInForm = reactive<Schema>({
+  courtId: undefined as any,
   date: '',
   startHour: 8,
-  duration: 1,
-  customerMode: 'guest' as 'registered' | 'guest',
-  bookedBy: undefined as number | undefined,
+  endHour: 9,
+  customerMode: 'guest',
+  bookedBy: undefined,
   guestName: '',
   guestPhone: ''
-});
-
-const walkInErrors = reactive({
-  court: '',
-  sport: '',
-  date: '',
-  customer: ''
 });
 
 // User search
@@ -70,10 +96,11 @@ watch(userSearchQuery, (q) => {
   clearTimeout(searchDebounce);
   if (!q.trim()) {
     userSearchResults.value = [];
+    userSearchLoading.value = false;
     return;
   }
+  userSearchLoading.value = true;
   searchDebounce = setTimeout(async () => {
-    userSearchLoading.value = true;
     try {
       userSearchResults.value = await searchUsers(q.trim());
     } catch {
@@ -84,44 +111,43 @@ watch(userSearchQuery, (q) => {
   }, 350);
 });
 
-function selectUser(user: {
-  id: number;
-  name: string;
-  email: string;
-  phone: string | null;
-  avatar_url: string | null;
-}) {
-  selectedUser.value = { id: user.id, name: user.name, email: user.email };
-  walkInForm.bookedBy = user.id;
-  userSearchResults.value = [];
+const userSelectItems = computed(() =>
+  userSearchResults.value.map((u) => ({
+    label: u.name,
+    value: u.id,
+    email: u.email
+  }))
+);
+
+function onUserSelect(
+  item: { label: string; value: number; email: string } | null
+) {
+  if (!item) {
+    selectedUser.value = null;
+    walkInForm.bookedBy = undefined;
+    return;
+  }
+  selectedUser.value = { id: item.value, name: item.label, email: item.email };
+  walkInForm.bookedBy = item.value;
   userSearchQuery.value = '';
 }
 
 function clearSelectedUser() {
   selectedUser.value = null;
   walkInForm.bookedBy = undefined;
+  userSearchQuery.value = '';
+  userSearchResults.value = [];
 }
 
 const walkInCourtOptions = computed(() =>
   props.courts.map((c) => ({ label: c.name, value: c.id }))
 );
 
-const walkInSelectedCourt = computed(() =>
-  props.courts.find((c) => c.id === walkInForm.courtId)
-);
-
-const walkInSportOptions = computed(() =>
-  (walkInSelectedCourt.value?.sports ?? []).map((s) => ({
-    label: s.charAt(0).toUpperCase() + s.slice(1),
-    value: s
-  }))
-);
-
 watch(
-  () => walkInForm.courtId,
+  () => walkInForm.startHour,
   () => {
-    if (!walkInForm.sport || !walkInSelectedCourt.value?.sports.includes(walkInForm.sport as any)) {
-      walkInForm.sport = (walkInSportOptions.value[0]?.value as string) ?? '';
+    if (walkInForm.endHour <= walkInForm.startHour) {
+      walkInForm.endHour = walkInForm.startHour + 1;
     }
   }
 );
@@ -131,33 +157,69 @@ const todayStr = computed(() => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 });
 
-const startTimeHourOptions = Array.from({ length: 18 }, (_, i) => {
-  const h = i + 6;
-  const label =
-    h === 12 ? '12:00 PM' : h < 12 ? `${h}:00 AM` : `${h - 12}:00 PM`;
-  return { label, value: h };
+const isPastSlot = computed(() => {
+  if (!walkInForm.date) return false;
+  const now = new Date();
+  const [y, mo, d] = walkInForm.date.split('-').map(Number);
+  const slotStart = new Date(y!, mo! - 1, d!);
+  slotStart.setHours(walkInForm.startHour, 0, 0, 0);
+  return slotStart < now;
 });
 
-const durationOptions = Array.from({ length: 8 }, (_, i) => ({
-  label: `${i + 1} hour${i > 0 ? 's' : ''}`,
-  value: i + 1
-}));
-
-function clearWalkInErrors() {
-  walkInErrors.court = '';
-  walkInErrors.sport = '';
-  walkInErrors.date = '';
-  walkInErrors.customer = '';
+function formatHourLabel(h: number): string {
+  if (h === 12) return '12:00 PM';
+  if (h < 12) return `${h}:00 AM`;
+  return `${h - 12}:00 PM`;
 }
 
-function resetForm() {
-  clearWalkInErrors();
-  walkInForm.courtId = props.initialCourtId ?? (props.courts[0]?.id ?? undefined);
-  const d = new Date();
-  walkInForm.date = props.initialDate || `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  walkInForm.startHour = props.initialHour ?? 8;
-  walkInForm.duration = 1;
+function getOperatingRange(
+  date: string
+): { openHour: number; closeHour: number } | null {
+  const oh = props.operatingHours ?? [];
+  if (!oh.length || !date) return null;
+  const [y, mo, d] = date.split('-').map(Number);
+  const dow = new Date(y!, mo! - 1, d!).getDay();
+  const entry = oh.find((e) => e.day_of_week === dow);
+  if (!entry || entry.is_closed) return null;
+  return {
+    openHour: parseInt(entry.opens_at.split(':')[0]!, 10),
+    closeHour: parseInt(entry.closes_at.split(':')[0]!, 10)
+  };
+}
 
+const startTimeHourOptions = computed(() => {
+  const range = getOperatingRange(walkInForm.date);
+  const openHour = range?.openHour ?? 6;
+  const closeHour = range?.closeHour ?? 23;
+  return Array.from({ length: closeHour - openHour }, (_, i) => {
+    const h = openHour + i;
+    return { label: formatHourLabel(h), value: h };
+  });
+});
+
+const endHourOptions = computed(() => {
+  const range = getOperatingRange(walkInForm.date);
+  const closeHour = range?.closeHour ?? 23;
+  const min = walkInForm.startHour + 1;
+  const count = closeHour - min + 1;
+  if (count <= 0) return [];
+  return Array.from({ length: count }, (_, i) => {
+    const h = min + i;
+    return { label: formatHourLabel(h), value: h };
+  });
+});
+
+function resetForm() {
+  walkInForm.courtId = (props.initialCourtId ??
+    props.courts[0]?.id ??
+    undefined) as any;
+  const d = new Date();
+  walkInForm.date =
+    props.initialDate ||
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  walkInForm.startHour =
+    props.initialHour ?? startTimeHourOptions.value[0]?.value ?? 8;
+  walkInForm.endHour = walkInForm.startHour + 1;
   walkInForm.customerMode = 'guest';
   walkInForm.bookedBy = undefined;
   walkInForm.guestName = '';
@@ -167,68 +229,43 @@ function resetForm() {
   userSearchResults.value = [];
 }
 
-watch(() => props.open, (val) => {
-  if (val) {
-    resetForm();
+watch(
+  () => props.open,
+  (val) => {
+    if (val) resetForm();
   }
-});
+);
 
-async function submitWalkIn() {
+async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (!props.hubId) return;
-  clearWalkInErrors();
-  let valid = true;
+  const {
+    date,
+    startHour,
+    endHour,
+    courtId,
+    customerMode,
+    bookedBy,
+    guestName,
+    guestPhone
+  } = event.data;
 
-  if (!walkInForm.courtId) {
-    walkInErrors.court = 'Select a court.';
-    valid = false;
-  }
-  if (!walkInForm.sport) {
-    walkInErrors.sport = 'Select a sport.';
-    valid = false;
-  }
-  if (!walkInForm.date) {
-    walkInErrors.date = 'Select a date.';
-    valid = false;
-  }
-  if (walkInForm.customerMode === 'registered' && !walkInForm.bookedBy) {
-    walkInErrors.customer = 'Search and select a registered user.';
-    valid = false;
-  }
-  if (walkInForm.customerMode === 'guest' && !walkInForm.guestName.trim()) {
-    walkInErrors.customer = 'Guest name is required.';
-    valid = false;
-  }
-
-  if (!valid) return;
-
-  const [y, mo, day] = walkInForm.date.split('-').map(Number);
+  const [y, mo, day] = date.split('-').map(Number);
   const startDt = new Date(y!, mo! - 1, day!);
-  startDt.setHours(walkInForm.startHour, 0, 0, 0);
-  const endDt = new Date(startDt.getTime() + walkInForm.duration * 3_600_000);
+  startDt.setHours(startHour, 0, 0, 0);
+  const endDt = new Date(y!, mo! - 1, day!);
+  endDt.setHours(endHour, 0, 0, 0);
 
   walkInLoading.value = true;
   try {
-    const booking = await createWalkIn(
-      props.hubId,
-      walkInForm.courtId!,
-      {
-        court_id: walkInForm.courtId!,
-        sport: walkInForm.sport,
-        start_time: startDt.toISOString(),
-        end_time: endDt.toISOString(),
-        session_type: 'private',
-        booked_by:
-          walkInForm.customerMode === 'registered' ? walkInForm.bookedBy : null,
-        guest_name:
-          walkInForm.customerMode === 'guest'
-            ? walkInForm.guestName.trim() || null
-            : null,
-        guest_phone:
-          walkInForm.customerMode === 'guest'
-            ? walkInForm.guestPhone.trim() || null
-            : null
-      }
-    );
+    const booking = await createWalkIn(props.hubId, courtId, {
+      court_id: courtId,
+      start_time: startDt.toISOString(),
+      end_time: endDt.toISOString(),
+      session_type: 'private',
+      booked_by: customerMode === 'registered' ? bookedBy : null,
+      guest_name: customerMode === 'guest' ? guestName?.trim() || null : null,
+      guest_phone: customerMode === 'guest' ? guestPhone?.trim() || null : null
+    });
     emit('created', booking);
     isOpen.value = false;
     toast.add({ title: 'Walk-in booking created', color: 'success' });
@@ -236,8 +273,8 @@ async function submitWalkIn() {
     const msg =
       (err as { data?: { message?: string } })?.data?.message ??
       'Failed to create walk-in booking.';
-    if (msg.includes('already booked')) {
-      walkInErrors.date = msg;
+    if (msg.toLowerCase().includes('already booked')) {
+      formRef.value?.setErrors([{ name: 'date', message: msg }]);
     } else {
       toast.add({ title: msg, color: 'error' });
     }
@@ -254,82 +291,72 @@ async function submitWalkIn() {
     :ui="{ content: 'sm:max-w-xl' }"
   >
     <template #body>
-      <div class="space-y-4">
+      <UForm
+        ref="formRef"
+        :schema="schema"
+        :state="walkInForm"
+        class="space-y-4"
+        @submit="onSubmit"
+      >
         <!-- Court -->
-        <div>
-          <label class="mb-1 block text-sm font-medium text-[#0f1728]">Court</label>
+        <UFormField label="Court" name="courtId">
           <USelect
             v-model="walkInForm.courtId"
             :items="walkInCourtOptions"
             class="w-full"
           />
-          <p v-if="walkInErrors.court" class="mt-1 text-red-600">
-            {{ walkInErrors.court }}
-          </p>
-        </div>
-
-        <!-- Sport -->
-        <div>
-          <label class="mb-1 block text-sm font-medium text-[#0f1728]">Sport</label>
-          <USelect
-            v-model="walkInForm.sport"
-            :items="walkInSportOptions"
-            :disabled="!walkInForm.courtId"
-            class="w-full"
-          />
-          <p v-if="walkInErrors.sport" class="mt-1 text-red-600">
-            {{ walkInErrors.sport }}
-          </p>
-        </div>
+        </UFormField>
 
         <!-- Date + time -->
         <div class="grid grid-cols-3 gap-3">
-          <div class="col-span-1">
-            <label class="mb-1 block text-sm font-medium text-[#0f1728]">Date</label>
+          <UFormField label="Date" name="date" class="col-span-1">
             <UInput
               v-model="walkInForm.date"
               type="date"
               :min="todayStr"
               class="w-full"
             />
-            <p v-if="walkInErrors.date" class="mt-1 text-red-600">
-              {{ walkInErrors.date }}
-            </p>
-          </div>
-          <div>
-            <label class="mb-1 block text-sm font-medium text-[#0f1728]">Start</label>
+          </UFormField>
+          <UFormField label="Start" name="startHour">
             <USelect
               v-model="walkInForm.startHour"
               :items="startTimeHourOptions"
               class="w-full"
             />
-          </div>
-          <div>
-            <label class="mb-1 block text-sm font-medium text-[#0f1728]">Duration</label>
+          </UFormField>
+          <UFormField label="End" name="endHour">
             <USelect
-              v-model="walkInForm.duration"
-              :items="durationOptions"
+              v-model="walkInForm.endHour"
+              :items="endHourOptions"
               class="w-full"
             />
-          </div>
+          </UFormField>
         </div>
 
         <!-- Customer -->
         <div>
-          <label class="mb-1.5 block text-sm font-medium text-[#0f1728]">Customer</label>
+          <p class="mb-1.5 text-sm font-medium text-[#0f1728]">Customer</p>
           <div class="mb-2 flex gap-2">
             <UButton
               size="sm"
-              :variant="walkInForm.customerMode === 'guest' ? 'solid' : 'outline'"
-              :color="walkInForm.customerMode === 'guest' ? 'primary' : 'neutral'"
+              :variant="
+                walkInForm.customerMode === 'guest' ? 'solid' : 'outline'
+              "
+              :color="
+                walkInForm.customerMode === 'guest' ? 'primary' : 'neutral'
+              "
               @click="walkInForm.customerMode = 'guest'"
             >
               Guest
             </UButton>
             <UButton
               size="sm"
-              :variant="walkInForm.customerMode === 'registered' ? 'solid' : 'outline'"
-              :color="walkInForm.customerMode === 'registered' ? 'primary' : 'neutral'"
+              :variant="
+                walkInForm.customerMode === 'registered' ? 'solid' : 'outline'
+              "
+              :color="
+                walkInForm.customerMode === 'registered' ? 'primary' : 'neutral'
+              "
               @click="walkInForm.customerMode = 'registered'"
             >
               Registered User
@@ -338,11 +365,13 @@ async function submitWalkIn() {
 
           <!-- Guest fields -->
           <template v-if="walkInForm.customerMode === 'guest'">
-            <UInput
-              v-model="walkInForm.guestName"
-              placeholder="Full name"
-              class="w-full"
-            />
+            <UFormField name="guestName">
+              <UInput
+                v-model="walkInForm.guestName"
+                placeholder="Full name"
+                class="w-full"
+              />
+            </UFormField>
             <UInput
               v-model="walkInForm.guestPhone"
               placeholder="Phone number (optional)"
@@ -352,15 +381,44 @@ async function submitWalkIn() {
 
           <!-- Registered user search -->
           <template v-else>
+            <UFormField name="bookedBy">
+              <USelectMenu
+                v-model:search-term="userSearchQuery"
+                :items="userSelectItems"
+                :loading="userSearchLoading"
+                placeholder="Search by name, email, or phone…"
+                icon="i-heroicons-magnifying-glass"
+                class="w-full"
+                @update:model-value="onUserSelect"
+              >
+                <template #empty>
+                  <span class="text-sm text-[#64748b]">
+                    {{
+                      userSearchLoading
+                        ? 'Searching…'
+                        : userSearchQuery.trim()
+                          ? 'No users found'
+                          : 'Type to search…'
+                    }}
+                  </span>
+                </template>
+                <template #item="{ item }">
+                  <span class="font-medium text-[#0f1728]">{{
+                    item.label
+                  }}</span>
+                  <span class="ml-2 text-[#64748b]">{{ item.email }}</span>
+                </template>
+              </USelectMenu>
+            </UFormField>
             <div
               v-if="selectedUser"
-              class="flex items-center justify-between rounded-xl border border-[#dbe4ef] bg-[#f8fafc] px-3 py-2"
+              class="mt-2 flex items-center justify-between rounded-xl border border-[#dbe4ef] bg-[#f8fafc] px-3 py-2"
             >
               <div>
                 <p class="text-sm font-medium text-[#0f1728]">
                   {{ selectedUser.name }}
                 </p>
-                <p class="text-[#64748b]">{{ selectedUser.email }}</p>
+                <p class="text-sm text-[#64748b]">{{ selectedUser.email }}</p>
               </div>
               <UButton
                 icon="i-heroicons-x-mark"
@@ -369,52 +427,32 @@ async function submitWalkIn() {
                 @click="clearSelectedUser"
               />
             </div>
-            <div v-else class="relative">
-              <UInput
-                v-model="userSearchQuery"
-                placeholder="Search by name, email, or phone…"
-                :loading="userSearchLoading"
-                class="w-full"
-                icon="i-heroicons-magnifying-glass"
-              />
-              <!-- Results dropdown -->
-              <div
-                v-if="userSearchResults.length"
-                class="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-[#dbe4ef] bg-white shadow-lg"
-              >
-                <button
-                  v-for="u in userSearchResults"
-                  :key="u.id"
-                  class="w-full px-3 py-2 text-left text-sm hover:bg-[#f0f4f8] transition-colors"
-                  type="button"
-                  @click="selectUser(u)"
-                >
-                  <span class="font-medium text-[#0f1728]">{{ u.name }}</span>
-                  <span class="ml-2 text-[#64748b]">{{ u.email }}</span>
-                </button>
-              </div>
-            </div>
           </template>
-
-          <p v-if="walkInErrors.customer" class="mt-1 text-red-600">
-            {{ walkInErrors.customer }}
-          </p>
         </div>
-      </div>
+
+        <!-- Past slot warning -->
+        <UAlert
+          v-if="isPastSlot"
+          color="warning"
+          variant="subtle"
+          icon="i-heroicons-exclamation-triangle"
+          title="This time slot is in the past."
+          description="Please confirm the date and time are correct before proceeding."
+        />
+
+        <!-- Hidden submit trigger -->
+        <button type="submit" class="hidden" />
+      </UForm>
     </template>
     <template #footer>
       <div class="flex justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="outline"
-          @click="isOpen = false"
-        >
+        <UButton color="neutral" variant="outline" @click="isOpen = false">
           Cancel
         </UButton>
         <UButton
           class="bg-[#004e89] hover:bg-[#003d6b]"
           :loading="walkInLoading"
-          @click="submitWalkIn"
+          @click="formRef?.submit()"
         >
           Confirm Walk-in
         </UButton>

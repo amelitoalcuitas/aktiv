@@ -39,6 +39,8 @@ export function useHubs() {
       operating_hours: OperatingHoursEntry[];
       payment_methods: Array<'pay_on_site' | 'digital_bank'>;
       payment_qr_image: File | null;
+      digital_bank_name: string | null;
+      digital_bank_account: string | null;
     }>
   ) {
     const appendIfDefined = (key: string, value: unknown) => {
@@ -110,6 +112,9 @@ export function useHubs() {
     if (payload.remove_payment_qr) {
       formData.append('remove_payment_qr', '1');
     }
+
+    appendIfDefined('digital_bank_name', payload.digital_bank_name);
+    appendIfDefined('digital_bank_account', payload.digital_bank_account);
   }
 
   // ── Hubs ──────────────────────────────────────────────────────────────────
@@ -186,6 +191,8 @@ export function useHubs() {
       payment_methods: Array<'pay_on_site' | 'digital_bank'>;
       payment_qr_image: File | null;
       remove_payment_qr: boolean;
+      digital_bank_name: string | null;
+      digital_bank_account: string | null;
     }>
   ): Promise<Hub> {
     const formData = new FormData();

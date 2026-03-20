@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\SendGuestVerificationRequest;
 use App\Http\Requests\Booking\StoreGuestBookingRequest;
+use App\Mail\BookingConfirmation;
 use App\Mail\GuestBookingVerification;
 use App\Models\Booking;
 use App\Models\Court;
@@ -135,6 +136,8 @@ class GuestBookingController extends Controller
         ]);
 
         Cache::forget($cacheKey);
+
+        Mail::to($booking->guest_email)->send(new BookingConfirmation($booking, $hub, $court->name));
 
         return response()->json([
             'message' => 'Booking created successfully.',

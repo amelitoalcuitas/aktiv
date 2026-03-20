@@ -214,15 +214,15 @@ function getBookingActions(booking: BookingDetail) {
     onSelect: () => void;
   }[][] = [];
 
-  if (booking.status === 'payment_sent') {
+  if (booking.status === 'payment_sent' || booking.status === 'pending_payment') {
     groups.push([
       {
-        label: 'Confirm Payment',
+        label: booking.status === 'payment_sent' ? 'Confirm Payment' : 'Confirm Booking',
         icon: 'i-heroicons-check-circle',
         onSelect: () => emit('action-confirm', booking)
       },
       {
-        label: 'Reject Receipt',
+        label: booking.status === 'payment_sent' ? 'Reject Receipt' : 'Reject Booking',
         icon: 'i-heroicons-x-circle',
         color: 'error' as const,
         onSelect: () => emit('action-reject', booking)
@@ -292,7 +292,8 @@ watch(
 
 // ── Slot click ─────────────────────────────────────────────────
 function handleCellClick(court: Court, slotIdx: number) {
-  const cell = grid.value[court.id]?.[slotIdx];
+  const blocks = grid.value[court.id] ?? [];
+  const cell = blocks.find(b => b.slotIdx === slotIdx);
   if (!cell || cell.type !== 'available') return;
   const slot = timeSlots.value[slotIdx];
   if (!slot) return;

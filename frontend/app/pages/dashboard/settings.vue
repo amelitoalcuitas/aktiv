@@ -33,6 +33,8 @@ const digitalBank = ref(false);
 const paymentQrFile = ref<File | null>(null);
 const paymentQrPreview = ref<string | null>(null);
 const removePaymentQr = ref(false);
+const digitalBankName = ref('');
+const digitalBankAccount = ref('');
 
 watch(selectedHub, (hub) => {
   if (hub) {
@@ -43,6 +45,8 @@ watch(selectedHub, (hub) => {
     paymentQrPreview.value = hub.payment_qr_url ?? null;
     paymentQrFile.value = null;
     removePaymentQr.value = false;
+    digitalBankName.value = hub.digital_bank_name ?? '';
+    digitalBankAccount.value = hub.digital_bank_account ?? '';
   }
 });
 
@@ -51,7 +55,11 @@ function onPaymentQrChange(event: Event) {
   const file = input.files?.[0];
   if (!file) return;
   if (file.size > 10 * 1024 * 1024) {
-    toast.add({ title: 'File too large', description: 'Max file size is 10MB.', color: 'error' });
+    toast.add({
+      title: 'File too large',
+      description: 'Max file size is 10MB.',
+      color: 'error'
+    });
     return;
   }
   paymentQrFile.value = file;
@@ -82,7 +90,11 @@ async function saveSettings() {
   if (!selectedHubId.value) return;
 
   if (!payOnSite.value && !digitalBank.value) {
-    toast.add({ title: 'Select a payment method', description: 'At least one payment method must be enabled.', color: 'error' });
+    toast.add({
+      title: 'Select a payment method',
+      description: 'At least one payment method must be enabled.',
+      color: 'error'
+    });
     return;
   }
 
@@ -97,6 +109,8 @@ async function saveSettings() {
       payment_methods: paymentMethods,
       payment_qr_image: paymentQrFile.value,
       ...(removePaymentQr.value ? { remove_payment_qr: true } : {}),
+      digital_bank_name: digitalBankName.value || null,
+      digital_bank_account: digitalBankAccount.value || null
     });
 
     // Update local store
@@ -202,35 +216,77 @@ async function saveSettings() {
         <!-- Payment section -->
         <div class="rounded-xl border border-[#dbe4ef] bg-white p-6">
           <h2 class="mb-1 text-base font-semibold text-[#0f1728]">Payment</h2>
-          <p class="mb-4 text-sm text-[#64748b]">Choose how customers can pay for their bookings. You can enable multiple options.</p>
+          <p class="mb-4 text-sm text-[#64748b]">
+            Choose how customers can pay for their bookings. You can enable
+            multiple options.
+          </p>
 
           <div class="space-y-4">
             <!-- Pay on Site -->
-            <div class="rounded-lg border border-[#dbe4ef] p-4 transition-colors" :class="payOnSite ? 'bg-[#f0f7ff] border-[#004e89]/30' : 'bg-white'">
+            <div
+              class="rounded-lg border border-[#dbe4ef] p-4 transition-colors"
+              :class="
+                payOnSite ? 'bg-[#f0f7ff] border-[#004e89]/30' : 'bg-white'
+              "
+            >
               <div class="flex items-start gap-3">
                 <UCheckbox v-model="payOnSite" class="mt-0.5" />
                 <div>
                   <p class="text-sm font-medium text-[#0f1728]">Pay on Site</p>
                   <p class="mt-0.5 text-xs text-[#64748b]">
-                    Customers receive a unique booking code and QR when they book. They present it at the venue and you scan it to confirm their payment on arrival.
+                    Customers receive a unique booking code and QR when they
+                    book. They present it at the venue and you scan it to
+                    confirm their payment on arrival.
                   </p>
                 </div>
               </div>
             </div>
 
             <!-- Digital Bank -->
-            <div class="rounded-lg border border-[#dbe4ef] p-4 transition-colors" :class="digitalBank ? 'bg-[#f0f7ff] border-[#004e89]/30' : 'bg-white'">
+            <div
+              class="rounded-lg border border-[#dbe4ef] p-4 transition-colors"
+              :class="
+                digitalBank ? 'bg-[#f0f7ff] border-[#004e89]/30' : 'bg-white'
+              "
+            >
               <div class="flex items-start gap-3">
                 <UCheckbox v-model="digitalBank" class="mt-0.5" />
                 <div class="flex-1 min-w-0">
-                  <p class="text-sm font-medium text-[#0f1728]">Digital Bank <span class="font-normal text-[#64748b]">(GCash, Maya, Maribank, etc.)</span></p>
+                  <p class="text-sm font-medium text-[#0f1728]">
+                    Digital Bank
+                    <span class="font-normal text-[#64748b]"
+                      >(GCash, Maya, Maribank, etc.)</span
+                    >
+                  </p>
                   <p class="mt-0.5 text-xs text-[#64748b]">
-                    Customers send payment digitally before arriving. Upload your payment QR code so customers know where to send their payment.
+                    Customers send payment digitally before arriving. Upload
+                    your payment QR code so customers know where to send their
+                    payment.
                   </p>
 
+                  <!-- Digital bank account info -->
+                  <div v-if="digitalBank" class="mt-4 grid grid-cols-2 gap-3">
+                    <UFormField label="Digital Bank">
+                      <UInput
+                        v-model="digitalBankName"
+                        placeholder="e.g. GCash, Maya"
+                        class="w-full"
+                      />
+                    </UFormField>
+                    <UFormField label="Account Number">
+                      <UInput
+                        v-model="digitalBankAccount"
+                        placeholder="e.g. 09XX XXX XXXX"
+                        class="w-full"
+                      />
+                    </UFormField>
+                  </div>
+
                   <!-- QR uploader — only shown when digital bank is enabled -->
-                  <div v-if="digitalBank" class="mt-4 space-y-3">
-                    <p class="text-xs font-medium text-[#0f1728]">Payment QR Code <span class="text-red-500">*</span></p>
+                  <div v-if="digitalBank" class="mt-3 space-y-3">
+                    <p class="text-xs font-medium text-[#0f1728]">
+                      Payment QR Code <span class="text-red-500">*</span>
+                    </p>
 
                     <!-- Existing QR preview -->
                     <div v-if="paymentQrPreview" class="flex items-start gap-3">
@@ -240,7 +296,13 @@ async function saveSettings() {
                         class="h-28 w-28 rounded-lg border border-[#dbe4ef] object-contain bg-white"
                       />
                       <div class="text-xs text-[#64748b] space-y-1.5">
-                        <p>{{ paymentQrFile ? 'New image selected.' : 'Current QR code.' }}</p>
+                        <p>
+                          {{
+                            paymentQrFile
+                              ? 'New image selected.'
+                              : 'Current QR code.'
+                          }}
+                        </p>
                         <p>Upload a new image to replace it.</p>
                         <button
                           type="button"
@@ -253,9 +315,18 @@ async function saveSettings() {
                       </div>
                     </div>
 
-                    <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-[#dbe4ef] bg-[#f9fdf2] px-4 py-3 text-sm text-[#64748b] hover:border-[#004e89]/40 transition-colors">
-                      <UIcon name="i-heroicons-arrow-up-tray" class="h-4 w-4 shrink-0" />
-                      <span>{{ paymentQrFile ? paymentQrFile.name : 'Upload QR image (JPG, PNG, WebP · max 10MB)' }}</span>
+                    <label
+                      class="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-[#dbe4ef] bg-[#f9fdf2] px-4 py-3 text-sm text-[#64748b] hover:border-[#004e89]/40 transition-colors"
+                    >
+                      <UIcon
+                        name="i-heroicons-arrow-up-tray"
+                        class="h-4 w-4 shrink-0"
+                      />
+                      <span>{{
+                        paymentQrFile
+                          ? paymentQrFile.name
+                          : 'Upload QR image (JPG, PNG, WebP · max 10MB)'
+                      }}</span>
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
@@ -264,7 +335,10 @@ async function saveSettings() {
                       />
                     </label>
 
-                    <p v-if="!paymentQrPreview && !paymentQrFile" class="text-xs text-amber-600">
+                    <p
+                      v-if="!paymentQrPreview && !paymentQrFile"
+                      class="text-xs text-amber-600"
+                    >
                       A payment QR code is required for Digital Bank payments.
                     </p>
                   </div>

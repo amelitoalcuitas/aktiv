@@ -18,7 +18,7 @@ interface UserSearchResult {
 
 interface WalkInPayload {
   court_id: number;
-  sport: string;
+  sport?: string;
   start_time: string;
   end_time: string;
   session_type?: 'private' | 'open_play';

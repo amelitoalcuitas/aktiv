@@ -115,9 +115,10 @@ class OwnerBookingController extends Controller
         abort_if($hub->owner_id !== $request->user()->id, 403);
         $this->assertBelongsToHub($booking, $hub);
 
-        if ($booking->status !== 'payment_sent') {
+        $confirmableStatuses = ['payment_sent', 'pending_payment'];
+        if (! in_array($booking->status, $confirmableStatuses)) {
             return response()->json([
-                'message' => 'Only bookings with status payment_sent can be confirmed.',
+                'message' => 'This booking cannot be confirmed.',
             ], 422);
         }
 
@@ -142,9 +143,10 @@ class OwnerBookingController extends Controller
         abort_if($hub->owner_id !== $request->user()->id, 403);
         $this->assertBelongsToHub($booking, $hub);
 
-        if ($booking->status !== 'payment_sent') {
+        $rejectableStatuses = ['payment_sent', 'pending_payment'];
+        if (! in_array($booking->status, $rejectableStatuses)) {
             return response()->json([
-                'message' => 'Only bookings with status payment_sent can be rejected.',
+                'message' => 'This booking cannot be rejected.',
             ], 422);
         }
 

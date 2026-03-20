@@ -336,6 +336,7 @@ const statusLabels: Record<string, string> = {
               variant="outline"
               color="error"
               class="flex-1"
+              block
               :disabled="
                 isActing ||
                 ['cancelled', 'completed'].includes(foundBooking.status)
@@ -347,6 +348,7 @@ const statusLabels: Record<string, string> = {
             <UButton
               class="flex-1 bg-[#004e89] hover:bg-[#003d6b]"
               :loading="isActing"
+              block
               :disabled="
                 ['confirmed', 'cancelled', 'completed'].includes(
                   foundBooking.status

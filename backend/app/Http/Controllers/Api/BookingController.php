@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\StoreBookingRequest;
 use App\Http\Requests\Booking\UploadReceiptRequest;
+use App\Mail\BookingConfirmation;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
@@ -12,6 +13,9 @@ use Illuminate\Http\Request;
 use App\Services\ImageUploadService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Mail;
+use SimpleSoftwareIO\QrCode\Facades\QrCode as QrCodeFacade;
 
 class BookingController extends Controller
 {
@@ -126,6 +130,9 @@ class BookingController extends Controller
             'expires_at' => now()->addHour(),
         ]);
 
+        $userEmail = $request->user()->email;
+        Mail::to($userEmail)->send(new BookingConfirmation($booking, $hub, $court->name));
+
         return response()->json([
             'message' => 'Booking created successfully.',
             'data' => [
@@ -182,6 +189,24 @@ class BookingController extends Controller
                 'receipt_image_url' => $booking->receipt_image_url,
                 'receipt_uploaded_at' => $booking->receipt_uploaded_at->toIso8601String(),
             ],
+        ]);
+    }
+
+    /**
+     * Return a QR code PNG for the given booking code. Public — no auth required.
+     * The booking code is itself the secret; no additional auth needed.
+     */
+    public function qrCode(string $code): Response
+    {
+        $svg = QrCodeFacade::size(300)
+            ->margin(2)
+            ->color(15, 23, 40)
+            ->backgroundColor(255, 255, 255)
+            ->generate($code);
+
+        return response($svg, 200, [
+            'Content-Type'  => 'image/svg+xml',
+            'Cache-Control' => 'public, max-age=31536000, immutable',
         ]);
     }
 }

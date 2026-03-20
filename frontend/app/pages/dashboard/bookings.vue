@@ -440,16 +440,16 @@ function bookingDropdownItems(booking: BookingDetail) {
     loading?: boolean;
     onSelect: () => void;
   }[][] = [];
-  if (booking.status === 'payment_sent') {
+  if (booking.status === 'payment_sent' || booking.status === 'pending_payment') {
     groups.push([
       {
-        label: 'Confirm Payment',
+        label: booking.status === 'payment_sent' ? 'Confirm Payment' : 'Confirm Booking',
         icon: 'i-heroicons-check-circle',
         loading: confirmingId.value === booking.id,
         onSelect: () => handleConfirm(booking)
       },
       {
-        label: 'Reject Receipt',
+        label: booking.status === 'payment_sent' ? 'Reject Receipt' : 'Reject Booking',
         icon: 'i-heroicons-x-circle',
         color: 'error' as const,
         onSelect: () => openReject(booking)
@@ -801,6 +801,7 @@ function bookingDropdownItems(booking: BookingDetail) {
       :initial-date="calendarSlot?.date"
       :initial-hour="calendarSlot?.hour"
       :initial-court-id="calendarSlot?.courtId"
+      :operating-hours="selectedHub?.operating_hours ?? []"
       @created="onWalkInCreated"
     />
 

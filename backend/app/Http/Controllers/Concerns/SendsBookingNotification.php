@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Concerns;
 
+use App\Events\BookingSlotUpdated;
 use App\Events\NotificationBroadcast;
 use App\Models\Booking;
 use App\Models\User;
@@ -30,5 +31,13 @@ trait SendsBookingNotification
                 'created_at'    => $dbNotification->created_at->toIso8601String(),
             ]));
         }
+
+        // Broadcast on the public hub channel so all viewers of the scheduler
+        // grid (who are not the notification recipient) see the slot update too.
+        broadcast(new BookingSlotUpdated(
+            hubId: $booking->court->hub_id,
+            courtId: $booking->court_id,
+            status: $booking->status,
+        ));
     }
 }

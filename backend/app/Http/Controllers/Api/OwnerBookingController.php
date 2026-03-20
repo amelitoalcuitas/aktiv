@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\BookingSlotUpdated;
 use App\Http\Controllers\Concerns\SendsBookingNotification;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\RejectBookingRequest;
@@ -79,7 +80,6 @@ class OwnerBookingController extends Controller
 
         $validated = $request->validate([
             'court_id' => 'required|exists:courts,id',
-            'sport' => 'required|string|max:50',
             'start_time' => 'required|date',
             'end_time' => 'required|date|after:start_time',
         ]);
@@ -111,11 +111,16 @@ class OwnerBookingController extends Controller
 
         $booking->update([
             'court_id' => $court->id,
-            'sport' => $validated['sport'],
             'start_time' => $startTime,
             'end_time' => $endTime,
             'total_price' => $totalPrice,
         ]);
+
+        broadcast(new BookingSlotUpdated(
+            hubId: $hub->id,
+            courtId: $booking->court_id,
+            status: $booking->status,
+        ));
 
         return response()->json([
             'message' => 'Booking updated successfully.',
@@ -212,9 +217,16 @@ class OwnerBookingController extends Controller
         ]);
 
         // Notify the booker (registered users only)
+        $booking->load('court.hub');
         if ($booking->bookedBy) {
-            $booking->load('court.hub');
             $this->notifyBookingActivity($booking->bookedBy, $booking, 'booking_cancelled');
+        } else {
+            // No registered user to notify — still broadcast the slot change
+            broadcast(new BookingSlotUpdated(
+                hubId: $hub->id,
+                courtId: $booking->court_id,
+                status: $booking->status,
+            ));
         }
 
         return response()->json([
@@ -258,7 +270,6 @@ class OwnerBookingController extends Controller
             'court_id' => $court->id,
             'booked_by' => $request->booked_by ?? null,
             'created_by' => $request->user()->id,
-            'sport' => $request->sport,
             'start_time' => $startTime,
             'end_time' => $endTime,
             'session_type' => $request->session_type ?? 'private',
@@ -269,6 +280,12 @@ class OwnerBookingController extends Controller
             'total_price' => $totalPrice,
             'expires_at' => null,
         ]);
+
+        broadcast(new BookingSlotUpdated(
+            hubId: $hub->id,
+            courtId: $booking->court_id,
+            status: $booking->status,
+        ));
 
         return response()->json([
             'message' => 'Walk-in booking created.',

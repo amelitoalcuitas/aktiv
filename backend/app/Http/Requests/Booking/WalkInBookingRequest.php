@@ -16,8 +16,7 @@ class WalkInBookingRequest extends FormRequest
     {
         return [
             'court_id' => ['required', 'integer', 'exists:courts,id'],
-            'sport' => ['required', 'string', 'max:50'],
-            'start_time' => ['required', 'date'],
+'start_time' => ['required', 'date'],
             'end_time' => ['required', 'date', 'after:start_time'],
             'session_type' => ['sometimes', Rule::in(['private', 'open_play'])],
             // Either a registered user or guest fields — not both

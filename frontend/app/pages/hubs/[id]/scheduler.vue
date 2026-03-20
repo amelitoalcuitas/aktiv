@@ -107,8 +107,36 @@ function onRemoveSlots(slots: SelectedSlot[]) {
 }
 
 function onBookingCreated() {
-  loadAllBookings();
+  // The websocket event (booking.slot.updated) triggers loadAllBookings already.
+  // No manual reload needed here to avoid a duplicate fetch.
 }
+
+// ── Real-time slot updates via websocket ───────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let hubChannel: any = null;
+
+onMounted(() => {
+  const { $echo } = useNuxtApp();
+  if (!$echo) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const echo = $echo as any;
+  // Ensure connection is up (the Echo plugin disconnects until auth; public
+  // channels work without auth but still need the transport connected).
+  echo.connector.pusher.connection.connect();
+  hubChannel = echo.channel(`hub.${hubId.value}`);
+  hubChannel.listen('.booking.slot.updated', () => {
+    loadAllBookings();
+  });
+});
+
+onUnmounted(() => {
+  const { $echo } = useNuxtApp();
+  if ($echo && hubChannel) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ($echo as any).leaveChannel(`hub.${hubId.value}`);
+    hubChannel = null;
+  }
+});
 
 // ── Receipt upload (own pending_payment slots) ─────────────────
 const receiptModalOpen = ref(false);

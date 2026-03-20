@@ -352,6 +352,31 @@ const calendarDate = computed({
             </a>
           </div>
 
+          <!-- Confirm / Reject alert -->
+          <UAlert
+            v-if="isConfirmable"
+            title="Awaiting your approval"
+            description="This booking is pending payment confirmation. Please review and confirm or reject."
+            color="warning"
+            variant="subtle"
+            :actions="[
+              {
+                label: 'Reject',
+                color: 'error',
+                variant: 'outline',
+                icon: 'i-heroicons-x-circle',
+                onClick: () => emit('action-reject', booking!)
+              },
+              {
+                label: 'Confirm',
+                color: 'secondary',
+                icon: 'i-heroicons-check-circle',
+                loading: confirmLoading,
+                onClick: () => emit('action-confirm', booking!)
+              }
+            ]"
+          />
+
           <!-- Note: The form submit will be attached to an invisible button hidden down below. We place the visual button in footer. -->
           <button
             type="submit"
@@ -380,25 +405,6 @@ const calendarDate = computed({
           </UButton>
         </div>
         <div class="flex gap-2">
-          <template v-if="isConfirmable">
-            <UButton
-              color="error"
-              variant="outline"
-              icon="i-heroicons-x-circle"
-              @click="emit('action-reject', booking!)"
-            >
-              Reject
-            </UButton>
-            <UButton
-              color="secondary"
-              icon="i-heroicons-check-circle"
-              :loading="confirmLoading"
-              @click="emit('action-confirm', booking!)"
-            >
-              Confirm
-            </UButton>
-          </template>
-
           <UButton
             color="primary"
             variant="solid"

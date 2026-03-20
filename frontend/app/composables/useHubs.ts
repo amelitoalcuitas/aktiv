@@ -37,6 +37,8 @@ export function useHubs() {
       gallery_images: File[];
       remove_gallery_image_ids: number[];
       operating_hours: OperatingHoursEntry[];
+      payment_methods: Array<'pay_on_site' | 'digital_bank'>;
+      payment_qr_image: File | null;
     }>
   ) {
     const appendIfDefined = (key: string, value: unknown) => {
@@ -62,6 +64,9 @@ export function useHubs() {
     appendIfDefined('lng', payload.lng);
     if (payload.is_active !== undefined) {
       formData.append('is_active', payload.is_active ? '1' : '0');
+    }
+    if (payload.require_account_to_book !== undefined) {
+      formData.append('require_account_to_book', payload.require_account_to_book ? '1' : '0');
     }
 
     if (payload.cover_image) {
@@ -92,6 +97,19 @@ export function useHubs() {
       formData.append(`operating_hours[${i}][closes_at]`, oh.closes_at);
       formData.append(`operating_hours[${i}][is_closed]`, oh.is_closed ? '1' : '0');
     });
+
+    (payload.payment_methods ?? []).forEach((method) =>
+      formData.append('payment_methods[]', method)
+    );
+
+    if (payload.payment_qr_image) {
+      validateImageSize(payload.payment_qr_image, 'Payment QR image');
+      formData.append('payment_qr_image', payload.payment_qr_image);
+    }
+
+    if (payload.remove_payment_qr) {
+      formData.append('remove_payment_qr', '1');
+    }
   }
 
   // ── Hubs ──────────────────────────────────────────────────────────────────
@@ -124,6 +142,7 @@ export function useHubs() {
     lat?: number | null;
     lng?: number | null;
     is_active?: boolean;
+    require_account_to_book?: boolean;
     cover_image?: File | null;
     gallery_images?: File[];
     sports?: string[];
@@ -159,10 +178,14 @@ export function useHubs() {
       gallery_images: File[];
       remove_gallery_image_ids: number[];
       is_active: boolean;
+      require_account_to_book: boolean;
       sports: string[];
       contact_numbers: HubContactNumber[];
       websites: HubWebsite[];
       operating_hours: OperatingHoursEntry[];
+      payment_methods: Array<'pay_on_site' | 'digital_bank'>;
+      payment_qr_image: File | null;
+      remove_payment_qr: boolean;
     }>
   ): Promise<Hub> {
     const formData = new FormData();

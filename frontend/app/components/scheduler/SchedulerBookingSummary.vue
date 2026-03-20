@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import type { Court, SportType } from '~/types/hub';
-import type { SelectedSlot } from '~/types/booking';
+import type { Court, Hub, SportType } from '~/types/hub';
+import type { Booking, SelectedSlot } from '~/types/booking';
 import { useAuthStore } from '~/stores/auth';
 
 const props = defineProps<{
   selectedSlots: SelectedSlot[];
   courts: Court[];
   hubId: string;
+  hub: Hub | null | undefined;
 }>();
 
 const emit = defineEmits<{
@@ -21,8 +22,19 @@ const authStore = useAuthStore();
 const { createBooking } = useBooking();
 
 const isLoggedIn = computed(() => authStore.isAuthenticated);
+const allowGuests = computed(() => props.hub?.require_account_to_book === false);
 const isSubmitting = ref(false);
 const submitError = ref<string | null>(null);
+
+const isGuestModalOpen = ref(false);
+const isQrModalOpen = ref(false);
+const qrBooking = ref<Booking | null>(null);
+const qrCourtName = ref<string | undefined>(undefined);
+
+const isPayOnSite = computed(() => props.hub?.payment_methods?.includes('pay_on_site') ?? false);
+const isDigitalBank = computed(() => props.hub?.payment_methods?.includes('digital_bank') ?? false);
+const hasAnyPaymentMethod = computed(() => isPayOnSite.value || isDigitalBank.value);
+const isQrExpanded = ref(false);
 
 // ── Sport selections (per court+day group) ─────────────────────
 const sportSelections = ref<Record<string, SportType>>({});
@@ -220,15 +232,23 @@ async function submitBooking() {
   }
 
   try {
-    await Promise.all(tasks.map((t) => t()));
+    const results = await Promise.all(tasks.map((t) => t())) as Booking[];
     isConfirmOpen.value = false;
     const n = tasks.length;
-    toast.add({
-      title: n === 1 ? 'Booking created!' : `${n} bookings created!`,
-      description:
-        'Your slot(s) are held for 1 hour. Upload your payment receipt to confirm.',
-      color: 'success'
-    });
+
+    if (isPayOnSite.value && results[0]) {
+      // Show QR code for first booking; customer can check other booking codes in history
+      qrBooking.value = results[0];
+      const firstGroup = summaryGroups.value[0];
+      qrCourtName.value = firstGroup ? `${firstGroup.court.name} · ${firstGroup.dateLabel}` : undefined;
+      isQrModalOpen.value = true;
+    } else {
+      toast.add({
+        title: n === 1 ? 'Booking created!' : `${n} bookings created!`,
+        description: 'Your slot(s) are held for 1 hour. Upload your payment receipt to confirm.',
+        color: 'success'
+      });
+    }
     emit('booking-created');
     emit('clear');
   } catch (e: unknown) {
@@ -389,7 +409,12 @@ async function submitBooking() {
             name="i-heroicons-information-circle"
             class="mt-0.5 h-4 w-4 shrink-0"
           />
-          <span>
+          <span v-if="isPayOnSite">
+            After booking you'll receive a
+            <strong class="font-semibold text-[var(--aktiv-ink)]">booking code & QR</strong>.
+            Show it at the venue — the hub owner will scan it to confirm your payment.
+          </span>
+          <span v-else>
             Slots are held for
             <strong class="font-semibold text-[var(--aktiv-ink)]"
               >1 hour</strong
@@ -405,7 +430,7 @@ async function submitBooking() {
         <UAlert color="error" variant="soft" :title="submitError" />
       </div>
 
-      <!-- ── Book Now / Login ───────────────────────────────── -->
+      <!-- ── Book Now / Login / Guest ─────────────────────── -->
       <div class="border-t border-[var(--aktiv-border)] px-5 py-4">
         <UButton
           v-if="isLoggedIn"
@@ -417,6 +442,28 @@ async function submitBooking() {
         >
           Book Now · {{ totalSlots }} slot{{ totalSlots !== 1 ? 's' : '' }}
         </UButton>
+        <template v-else-if="allowGuests">
+          <UButton
+            block
+            size="lg"
+            color="primary"
+            :disabled="totalSlots === 0"
+            @click="isGuestModalOpen = true"
+          >
+            Book as Guest
+          </UButton>
+          <p class="mt-2 text-center text-xs text-[var(--aktiv-muted)]">
+            or
+            <button
+              type="button"
+              class="font-medium text-[#004e89] underline underline-offset-2"
+              @click="goToLogin"
+            >
+              log in
+            </button>
+            for full booking history
+          </p>
+        </template>
         <UButton
           v-else
           block
@@ -429,7 +476,73 @@ async function submitBooking() {
         </UButton>
       </div>
     </template>
+
+    <!-- ── Payment options (always visible) ──────────────────── -->
+    <div v-if="hasAnyPaymentMethod" class="border-t border-[var(--aktiv-border)] px-5 py-4">
+      <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-[var(--aktiv-muted)]">
+        Payment Options
+      </p>
+      <div class="space-y-2">
+        <!-- Pay on Site -->
+        <div v-if="isPayOnSite" class="flex items-start gap-2.5">
+          <div class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#e8f0f8]">
+            <UIcon name="i-heroicons-qr-code" class="h-3 w-3 text-[#004e89]" />
+          </div>
+          <div>
+            <p class="text-sm font-medium text-[var(--aktiv-ink)]">Pay on Site</p>
+            <p class="text-xs text-[var(--aktiv-muted)]">Present your booking QR or code at the venue. Payment is collected when you arrive.</p>
+          </div>
+        </div>
+
+        <!-- Digital Bank -->
+        <div v-if="isDigitalBank" class="flex items-start gap-2.5">
+          <div class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#e8f0f8]">
+            <UIcon name="i-heroicons-device-phone-mobile" class="h-3 w-3 text-[#004e89]" />
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-[var(--aktiv-ink)]">Digital Bank <span class="font-normal text-[var(--aktiv-muted)]">(GCash, Maya, etc.)</span></p>
+            <p class="text-xs text-[var(--aktiv-muted)]">Send payment online and upload your receipt to confirm your booking.</p>
+
+            <!-- Payment QR — expandable -->
+            <template v-if="hub?.payment_qr_url">
+              <button
+                type="button"
+                class="mt-1.5 flex items-center gap-1 text-xs font-medium text-[#004e89] hover:underline"
+                @click="isQrExpanded = !isQrExpanded"
+              >
+                <UIcon :name="isQrExpanded ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'" class="h-3.5 w-3.5" />
+                {{ isQrExpanded ? 'Hide' : 'Show' }} payment QR
+              </button>
+              <div v-if="isQrExpanded" class="mt-2">
+                <img
+                  :src="hub.payment_qr_url"
+                  alt="Payment QR code"
+                  class="h-40 w-40 rounded-lg border border-[var(--aktiv-border)] object-contain bg-white"
+                />
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
+
+  <!-- ── QR code modal (pay on site) ─────────────────────────── -->
+  <BookingQrCodeModal
+    v-model:open="isQrModalOpen"
+    :booking="qrBooking"
+    :court-name="qrCourtName"
+  />
+
+  <!-- ── Guest booking modal ──────────────────────────────────── -->
+  <SchedulerGuestBookingModal
+    v-model:open="isGuestModalOpen"
+    :selected-slots="selectedSlots"
+    :courts="courts"
+    :hub-id="hubId"
+    :hub="hub"
+    @booking-created="() => { emit('booking-created'); emit('clear'); }"
+  />
 
   <!-- ── Confirmation dialog ──────────────────────────────────── -->
   <UModal
@@ -500,9 +613,16 @@ async function submitBooking() {
 
       <!-- Payment note -->
       <p class="mt-3 text-sm text-[var(--aktiv-muted)]">
-        Slots are held for
-        <strong class="font-semibold text-[var(--aktiv-ink)]">1 hour</strong>
-        after booking. Upload your receipt within that window to confirm.
+        <template v-if="isPayOnSite">
+          After booking you'll receive a
+          <strong class="font-semibold text-[var(--aktiv-ink)]">booking code & QR</strong>.
+          Show it at the venue — the hub owner will scan it to confirm your payment.
+        </template>
+        <template v-else>
+          Slots are held for
+          <strong class="font-semibold text-[var(--aktiv-ink)]">1 hour</strong>
+          after booking. Upload your receipt within that window to confirm.
+        </template>
       </p>
 
       <!-- Error -->

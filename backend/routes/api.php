@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CourtController;
+use App\Http\Controllers\Api\GuestBookingController;
 use App\Http\Controllers\Api\HubController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OwnerBookingController;
@@ -27,6 +28,11 @@ Route::get('/hubs/{hub}/courts', [CourtController::class, 'index'])->name('api.h
 Route::get('/hubs/{hub}/bookings', [BookingController::class, 'hubIndex'])->name('api.hubs.bookings.index');
 Route::get('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'index'])->name('api.hubs.courts.bookings.index');
 
+// Guest booking routes (public — verified by OTP)
+Route::post('/hubs/{hub}/courts/{court}/guest-verify', [GuestBookingController::class, 'sendVerificationCode'])->name('api.hubs.courts.guest-verify');
+Route::post('/hubs/{hub}/courts/{court}/guest-bookings', [GuestBookingController::class, 'store'])->name('api.hubs.courts.guest-bookings.store');
+Route::post('/hubs/{hub}/courts/{court}/guest-bookings/{booking}/receipt', [GuestBookingController::class, 'uploadReceipt'])->name('api.hubs.courts.guest-bookings.receipt');
+
 // Authenticated hub + court management
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/dashboard/hubs', [HubController::class, 'myHubs'])->name('api.dashboard.hubs');
@@ -49,6 +55,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/dashboard/hubs/{hub}/bookings/{booking}/cancel', [OwnerBookingController::class, 'cancel'])->name('api.dashboard.hubs.bookings.cancel');
     Route::post('/dashboard/hubs/{hub}/courts/{court}/walk-in', [OwnerBookingController::class, 'walkIn'])->name('api.dashboard.hubs.walk-in');
     Route::get('/dashboard/users/search', [OwnerBookingController::class, 'searchUsers'])->name('api.dashboard.users.search');
+    Route::get('/dashboard/hubs/{hub}/bookings/verify/{code}', [OwnerBookingController::class, 'verifyByCode'])->name('api.dashboard.hubs.bookings.verify');
 });
 
 Route::get('/status', static fn (): array => ['ok' => true])->name('api.status');

@@ -11,6 +11,7 @@ export type CancelledBy = 'user' | 'owner' | 'system';
 
 export interface Booking {
   id: number;
+  booking_code: string | null;
   court_id: number;
   booked_by: number | null;
   sport: string;
@@ -22,6 +23,7 @@ export interface Booking {
   created_by: number | null;
   guest_name: string | null;
   guest_phone: string | null;
+  guest_email: string | null;
   total_price: string | null;
   receipt_image_url: string | null;
   receipt_uploaded_at: string | null;

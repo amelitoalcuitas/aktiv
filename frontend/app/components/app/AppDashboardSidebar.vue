@@ -1,8 +1,14 @@
 <script setup lang="ts">
 import { useAuth } from '~/composables/useAuth';
+import { useHubStore } from '~/stores/hub';
 
 const { user, logout } = useAuth();
 const route = useRoute();
+const hubStore = useHubStore();
+
+const isVerifyModalOpen = ref(false);
+
+const verifyHub = computed(() => hubStore.myHubs[0] ?? null);
 
 const navLinks = [
   { label: 'My Hubs', icon: 'i-heroicons-building-office-2', to: '/dashboard' },
@@ -11,6 +17,11 @@ const navLinks = [
     label: 'Bookings',
     icon: 'i-heroicons-calendar-days',
     to: '/dashboard/bookings'
+  },
+  {
+    label: 'Settings',
+    icon: 'i-heroicons-cog-6-tooth',
+    to: '/dashboard/settings'
   }
 ];
 
@@ -37,6 +48,17 @@ const isActive = (to: string) => {
       >
         Dashboard
       </span>
+    </div>
+
+    <!-- Verify Booking button -->
+    <div class="border-b border-[#dbe4ef] px-3 py-3">
+      <button
+        class="flex w-full items-center gap-3 rounded-xl bg-[#004e89] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#003d6b]"
+        @click="isVerifyModalOpen = true"
+      >
+        <UIcon name="i-heroicons-qr-code" class="h-5 w-5 flex-shrink-0" />
+        Verify Booking
+      </button>
     </div>
 
     <!-- Nav -->
@@ -84,4 +106,9 @@ const isActive = (to: string) => {
       </div>
     </div>
   </aside>
+
+  <BookingVerifyModal
+    v-model:open="isVerifyModalOpen"
+    :hub="verifyHub"
+  />
 </template>

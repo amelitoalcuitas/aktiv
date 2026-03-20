@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 class Booking extends Model
 {
+    use HasFactory;
     protected $fillable = [
+        'booking_code',
         'court_id',
         'booked_by',
         'sport',
@@ -19,6 +23,7 @@ class Booking extends Model
         'created_by',
         'guest_name',
         'guest_phone',
+        'guest_email',
         'total_price',
         'receipt_image_url',
         'receipt_uploaded_at',
@@ -39,6 +44,19 @@ class Booking extends Model
             'expires_at' => 'datetime',
             'total_price' => 'decimal:2',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Booking $booking): void {
+            if (empty($booking->booking_code)) {
+                do {
+                    $code = Str::upper(Str::random(8));
+                } while (static::where('booking_code', $code)->exists());
+
+                $booking->booking_code = $code;
+            }
+        });
     }
 
     public function court(): BelongsTo

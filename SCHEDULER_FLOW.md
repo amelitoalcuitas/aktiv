@@ -74,8 +74,46 @@ All scheduler bookings are `session_type = private`. Open Play is a completely s
 
 ## Booking Flow Overview (Self-Booked)
 
+The flow branches based on the hub's `payment_methods` setting.
+
+### Pay on Site flow
+
 ```
-Guest browses scheduler
+Customer browses scheduler
+        │
+        ▼
+  Not logged in? ──► Redirect to login (or guest OTP flow)
+        │
+        ▼
+  Select slots → Review Booking Summary → Click Book Now
+        │
+        ▼
+  Booking created  [status: pending_payment]
+  booking_code generated (e.g. "AKT1BX7K")
+  Slot immediately blocked on scheduler
+  expires_at set to NOW() + 1 hour
+        │
+        ▼
+  BookingQrCodeModal shown — customer downloads QR + code
+        │
+        ▼
+  Customer arrives at venue, shows QR or states their code
+        │
+        ▼
+  Owner opens "Verify Booking" in dashboard sidebar
+  Scans QR or enters code manually
+        │
+        ▼
+  Owner reviews booking info → clicks Confirm
+        │
+        ▼
+  [status: confirmed]  Slot officially booked
+```
+
+### Digital Bank / Receipt Upload flow
+
+```
+Customer browses scheduler
         │
         ▼
   Not logged in? ──► Redirect to login/register
@@ -178,6 +216,86 @@ When an owner rejects a receipt:
 
 ---
 
+## Hub Payment Settings
+
+Hub owners configure payment options per hub. Multiple methods can be enabled simultaneously. Settings are stored on the `hubs` table.
+
+```
+hubs (payment fields)
+  payment_methods   JSON      DEFAULT '["pay_on_site"]'   Array: pay_on_site | digital_bank
+  payment_qr_url    VARCHAR   nullable                     URL to hub's GCash/Maya QR image
+```
+
+### Payment Methods
+
+| Method | Description |
+| --- | --- |
+| `pay_on_site` | Customer receives a booking code + QR after booking. Shows it at the venue; owner scans to confirm. |
+| `digital_bank` | Customer sends payment digitally (GCash, Maya, etc.). Hub owner uploads their QR code. |
+
+> **Currently implemented:** `pay_on_site` only. `digital_bank` UI is present but the receipt upload flow handles confirmation.
+
+---
+
+## Pay on Site — Booking Code & QR Flow
+
+When a hub has `pay_on_site` in its `payment_methods`, the booking flow uses codes instead of receipt uploads.
+
+### Customer experience
+
+```
+Customer selects slots → clicks "Book Now" (or completes guest OTP)
+        │
+        ▼
+  Booking created  [status: pending_payment]
+  booking_code auto-generated (e.g. "AKT1BX7K")
+        │
+        ▼
+  BookingQrCodeModal opens immediately:
+    ┌─────────────────────────────┐
+    │  ✓ Booking Confirmed!       │
+    │                             │
+    │  [QR code canvas]           │
+    │                             │
+    │  AKT1BX7K                   │  ← monospace, large
+    │                             │
+    │  Show this QR code or code  │
+    │  at the venue.              │
+    │                             │
+    │  [Download]  [Done]         │
+    └─────────────────────────────┘
+        │
+        ▼
+  Customer arrives at venue, shows QR or tells owner their code
+        │
+        ▼
+  Owner scans / enters code → booking confirmed [status: confirmed]
+```
+
+**Downloaded image** includes both the QR and the booking code text below it, so the owner can scan or type manually.
+
+### Owner experience — Verify Booking
+
+A **"Verify Booking"** button is always visible in the dashboard sidebar. Clicking it opens `BookingVerifyModal`:
+
+**Scan tab**: Live camera (back camera on mobile via `facingMode: 'environment'`). Auto-decodes QR.
+
+**Enter Code tab**: Text input for manual code entry.
+
+After code resolved:
+- Shows customer info card: name/email, court, time, sport, total, status
+- **Confirm** button → `POST /dashboard/hubs/{hub}/bookings/{booking}/confirm` → `status: confirmed`
+- **Reject** button → prompts for note → `POST /dashboard/hubs/{hub}/bookings/{booking}/reject`
+
+### API endpoint
+
+```
+GET /dashboard/hubs/{hub}/bookings/verify/{code}
+```
+Returns full booking with court + customer info. Owner-authenticated only.
+
+---
+
 ## Schema — `bookings` Table (Full)
 
 > All `TIMESTAMP` fields are stored in UTC. The frontend always converts to UTC+8 (Asia/Manila) for display.
@@ -185,6 +303,7 @@ When an owner rejects a receipt:
 ```
 bookings
   id                    UUID        PK
+  booking_code          VARCHAR(16) unique nullable (auto-generated on creation, e.g. "AKT1BX7K")
   court_id              UUID        FK → courts.id
   booked_by             UUID        FK → users.id        (nullable for anonymous walk-ins)
   sport                 VARCHAR     (sport selected for this booking)

@@ -193,6 +193,7 @@ const gridMaxTime = computed(() => {
             :selected-slots="selectedSlots"
             :courts="courts ?? []"
             :hub-id="hubId"
+            :hub="hub ?? null"
             @booking-created="onBookingCreated"
             @clear="onClearSlots"
             @remove-slots="onRemoveSlots"

@@ -32,6 +32,9 @@ class Hub extends Model
         'is_approved',
         'is_verified',
         'is_active',
+        'require_account_to_book',
+        'payment_methods',
+        'payment_qr_url',
     ];
 
     /**
@@ -42,9 +45,11 @@ class Hub extends Model
         return [
             'lat' => 'decimal:7',
             'lng' => 'decimal:7',
-            'is_approved' => 'boolean',
-            'is_verified' => 'boolean',
-            'is_active'   => 'boolean',
+            'is_approved'              => 'boolean',
+            'is_verified'              => 'boolean',
+            'is_active'                => 'boolean',
+            'require_account_to_book'  => 'boolean',
+            'payment_methods'          => 'array',
         ];
     }
 

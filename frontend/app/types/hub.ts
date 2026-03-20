@@ -48,6 +48,9 @@ export interface Hub {
   is_active: boolean;
   is_approved: boolean;
   is_verified: boolean;
+  require_account_to_book: boolean;
+  payment_methods: Array<'pay_on_site' | 'digital_bank'>;
+  payment_qr_url: string | null;
   owner_id: number;
   owner?: { id: number; name: string; avatar_url: string | null } | null;
   sports: SportType[];

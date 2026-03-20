@@ -86,11 +86,17 @@ class HubController extends Controller
         $galleryImages = $request->file('gallery_images', []);
         unset($validated['sports'], $validated['contact_numbers'], $validated['websites']);
         unset($validated['cover_image'], $validated['gallery_images'], $validated['operating_hours']);
+        unset($validated['payment_qr_image']);
 
         if ($request->hasFile('cover_image')) {
             $coverImage = $this->imageUploadService->upload($request->file('cover_image'), 'hubs/covers');
             $validated['cover_image_url'] = $coverImage['url'];
             $validated['cover_image_path'] = $coverImage['path'];
+        }
+
+        if ($request->hasFile('payment_qr_image')) {
+            $paymentQr = $this->imageUploadService->upload($request->file('payment_qr_image'), 'hubs/payment-qr');
+            $validated['payment_qr_url'] = $paymentQr['url'];
         }
 
         $hub = Hub::query()->create([
@@ -129,6 +135,16 @@ class HubController extends Controller
         unset($validated['sports'], $validated['contact_numbers'], $validated['websites']);
         unset($validated['remove_gallery_image_ids'], $validated['operating_hours']);
         unset($validated['cover_image'], $validated['gallery_images']);
+        unset($validated['payment_qr_image']);
+        $removePaymentQr = (bool) ($validated['remove_payment_qr'] ?? false);
+        unset($validated['remove_payment_qr']);
+
+        if ($removePaymentQr && ! $request->hasFile('payment_qr_image')) {
+            $validated['payment_qr_url'] = null;
+        } elseif ($request->hasFile('payment_qr_image')) {
+            $paymentQr = $this->imageUploadService->upload($request->file('payment_qr_image'), 'hubs/payment-qr');
+            $validated['payment_qr_url'] = $paymentQr['url'];
+        }
 
         if ($request->hasFile('cover_image')) {
             $coverImage = $this->imageUploadService->upload($request->file('cover_image'), 'hubs/covers');
@@ -352,9 +368,12 @@ class HubController extends Controller
                     'order' => $image->order,
                 ])->values()
                 : [],
-            'is_active'            => $hub->is_active,
-            'is_approved'          => $hub->is_approved,
-            'is_verified'          => $hub->is_verified,
+            'is_active'               => $hub->is_active,
+            'is_approved'             => $hub->is_approved,
+            'is_verified'             => $hub->is_verified,
+            'require_account_to_book' => $hub->require_account_to_book,
+            'payment_methods'         => $hub->payment_methods ?? ['pay_on_site'],
+            'payment_qr_url'          => $hub->payment_qr_url,
             'owner_id'             => $hub->owner_id,
             'owner'                => $hub->owner,
             'sports'               => $hub->sports ? $hub->sports->pluck('sport')->values() : [],

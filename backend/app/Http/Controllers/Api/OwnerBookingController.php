@@ -259,6 +259,29 @@ class OwnerBookingController extends Controller
         return response()->json(['data' => $users]);
     }
 
+    /**
+     * Look up a booking by booking_code for on-site verification.
+     * Returns the booking with customer info so the owner can confirm or reject.
+     */
+    public function verifyByCode(Hub $hub, string $code, Request $request): JsonResponse
+    {
+        abort_if($hub->owner_id !== $request->user()->id, 403);
+
+        $courtIds = $hub->courts()->pluck('id');
+
+        $booking = Booking::query()
+            ->whereIn('court_id', $courtIds)
+            ->where('booking_code', strtoupper(trim($code)))
+            ->with(['court:id,name,hub_id', 'bookedBy:id,name,email,phone,avatar_url'])
+            ->first();
+
+        if (! $booking) {
+            return response()->json(['message' => 'No booking found with that code.'], 404);
+        }
+
+        return response()->json(['data' => $this->formatBooking($booking)]);
+    }
+
     // ── Private helpers ──────────────────────────────────────────
 
     private function assertBelongsToHub(Booking $booking, Hub $hub): void
@@ -271,6 +294,7 @@ class OwnerBookingController extends Controller
     {
         return [
             'id' => $booking->id,
+            'booking_code' => $booking->booking_code,
             'court_id' => $booking->court_id,
             'court' => $booking->court ? [
                 'id' => $booking->court->id,
@@ -286,6 +310,7 @@ class OwnerBookingController extends Controller
                 'avatar_url' => $booking->bookedBy->avatar_url,
             ] : null,
             'guest_name' => $booking->guest_name,
+            'guest_email' => $booking->guest_email,
             'guest_phone' => $booking->guest_phone,
             'sport' => $booking->sport,
             'start_time' => $booking->start_time->toIso8601String(),

@@ -130,6 +130,7 @@ class BookingController extends Controller
             'message' => 'Booking created successfully.',
             'data' => [
                 'id' => $booking->id,
+                'booking_code' => $booking->booking_code,
                 'court_id' => $booking->court_id,
                 'sport' => $booking->sport,
                 'start_time' => $booking->start_time->toIso8601String(),

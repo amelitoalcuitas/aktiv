@@ -82,6 +82,83 @@ onMounted(async () => {
   }
 });
 
+// ── Apply to all hubs ─────────────────────────────────────────
+
+const showApplyAllModal = ref(false);
+const isApplyingAll = ref(false);
+
+async function applyToAllHubs() {
+  const otherHubs = hubStore.myHubs.filter(
+    (h: Hub) => h.id !== selectedHubId.value
+  );
+  if (otherHubs.length === 0) return;
+
+  if (!payOnSite.value && !digitalBank.value) {
+    toast.add({
+      title: 'Select a payment method',
+      description: 'At least one payment method must be enabled.',
+      color: 'error'
+    });
+    showApplyAllModal.value = false;
+    return;
+  }
+
+  if (digitalBank.value && !paymentQrPreview.value && !paymentQrFile.value) {
+    toast.add({
+      title: 'Payment QR code required',
+      description: 'Upload a QR code for Digital Bank payments.',
+      color: 'error'
+    });
+    showApplyAllModal.value = false;
+    return;
+  }
+
+  isApplyingAll.value = true;
+  try {
+    const paymentMethods: Array<'pay_on_site' | 'digital_bank'> = [];
+    if (payOnSite.value) paymentMethods.push('pay_on_site');
+    if (digitalBank.value) paymentMethods.push('digital_bank');
+
+    // If there's an existing QR from the server (no new file selected), fetch it as a File
+    let qrFile = paymentQrFile.value;
+    if (digitalBank.value && !qrFile && paymentQrPreview.value && !removePaymentQr.value) {
+      const res = await fetch(paymentQrPreview.value);
+      const blob = await res.blob();
+      qrFile = new File([blob], 'payment_qr.jpg', { type: blob.type });
+    }
+
+    await Promise.all(
+      otherHubs.map((h: Hub) =>
+        updateHub(h.id, {
+          require_account_to_book: requireAccount.value,
+          payment_methods: paymentMethods,
+          payment_qr_image: qrFile,
+          ...(removePaymentQr.value ? { remove_payment_qr: true } : {}),
+          digital_bank_name: digitalBankName.value || null,
+          digital_bank_account: digitalBankAccount.value || null
+        })
+      )
+    );
+
+    await hubStore.fetchMyHubs();
+
+    toast.add({
+      title: 'Applied to all hubs',
+      description: 'Settings have been applied to all your hubs.',
+      color: 'success'
+    });
+  } catch {
+    toast.add({
+      title: 'Failed to apply',
+      description: 'Something went wrong. Please try again.',
+      color: 'error'
+    });
+  } finally {
+    isApplyingAll.value = false;
+    showApplyAllModal.value = false;
+  }
+}
+
 // ── Save ─────────────────────────────────────────────────────
 
 const isSaving = ref(false);
@@ -93,6 +170,15 @@ async function saveSettings() {
     toast.add({
       title: 'Select a payment method',
       description: 'At least one payment method must be enabled.',
+      color: 'error'
+    });
+    return;
+  }
+
+  if (digitalBank.value && !paymentQrPreview.value && !paymentQrFile.value) {
+    toast.add({
+      title: 'Payment QR code required',
+      description: 'Upload a QR code for Digital Bank payments.',
       color: 'error'
     });
     return;
@@ -290,10 +376,10 @@ async function saveSettings() {
 
                     <!-- Existing QR preview -->
                     <div v-if="paymentQrPreview" class="flex items-start gap-3">
-                      <img
+                      <AppImageViewer
                         :src="paymentQrPreview"
                         alt="Payment QR code"
-                        class="h-28 w-28 rounded-lg border border-[#dbe4ef] object-contain bg-white"
+                        image-class="h-28 w-28 rounded-lg border border-[#dbe4ef] object-contain bg-white"
                       />
                       <div class="text-xs text-[#64748b] space-y-1.5">
                         <p>
@@ -358,7 +444,17 @@ async function saveSettings() {
         </div>
 
         <!-- Save -->
-        <div class="flex justify-end">
+        <div class="flex items-center justify-between">
+          <UButton
+            v-if="hubStore.myHubs.length > 1"
+            variant="solid"
+            color="primary"
+            icon="i-heroicons-squares-2x2"
+            @click="showApplyAllModal = true"
+          >
+            Apply to all Hubs
+          </UButton>
+          <div v-else />
           <UButton
             :loading="isSaving"
             class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
@@ -367,6 +463,38 @@ async function saveSettings() {
             Save Settings
           </UButton>
         </div>
+
+        <!-- Apply to all hubs confirmation modal -->
+        <UModal v-model:open="showApplyAllModal" title="Apply to all Hubs">
+          <template #body>
+            <p class="text-sm">
+              This will overwrite the booking and payment settings for all your
+              other hubs with the current values, including the payment QR code.
+            </p>
+            <p class="mt-2 text-sm text-muted">
+              Are you sure you want to continue?
+            </p>
+          </template>
+          <template #footer>
+            <div class="flex justify-end gap-3">
+              <UButton
+                variant="ghost"
+                color="neutral"
+                @click="showApplyAllModal = false"
+              >
+                Cancel
+              </UButton>
+              <UButton
+                :loading="isApplyingAll"
+                color="primary"
+                class="font-semibold"
+                @click="applyToAllHubs"
+              >
+                Apply to all Hubs
+              </UButton>
+            </div>
+          </template>
+        </UModal>
       </div>
     </template>
   </div>

@@ -14,6 +14,12 @@ onMounted(async () => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+const failedImages = ref(new Set<number>());
+
+function onImgError(id: number) {
+  failedImages.value = new Set(failedImages.value).add(id);
+}
+
 function sportLabel(sport: string) {
   return sport.charAt(0).toUpperCase() + sport.slice(1);
 }
@@ -85,10 +91,11 @@ function formatPrice(price: string | null) {
         <!-- Cover image -->
         <div class="relative h-36 bg-[#e8f0f8]">
           <img
-            v-if="hub.cover_image_url"
+            v-if="hub.cover_image_url && !failedImages.has(hub.id)"
             :src="hub.cover_image_url"
             :alt="hub.name"
             class="h-full w-full object-cover"
+            @error="onImgError(hub.id)"
           />
           <div v-else class="flex h-full items-center justify-center">
             <UIcon

@@ -160,7 +160,7 @@ const isSendingCode = ref(false);
 const sendError = ref<string | null>(null);
 
 async function handleSendCode() {
-  if (!email.value || !guestName.value) return;
+  if (!email.value || !guestName.value || !guestPhone.value) return;
   if (hasOversizedRange.value) return;
 
   const firstGroup = groups.value[0];
@@ -200,7 +200,7 @@ async function handleVerifyAndBook() {
           email: email.value,
           otp: otp.value,
           guest_name: guestName.value,
-          guest_phone: guestPhone.value || undefined,
+          guest_phone: guestPhone.value,
           sport,
           start_time: range.start.toISOString(),
           end_time: range.end.toISOString(),
@@ -343,7 +343,7 @@ function handleClose() {
             <UInput v-model="email" type="email" placeholder="you@example.com" class="w-full" />
           </UFormField>
 
-          <UFormField label="Phone (optional)">
+          <UFormField label="Phone" required>
             <UInput v-model="guestPhone" type="tel" placeholder="+63 917 000 0000" class="w-full" />
           </UFormField>
 
@@ -374,7 +374,7 @@ function handleClose() {
           <UButton
             color="primary"
             :loading="isSendingCode"
-            :disabled="!guestName || !email || hasOversizedRange || !selectedPaymentMethod"
+            :disabled="!guestName || !email || !guestPhone || hasOversizedRange || !selectedPaymentMethod"
             @click="handleSendCode"
           >
             Send Verification Code

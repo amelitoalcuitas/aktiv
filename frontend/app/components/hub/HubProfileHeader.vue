@@ -104,9 +104,13 @@ const isCurrentlyOpen = computed(() => {
   return nowMins >= openH * 60 + openM && nowMins < closeH * 60 + closeM;
 });
 
-const coverImage = computed(
-  () => activeHub.value?.cover_image_url ?? activeHub.value?.coverImageUrl ?? ''
+const coverImage = ref(
+  activeHub.value?.cover_image_url ?? activeHub.value?.coverImageUrl ?? ''
 );
+
+function onCoverImgError() {
+  coverImage.value = '';
+}
 </script>
 
 <template>
@@ -120,6 +124,7 @@ const coverImage = computed(
         :src="coverImage"
         :alt="activeHub?.name"
         class="h-[260px] w-full object-cover"
+        @error="onCoverImgError"
       />
       <div
         v-else

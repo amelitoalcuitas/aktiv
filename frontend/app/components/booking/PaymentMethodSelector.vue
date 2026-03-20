@@ -121,10 +121,10 @@ async function downloadQr() {
       </div>
       <!-- QR image -->
       <div v-if="hub?.payment_qr_url" class="flex flex-col items-center gap-2 px-4">
-        <img
+        <AppImageViewer
           :src="hub.payment_qr_url"
           alt="Payment QR"
-          class="h-28 w-28 rounded-lg border border-[#dbe4ef] object-contain bg-white"
+          image-class="h-28 w-28 rounded-lg border border-[#dbe4ef] object-contain bg-white"
         />
         <p class="text-xs text-[#64748b]">Scan to send payment</p>
         <button
@@ -200,10 +200,10 @@ async function downloadQr() {
         </div>
       </div>
       <div v-if="hub?.payment_qr_url" class="flex flex-col items-center gap-2 px-4">
-        <img
+        <AppImageViewer
           :src="hub.payment_qr_url"
           alt="Payment QR"
-          class="h-28 w-28 rounded-lg border border-[#dbe4ef] object-contain bg-white"
+          image-class="h-28 w-28 rounded-lg border border-[#dbe4ef] object-contain bg-white"
         />
         <p class="text-xs text-[#64748b]">Scan to send payment</p>
         <button

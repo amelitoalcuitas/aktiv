@@ -5,9 +5,13 @@ const props = defineProps<{
   hub: Hub;
 }>();
 
-const imgSrc = computed(
-  () => props.hub.cover_image_url ?? props.hub.coverImageUrl ?? ''
+const imgSrc = ref(
+  props.hub.cover_image_url ?? props.hub.coverImageUrl ?? ''
 );
+
+function onImgError() {
+  imgSrc.value = '';
+}
 
 const courtsCount = computed(
   () => props.hub.courts_count ?? props.hub.courtsCount ?? 0
@@ -40,6 +44,7 @@ const formattedPrice = computed(() => {
           :src="imgSrc"
           :alt="hub.name"
           class="h-full w-full object-cover"
+          @error="onImgError"
         />
         <div
           v-else

@@ -297,7 +297,7 @@ async function submitBooking() {
 
 <template>
   <div
-    class="overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] shadow-sm"
+    class="overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
   >
     <!-- Header -->
     <div

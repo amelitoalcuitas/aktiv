@@ -115,7 +115,7 @@ watch(
 
 <template>
   <div
-    class="rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4 shadow-sm"
+    class="rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4"
   >
     <!-- Month navigation -->
     <div class="mb-3 flex items-center justify-between">

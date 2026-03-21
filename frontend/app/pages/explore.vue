@@ -89,7 +89,7 @@ async function loadPage(p: number) {
       city: appliedCity.value !== ALL_CITIES ? appliedCity.value : undefined,
       sports: appliedSports.value.length ? appliedSports.value : undefined,
       lat: userLat.value ?? undefined,
-      lng: userLng.value ?? undefined,
+      lng: userLng.value ?? undefined
     });
     if (p === 1) {
       hubs.value = result.data;
@@ -216,7 +216,7 @@ const activeFilterCount = computed(
       <!-- ── Desktop filter panel (sticky left sidebar) ── -->
       <aside class="hidden w-64 shrink-0 lg:block">
         <div
-          class="sticky top-24 rounded-2xl border border-[var(--aktiv-border)] bg-white p-5 shadow-sm"
+          class="sticky top-24 rounded-2xl border border-[var(--aktiv-border)] bg-white p-5"
         >
           <div class="mb-4 flex items-center justify-between">
             <span class="text-sm font-bold text-[#0f1728]">Filters</span>
@@ -365,7 +365,9 @@ const activeFilterCount = computed(
 
         <!-- Hubs near you (default view: no search/filters active) -->
         <div v-if="showNearbyOnly" class="mb-8">
-          <p class="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[#5d7086]">
+          <p
+            class="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[#5d7086]"
+          >
             <UIcon name="i-heroicons-map-pin" class="h-4 w-4" />
             Hubs near you
           </p>
@@ -395,47 +397,47 @@ const activeFilterCount = computed(
           <!-- Empty state -->
           <UCard
             v-else-if="!loading && !loadError"
-          class="rounded-2xl border border-[#dde5ef] bg-white p-6 shadow-sm"
-          :ui="{ root: 'ring-0 divide-y-0' }"
-        >
-          <p class="font-medium text-[var(--aktiv-ink)]">No hubs found</p>
-          <p class="mt-1 text-sm text-[var(--aktiv-muted)]">
-            Try adjusting your filters or search a different city or sport.
-          </p>
-          <UButton
-            v-if="hasActiveFilters"
-            variant="outline"
-            size="sm"
-            class="mt-3"
-            @click="clearFilters"
+            class="rounded-2xl border border-[#dde5ef] bg-white p-6"
+            :ui="{ root: 'ring-0 divide-y-0' }"
           >
-            Clear filters
-          </UButton>
-        </UCard>
+            <p class="font-medium text-[var(--aktiv-ink)]">No hubs found</p>
+            <p class="mt-1 text-sm text-[var(--aktiv-muted)]">
+              Try adjusting your filters or search a different city or sport.
+            </p>
+            <UButton
+              v-if="hasActiveFilters"
+              variant="outline"
+              size="sm"
+              class="mt-3"
+              @click="clearFilters"
+            >
+              Clear filters
+            </UButton>
+          </UCard>
 
-        <!-- Suggestions -->
-        <div
-          v-if="
-            !loading &&
-            !loadError &&
-            displayedHubs.length === 0 &&
-            appliedSearch &&
-            suggestions.length > 0
-          "
-          class="mt-6"
-        >
-          <p class="mb-3 text-sm font-semibold text-[#5d7086]">
-            Similar hubs you might like
-          </p>
-          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-            <HubCard v-for="hub in suggestions" :key="hub.id" :hub="hub" />
+          <!-- Suggestions -->
+          <div
+            v-if="
+              !loading &&
+              !loadError &&
+              displayedHubs.length === 0 &&
+              appliedSearch &&
+              suggestions.length > 0
+            "
+            class="mt-6"
+          >
+            <p class="mb-3 text-sm font-semibold text-[#5d7086]">
+              Similar hubs you might like
+            </p>
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+              <HubCard v-for="hub in suggestions" :key="hub.id" :hub="hub" />
+            </div>
           </div>
-        </div>
 
           <!-- Error state -->
           <UCard
             v-else-if="loadError"
-            class="rounded-2xl border border-[#dde5ef] bg-white p-6 shadow-sm"
+            class="rounded-2xl border border-[#dde5ef] bg-white p-6"
             :ui="{ root: 'ring-0 divide-y-0' }"
           >
             <p class="text-[var(--aktiv-muted)]">

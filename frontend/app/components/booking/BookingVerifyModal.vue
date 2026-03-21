@@ -393,7 +393,7 @@ const statusLabels: Record<string, string> = {
               class="flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors"
               :class="
                 activeTab === tab.key
-                  ? 'bg-white text-[#004e89] shadow-sm'
+                  ? 'bg-white text-[#004e89] '
                   : 'text-[#64748b] hover:text-[#0f1728]'
               "
               @click="activeTab = tab.key"

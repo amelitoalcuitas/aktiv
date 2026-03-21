@@ -4,7 +4,7 @@ definePageMeta({ layout: 'hub' });
 
 <template>
   <UCard
-    class="rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-6 shadow-sm"
+    class="rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-6"
     :ui="{ root: 'ring-0 divide-y-0' }"
   >
     <div class="flex items-start gap-4">

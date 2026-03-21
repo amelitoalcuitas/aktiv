@@ -75,7 +75,7 @@ if (!isAuthenticated.value) {
         Fill in the details for your new sports hub.
       </p>
 
-      <UCard :ui="{ root: 'ring-1 ring-[var(--aktiv-border)] shadow-sm' }">
+      <UCard :ui="{ root: 'ring-1 ring-[var(--aktiv-border)] ' }">
         <HubForm
           ref="hubFormRef"
           :loading="loading"

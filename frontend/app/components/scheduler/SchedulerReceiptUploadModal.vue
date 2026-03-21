@@ -221,7 +221,7 @@ function formatRange(start: string, end: string): string {
               />
               <button
                 type="button"
-                class="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white shadow-sm border border-[var(--aktiv-border)] hover:bg-red-50 transition-colors"
+                class="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white border border-[var(--aktiv-border)] hover:bg-red-50 transition-colors"
                 @click="clearFile"
               >
                 <UIcon

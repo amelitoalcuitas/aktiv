@@ -147,7 +147,11 @@ const mergedGrid = computed<Record<number, MergedCell[]>>(() => {
   const result: Record<number, MergedCell[]> = {};
   for (const court of props.courts) {
     const flat = grid.value[court.id] ?? [];
-    const merged: MergedCell[] = flat.map((c) => ({ ...c, rowspan: 1, skip: false }));
+    const merged: MergedCell[] = flat.map((c) => ({
+      ...c,
+      rowspan: 1,
+      skip: false
+    }));
     for (let i = 0; i < merged.length; i++) {
       if (merged[i]!.skip || merged[i]!.type !== 'booked') continue;
       let span = 1;
@@ -253,7 +257,6 @@ function isSlotSelected(courtId: number, slotIdx: number): boolean {
   );
 }
 
-
 // ── Auto-scroll to current time ───────────────────────────────
 const scrollWrapper = useTemplateRef<HTMLDivElement>('scrollWrapper');
 
@@ -314,7 +317,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
 
 <template>
   <div
-    class="overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] shadow-sm"
+    class="overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
   >
     <!-- Date nav header -->
     <div
@@ -358,7 +361,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
           <tr>
             <!-- Corner: sticky top + left -->
             <th
-              class="sticky left-0 top-0 z-20 w-20 min-w-[80px] border-b border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-3 py-3 text-left text-sm font-medium text-[var(--aktiv-muted)]"
+              class="sticky left-0 top-0 z-20 w-16 min-w-[64px] border-b border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-2 py-3 text-left text-sm font-medium text-[var(--aktiv-muted)]"
             >
               Time
             </th>
@@ -366,7 +369,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
             <th
               v-for="court in courts"
               :key="court.id"
-              class="sticky top-0 z-10 min-w-[144px] border-b border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-3 py-3 text-left"
+              class="sticky top-0 z-10 min-w-[110px] border-b border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-3 py-3 text-left"
             >
               <div class="flex flex-col gap-1">
                 <span
@@ -389,101 +392,104 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
           >
             <!-- Time label: sticky left -->
             <td
-              class="sticky left-0 z-5 w-20 min-w-[80px] border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-3 py-2 text-sm font-medium text-[var(--aktiv-muted)]"
+              class="sticky left-0 z-5 w-16 min-w-[64px] border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-2 py-2 text-sm font-medium text-[var(--aktiv-muted)]"
             >
               {{ formatTimeLabel(slot) }}
             </td>
 
             <!-- Court cells -->
             <template v-for="court in courts" :key="court.id">
-            <td
-              v-if="!mergedGrid[court.id]?.[slotIdx]?.skip"
-              :rowspan="mergedGrid[court.id]?.[slotIdx]?.rowspan ?? 1"
-              class="relative min-w-[144px] border-b border-r border-[var(--aktiv-border)] p-1.5"
-            >
-              <!-- Closed slot -->
-              <div
-                v-if="getCellState(court.id, slotIdx).type === 'closed'"
-                class="h-12 rounded-md bg-[#fee2e2] flex items-center justify-center"
+              <td
+                v-if="!mergedGrid[court.id]?.[slotIdx]?.skip"
+                :rowspan="mergedGrid[court.id]?.[slotIdx]?.rowspan ?? 1"
+                class="relative min-w-[110px] border-b border-r border-[var(--aktiv-border)] p-1.5"
               >
-                <span class="text-xs font-bold tracking-widest text-[#991b1b] uppercase">Closed</span>
-              </div>
+                <!-- Closed slot -->
+                <div
+                  v-if="getCellState(court.id, slotIdx).type === 'closed'"
+                  class="h-12 rounded-md bg-[#fee2e2] flex items-center justify-center"
+                >
+                  <span
+                    class="text-xs font-bold tracking-widest text-[#991b1b] uppercase"
+                    >Closed</span
+                  >
+                </div>
 
-              <!-- Past slot -->
-              <div
-                v-else-if="getCellState(court.id, slotIdx).type === 'past'"
-                class="h-12 rounded-md bg-[#f1f5f9] opacity-50"
-              />
+                <!-- Past slot -->
+                <div
+                  v-else-if="getCellState(court.id, slotIdx).type === 'past'"
+                  class="h-12 rounded-md bg-[#f1f5f9] opacity-50"
+                />
 
-              <!-- Booked slot -->
-              <template
-                v-else-if="getCellState(court.id, slotIdx).type === 'booked'"
-              >
-                <!-- Invisible spacer keeps the td height so borders render -->
-                <div class="h-12 w-full" aria-hidden="true" />
-                <!-- Own pending_payment booking: clickable to upload receipt -->
+                <!-- Booked slot -->
+                <template
+                  v-else-if="getCellState(court.id, slotIdx).type === 'booked'"
+                >
+                  <!-- Invisible spacer keeps the td height so borders render -->
+                  <div class="h-12 w-full" aria-hidden="true" />
+                  <!-- Own pending_payment booking: clickable to upload receipt -->
+                  <button
+                    v-if="
+                      getCellBooking(court.id, slotIdx).is_own &&
+                      getCellBooking(court.id, slotIdx).status ===
+                        'pending_payment'
+                    "
+                    type="button"
+                    class="absolute inset-1.5 flex w-auto items-center justify-center gap-1 rounded-md px-2 text-center text-sm font-medium transition-opacity hover:opacity-70 active:scale-95"
+                    :style="{
+                      backgroundColor: bookingBg(
+                        getCellBooking(court.id, slotIdx).status
+                      ),
+                      color: bookingTextColor(
+                        getCellBooking(court.id, slotIdx).status
+                      )
+                    }"
+                    :title="'Upload receipt'"
+                    @click="handleBookedCellClick(court, slotIdx)"
+                  >
+                    <UIcon
+                      name="i-heroicons-arrow-up-tray"
+                      class="h-3.5 w-3.5 flex-shrink-0"
+                    />
+                    {{ bookingLabel(getCellBooking(court.id, slotIdx)) }}
+                  </button>
+                  <!-- Other bookings: not clickable -->
+                  <div
+                    v-else
+                    class="absolute inset-1.5 flex items-center justify-center rounded-md px-2 text-center text-sm font-medium"
+                    :style="{
+                      backgroundColor: bookingBg(
+                        getCellBooking(court.id, slotIdx).status
+                      ),
+                      color: bookingTextColor(
+                        getCellBooking(court.id, slotIdx).status
+                      )
+                    }"
+                  >
+                    {{ bookingLabel(getCellBooking(court.id, slotIdx)) }}
+                  </div>
+                </template>
+
+                <!-- Available slot (unselected or selected) -->
                 <button
-                  v-if="
-                    getCellBooking(court.id, slotIdx).is_own &&
-                    getCellBooking(court.id, slotIdx).status ===
-                      'pending_payment'
-                  "
+                  v-else
                   type="button"
-                  class="absolute inset-1.5 flex w-auto items-center justify-center gap-1 rounded-md px-2 text-center text-sm font-medium transition-opacity hover:opacity-70 active:scale-95"
-                  :style="{
-                    backgroundColor: bookingBg(
-                      getCellBooking(court.id, slotIdx).status
-                    ),
-                    color: bookingTextColor(
-                      getCellBooking(court.id, slotIdx).status
-                    )
-                  }"
-                  :title="'Upload receipt'"
-                  @click="handleBookedCellClick(court, slotIdx)"
+                  :class="[
+                    'flex cursor-pointer h-12 w-full items-center justify-center gap-1 rounded-md text-sm font-semibold transition-colors active:scale-95',
+                    isSlotSelected(court.id, slotIdx)
+                      ? 'bg-[var(--aktiv-primary)] text-white hover:bg-[var(--aktiv-primary-hover)]'
+                      : 'bg-[#dbeafe] text-[var(--aktiv-primary)] border border-dashed border-[#93c5fd] hover:brightness-95'
+                  ]"
+                  @click="handleCellClick(court, slotIdx)"
                 >
                   <UIcon
-                    name="i-heroicons-arrow-up-tray"
-                    class="h-3.5 w-3.5 flex-shrink-0"
+                    v-if="isSlotSelected(court.id, slotIdx)"
+                    name="i-heroicons-check"
+                    class="h-3.5 w-3.5 shrink-0"
                   />
-                  {{ bookingLabel(getCellBooking(court.id, slotIdx)) }}
+                  {{ priceLabel(court) ?? 'Book' }}
                 </button>
-                <!-- Other bookings: not clickable -->
-                <div
-                  v-else
-                  class="absolute inset-1.5 flex items-center justify-center rounded-md px-2 text-center text-sm font-medium"
-                  :style="{
-                    backgroundColor: bookingBg(
-                      getCellBooking(court.id, slotIdx).status
-                    ),
-                    color: bookingTextColor(
-                      getCellBooking(court.id, slotIdx).status
-                    )
-                  }"
-                >
-                  {{ bookingLabel(getCellBooking(court.id, slotIdx)) }}
-                </div>
-              </template>
-
-              <!-- Available slot (unselected or selected) -->
-              <button
-                v-else
-                type="button"
-                :class="[
-                  'flex cursor-pointer h-12 w-full items-center justify-center gap-1 rounded-md text-sm font-semibold transition-colors active:scale-95',
-                  isSlotSelected(court.id, slotIdx)
-                    ? 'bg-[var(--aktiv-primary)] text-white hover:bg-[var(--aktiv-primary-hover)]'
-                    : 'bg-[#dbeafe] text-[var(--aktiv-primary)] border border-dashed border-[#93c5fd] hover:brightness-95'
-                ]"
-                @click="handleCellClick(court, slotIdx)"
-              >
-                <UIcon
-                  v-if="isSlotSelected(court.id, slotIdx)"
-                  name="i-heroicons-check"
-                  class="h-3.5 w-3.5 shrink-0"
-                />
-                {{ priceLabel(court) ?? 'Book' }}
-              </button>
-            </td>
+              </td>
             </template>
           </tr>
         </tbody>
@@ -506,7 +512,9 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
       </div>
       <div class="flex items-center gap-1.5">
         <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#fef9c3]" />
-        <span class="text-sm text-[var(--aktiv-muted)]">Pending (tap to upload receipt)</span>
+        <span class="text-sm text-[var(--aktiv-muted)]"
+          >Pending (tap to upload receipt)</span
+        >
       </div>
       <div class="flex items-center gap-1.5">
         <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#fee2e2]" />

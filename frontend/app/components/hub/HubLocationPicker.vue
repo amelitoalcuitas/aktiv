@@ -102,7 +102,7 @@ function placeMarker(lng: number, lat: number) {
         class="pointer-events-none absolute inset-0 flex items-center justify-center"
       >
         <div
-          class="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-[var(--aktiv-ink)] shadow-sm ring-1 ring-[var(--aktiv-border)]"
+          class="flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-[var(--aktiv-ink)] ring-1 ring-[var(--aktiv-border)]"
         >
           <UIcon
             name="i-heroicons-map-pin"
@@ -117,7 +117,7 @@ function placeMarker(lng: number, lat: number) {
     <Transition name="fade">
       <div
         v-if="hasPinned"
-        class="pointer-events-none absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-mono text-[var(--aktiv-muted)] shadow-sm ring-1 ring-[var(--aktiv-border)]"
+        class="pointer-events-none absolute bottom-3 right-3 rounded-full bg-white/90 px-3 py-1 text-xs font-mono text-[var(--aktiv-muted)] ring-1 ring-[var(--aktiv-border)]"
       >
         {{ modelValue.lat?.toFixed(5) }}, {{ modelValue.lng?.toFixed(5) }}
       </div>

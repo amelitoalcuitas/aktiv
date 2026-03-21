@@ -9,9 +9,7 @@ const props = defineProps<{
 const isOpen = computed(() => isHubOpenNow(props.hub));
 const hasOperatingHours = computed(() => !!props.hub.operating_hours?.length);
 
-const imgSrc = ref(
-  props.hub.cover_image_url ?? props.hub.coverImageUrl ?? ''
-);
+const imgSrc = ref(props.hub.cover_image_url ?? props.hub.coverImageUrl ?? '');
 
 function onImgError() {
   imgSrc.value = '';
@@ -37,7 +35,7 @@ const formattedPrice = computed(() => {
 <template>
   <NuxtLink :to="`/hubs/${hub.id}`" class="block h-full w-full min-w-0">
     <div
-      class="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] shadow-sm transition duration-150 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:cursor-pointer hover:shadow-xl"
+      class="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] transition duration-150 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:cursor-pointer hover:shadow-xl"
     >
       <!-- Cover image or placeholder -->
       <div
@@ -81,11 +79,17 @@ const formattedPrice = computed(() => {
 
         <div class="mt-auto flex flex-col gap-3 pt-4">
           <div class="flex items-center justify-between gap-3">
-            <UBadge v-if="hasOperatingHours" variant="soft" :color="isOpen ? 'success' : 'error'">
+            <UBadge
+              v-if="hasOperatingHours"
+              variant="soft"
+              :color="isOpen ? 'success' : 'error'"
+            >
               {{ isOpen ? 'Open now' : 'Closed' }}
             </UBadge>
             <span v-else />
-            <span class="inline-flex items-center gap-1 text-sm text-[var(--aktiv-muted)]">
+            <span
+              class="inline-flex items-center gap-1 text-sm text-[var(--aktiv-muted)]"
+            >
               <UIcon
                 v-if="hub.rating != null"
                 name="i-heroicons-star-solid"

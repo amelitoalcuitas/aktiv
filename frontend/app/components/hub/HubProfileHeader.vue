@@ -73,14 +73,9 @@ const tabs = computed(() => {
   const id = hubId.value || String(activeHub.value?.id ?? '');
   return [
     {
-      label: 'About',
+      label: 'Overview',
       icon: 'i-heroicons-information-circle',
       to: `/hubs/${id}/about`
-    },
-    {
-      label: 'Scheduler',
-      icon: 'i-heroicons-calendar-days',
-      to: `/hubs/${id}/scheduler`
     },
     {
       label: 'Open Play',
@@ -123,6 +118,18 @@ function onCoverImgError() {
 }
 
 const ratingsModalOpen = ref(false);
+
+function handleBookCourt() {
+  const aboutPath = `/hubs/${hubId.value}/about`;
+  if (route.path === aboutPath) {
+    const el = document.getElementById('schedule');
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - 140;
+    window.scrollTo({ top, behavior: 'smooth' });
+  } else {
+    navigateTo(aboutPath);
+  }
+}
 
 // ── Sticky CTA bar ────────────────────────────────────────────────────────────
 const heroSection = ref<HTMLElement | null>(null);
@@ -186,6 +193,13 @@ onMounted(() => {
           >
             {{ activeHub?.name }}
           </h1>
+
+          <p
+            v-if="activeHub?.address || activeHub?.city"
+            class="mt-1 text-sm text-white/70 drop-shadow"
+          >
+            {{ [activeHub?.address, activeHub?.city].filter(Boolean).join(', ') }}
+          </p>
 
           <div class="mt-2 flex flex-wrap items-center gap-2">
             <!-- City + open/closed inline -->
@@ -259,14 +273,13 @@ onMounted(() => {
 
         <!-- Right: CTA -->
         <div class="shrink-0">
-          <NuxtLink :to="`/hubs/${hubId}/scheduler`">
-            <UButton
-              label="Book a Court"
-              icon="i-heroicons-calendar-days"
-              color="primary"
-              size="xl"
-            />
-          </NuxtLink>
+          <UButton
+            label="Book a Court"
+            icon="i-heroicons-calendar-days"
+            color="primary"
+            size="xl"
+            @click="handleBookCourt"
+          />
         </div>
       </div>
     </div>
@@ -312,33 +325,16 @@ onMounted(() => {
       </div>
 
       <!-- Book a Court CTA — desktop only, visible when hero is off screen -->
-      <NuxtLink
-        v-show="!heroVisible"
-        :to="`/hubs/${hubId}/scheduler`"
-        class="hidden sm:block shrink-0 ml-3"
-      >
+      <div v-show="!heroVisible" class="hidden sm:block shrink-0 ml-3">
         <UButton
           label="Book a Court"
           icon="i-heroicons-calendar-days"
           color="primary"
           size="lg"
+          @click="handleBookCourt"
         />
-      </NuxtLink>
+      </div>
     </div>
   </nav>
 
-  <!-- FAB — mobile only, shown when hero is off-screen and not on scheduler -->
-  <NuxtLink
-    v-show="!heroVisible && route.path !== `/hubs/${hubId}/scheduler`"
-    :to="`/hubs/${hubId}/scheduler`"
-    class="fixed bottom-6 right-6 z-50 sm:hidden"
-  >
-    <UButton
-      label="Book a Court"
-      icon="i-heroicons-calendar-days"
-      color="primary"
-      size="xl"
-      class="rounded-full shadow-lg"
-    />
-  </NuxtLink>
 </template>

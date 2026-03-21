@@ -85,7 +85,7 @@ function formatPrice(price: string | null) {
       <div
         v-for="hub in hubStore.myHubs"
         :key="hub.id"
-        class="flex flex-col overflow-hidden rounded-2xl border border-[#dbe4ef] bg-white shadow-sm cursor-pointer transition duration-150 ease-out hover:shadow-md"
+        class="flex flex-col overflow-hidden rounded-2xl border border-[#dbe4ef] bg-white cursor-pointer transition duration-150 ease-out hover:shadow-md"
         @click="navigateTo(`/hubs/${hub.id}/edit`)"
       >
         <!-- Cover image -->

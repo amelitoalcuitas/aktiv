@@ -4,6 +4,9 @@ import type { CalendarBooking, SelectedSlot } from '~/types/booking';
 
 definePageMeta({ layout: 'hub' });
 
+const _route = useRoute();
+await navigateTo(`/hubs/${_route.params.id}/about`, { replace: true });
+
 const route = useRoute();
 const { fetchCourts } = useHubs();
 const { fetchHubBookings } = useBooking();

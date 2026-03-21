@@ -108,7 +108,7 @@ if (!isAuthenticated.value) {
         Update your sports hub details.
       </p>
 
-      <UCard :ui="{ root: 'ring-1 ring-[var(--aktiv-border)] shadow-sm' }">
+      <UCard :ui="{ root: 'ring-1 ring-[var(--aktiv-border)] ' }">
         <div
           v-if="loadingHub"
           class="flex items-center gap-2 py-2 text-sm text-[var(--aktiv-muted)]"

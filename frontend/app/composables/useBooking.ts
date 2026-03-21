@@ -1,4 +1,4 @@
-import type { Booking, BookingDetail, CalendarBooking, SessionType } from '~/types/booking';
+import type { Booking, BookingDetail, CalendarBooking, SessionType, UserBooking } from '~/types/booking';
 import { useApi } from '~/utils/api';
 
 interface FetchBookingsParams {
@@ -57,6 +57,7 @@ export function useBooking() {
         body: data
       }
     );
+    useUserBookingStore().refresh();
     return response.data;
   }
 
@@ -86,6 +87,7 @@ export function useBooking() {
       method: 'POST',
       body: formData
     });
+    useUserBookingStore().refresh();
     return response.data;
   }
 
@@ -185,6 +187,34 @@ export function useBooking() {
     });
   }
 
+  async function fetchMyBookings(params?: {
+    status?: string;
+    page?: number;
+  }): Promise<{ data: UserBooking[]; meta: { current_page: number; last_page: number; total: number } }> {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.page) query.set('page', String(params.page));
+
+    const qs = query.toString();
+    return apiFetch<{ data: UserBooking[]; meta: { current_page: number; last_page: number; total: number } }>(
+      `/user/bookings${qs ? `?${qs}` : ''}`
+    );
+  }
+
+  async function findBookingPage(bookingId: number): Promise<number> {
+    const res = await apiFetch<{ page: number }>(`/user/bookings/page-of?booking_id=${bookingId}`);
+    return res.page;
+  }
+
+  async function cancelMyBooking(bookingId: number): Promise<UserBooking> {
+    const response = await apiFetch<{ data: UserBooking }>(
+      `/user/bookings/${bookingId}/cancel`,
+      { method: 'POST' }
+    );
+    useUserBookingStore().refresh();
+    return response.data;
+  }
+
   return {
     fetchHubBookings,
     fetchBookings,
@@ -196,5 +226,8 @@ export function useBooking() {
     verifyBookingByCode,
     confirmBooking,
     rejectBooking,
+    fetchMyBookings,
+    findBookingPage,
+    cancelMyBooking,
   };
 }

@@ -1,6 +1,11 @@
+const USER_FACING_TYPES = ['booking_confirmed', 'booking_rejected', 'booking_cancelled'];
+
 export function useNotificationBooking() {
-  async function openBookingFromNotification(bookingId: number, hubId: number) {
-    await navigateTo(`/dashboard/bookings?hubId=${hubId}&bookingId=${bookingId}`);
+  async function openBookingFromNotification(bookingId: number, hubId: number, activityType: string) {
+    const destination = USER_FACING_TYPES.includes(activityType)
+      ? `/bookings?bookingId=${bookingId}`
+      : `/dashboard/bookings?hubId=${hubId}&bookingId=${bookingId}`;
+    await navigateTo(destination);
   }
 
   return { openBookingFromNotification };

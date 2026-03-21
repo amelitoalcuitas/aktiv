@@ -24,21 +24,81 @@ class HubController extends Controller
     }
 
     /**
-     * Public list of all approved hubs with aggregated data.
+     * Public list of approved hubs with optional filtering and pagination.
+     *
+     * Query params:
+     *   search    – hub name LIKE search
+     *   city      – exact city match (case-insensitive)
+     *   sports[]  – filter by one or more sport slugs (hub must have at least one)
+     *   sort      – "courts_count" (default) | "created_at"
+     *   per_page  – results per page (default 12, max 48)
+     *   page      – page number
+     *   limit     – return at most N results without pagination (e.g. home page top-3)
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $hubs = Hub::query()
+        $query = Hub::query()
             ->where('is_approved', true)
             ->where('is_active', true)
-            ->with(['sports', 'images', 'contactNumbers', 'websites', 'settings'])
+            ->with(['sports', 'images', 'contactNumbers', 'websites', 'settings', 'operatingHours'])
             ->withCount('courts')
-            ->withMin('courts', 'price_per_hour')
-            ->orderByDesc('created_at')
-            ->get()
-            ->map(fn (Hub $hub) => $this->formatHub($hub));
+            ->withMin('courts', 'price_per_hour');
 
-        return response()->json(['data' => $hubs]);
+        if ($search = $request->string('search')->trim()->value()) {
+            $query->where('name', 'ilike', "%{$search}%");
+        }
+
+        if ($city = $request->string('city')->trim()->value()) {
+            $query->where('city', 'ilike', "%{$city}%");
+        }
+
+        $sports = array_filter((array) $request->input('sports', []));
+        if (!empty($sports)) {
+            $query->whereHas('sports', fn ($q) => $q->whereIn('sport', $sports));
+        }
+
+        $lat = $request->filled('lat') ? (float) $request->input('lat') : null;
+        $lng = $request->filled('lng') ? (float) $request->input('lng') : null;
+
+        if ($lat !== null && $lng !== null) {
+            $haversine = '(6371 * acos(LEAST(1, cos(radians(?)) * cos(radians(lat)) * cos(radians(lng) - radians(?)) + sin(radians(?)) * sin(radians(lat)))))';
+            $radius = max(1, (int) ($request->input('radius') ?: 50));
+            $query->whereRaw("{$haversine} < ?", [$lat, $lng, $lat, $radius]);
+            $query->orderByRaw("{$haversine} ASC", [$lat, $lng, $lat]);
+        } else {
+            $sort = $request->string('sort')->trim()->value();
+            if ($sort === 'courts_count') {
+                $query->orderByDesc('courts_count');
+            } else {
+                $query->orderByDesc('created_at');
+            }
+        }
+
+        $limit = $request->integer('limit');
+        if ($limit > 0) {
+            $hubs = $query->limit($limit)->get()->map(fn (Hub $hub) => $this->formatHub($hub));
+
+            return response()->json(['data' => $hubs]);
+        }
+
+        $perPage = min((int) ($request->integer('per_page') ?: 12), 48);
+        $paginator = $query->paginate($perPage);
+
+        $suggestions = [];
+        if ($search && $paginator->total() === 0) {
+            $suggestions = $this->buildSuggestions($search, $request, $lat, $lng);
+        }
+
+        return response()->json([
+            'data' => $paginator->getCollection()->map(fn (Hub $hub) => $this->formatHub($hub)),
+            'meta' => [
+                'total'        => $paginator->total(),
+                'current_page' => $paginator->currentPage(),
+                'last_page'    => $paginator->lastPage(),
+                'per_page'     => $paginator->perPage(),
+            ],
+            'suggestions' => $suggestions,
+        ]);
     }
 
     /**
@@ -369,6 +429,72 @@ class HubController extends Controller
         foreach ($allSports as $sport) {
             HubSport::query()->create(['hub_id' => $hub->id, 'sport' => $sport]);
         }
+    }
+
+    /**
+     * Build up to 5 fuzzy suggestions when an exact search yields zero results.
+     *
+     * Uses pg_trgm word_similarity() for name/city matching, exact sport slug matching,
+     * and optionally proximity when the user's coordinates are available.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildSuggestions(string $search, Request $request, ?float $lat, ?float $lng): array
+    {
+        $knownSports = ['badminton', 'tennis', 'pickleball', 'basketball', 'volleyball'];
+        $words = array_filter(preg_split('/\s+/', strtolower(trim($search))) ?: []);
+        $sportWords = array_values(array_intersect($words, $knownSports));
+
+        $suggestionQuery = Hub::query()
+            ->where('is_approved', true)
+            ->where('is_active', true)
+            ->with(['sports', 'images', 'contactNumbers', 'websites', 'settings', 'operatingHours'])
+            ->withCount('courts')
+            ->withMin('courts', 'price_per_hour');
+
+        // Respect any city/sports filters the user already applied
+        if ($city = $request->string('city')->trim()->value()) {
+            $suggestionQuery->where('city', 'ilike', "%{$city}%");
+        }
+        $appliedSports = array_filter((array) $request->input('sports', []));
+        if (! empty($appliedSports)) {
+            $suggestionQuery->whereHas('sports', fn ($q) => $q->whereIn('sport', $appliedSports));
+        }
+
+        $haversine = '(6371 * acos(LEAST(1, cos(radians(?)) * cos(radians(lat)) * cos(radians(lng) - radians(?)) + sin(radians(?)) * sin(radians(lat)))))';
+
+        $suggestionQuery->where(function ($q) use ($search, $sportWords, $lat, $lng, $haversine): void {
+            $q->whereRaw('word_similarity(?, name) > 0.25', [$search])
+              ->orWhereRaw('word_similarity(?, city) > 0.25', [$search]);
+
+            if (! empty($sportWords)) {
+                $q->orWhereHas('sports', fn ($sq) => $sq->whereIn('sport', $sportWords));
+            }
+
+            if ($lat !== null && $lng !== null) {
+                $q->orWhereRaw("{$haversine} < 50", [$lat, $lng, $lat]);
+            }
+        });
+
+        // Order: best trigram similarity first; proximity as tiebreaker when available
+        if ($lat !== null && $lng !== null) {
+            $suggestionQuery->orderByRaw(
+                'GREATEST(word_similarity(?, name), word_similarity(?, city)) DESC, ' . $haversine . ' ASC',
+                [$search, $search, $lat, $lng, $lat]
+            );
+        } else {
+            $suggestionQuery->orderByRaw(
+                'GREATEST(word_similarity(?, name), word_similarity(?, city)) DESC',
+                [$search, $search]
+            );
+        }
+
+        return $suggestionQuery
+            ->limit(5)
+            ->get()
+            ->map(fn (Hub $hub) => $this->formatHub($hub))
+            ->values()
+            ->all();
     }
 
     /**

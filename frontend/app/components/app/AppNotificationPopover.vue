@@ -18,9 +18,9 @@ async function handleMarkAllRead() {
   await notificationStore.markAllRead();
 }
 
-async function handleOpenBooking(bookingId: number, hubId: number) {
+async function handleOpenBooking(bookingId: number, hubId: number, activityType: string) {
   emit('close');
-  await openBookingFromNotification(bookingId, hubId);
+  await openBookingFromNotification(bookingId, hubId, activityType);
 }
 </script>
 

@@ -53,6 +53,15 @@ export interface SelectedSlot {
   slotStart: Date; // exact start of the 1-hour slot
 }
 
+/** Booking shape returned by the user's own booking list endpoint (includes court + hub). */
+export interface UserBooking extends Booking {
+  court: {
+    id: number;
+    name: string;
+    hub: { id: number; name: string } | null;
+  } | null;
+}
+
 /** Minimal booking shape for rendering the calendar (no PII). */
 export interface CalendarBooking {
   id: number;
@@ -62,4 +71,5 @@ export interface CalendarBooking {
   status: BookingStatus;
   is_own: boolean;
   court_id?: number;
+  expires_at?: string | null;
 }

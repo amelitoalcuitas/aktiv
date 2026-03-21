@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import type { Hub } from '~/types/hub';
+import { isHubOpenNow } from '~/composables/useHubs';
 
 const props = defineProps<{
   hub: Hub;
 }>();
+
+const isOpen = computed(() => isHubOpenNow(props.hub));
+const hasOperatingHours = computed(() => !!props.hub.operating_hours?.length);
 
 const imgSrc = ref(
   props.hub.cover_image_url ?? props.hub.coverImageUrl ?? ''
@@ -31,7 +35,7 @@ const formattedPrice = computed(() => {
 </script>
 
 <template>
-  <NuxtLink :to="`/hubs/${hub.id}`" class="block h-full">
+  <NuxtLink :to="`/hubs/${hub.id}`" class="block h-full w-full min-w-0">
     <div
       class="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] shadow-sm transition duration-150 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:cursor-pointer hover:shadow-xl"
     >
@@ -77,9 +81,10 @@ const formattedPrice = computed(() => {
 
         <div class="mt-auto flex flex-col gap-3 pt-4">
           <div class="flex items-center justify-between gap-3">
-            <UBadge variant="soft" :color="hub.isOpenNow ? 'success' : 'error'">
-              {{ hub.isOpenNow ? 'Open now' : 'Closed' }}
+            <UBadge v-if="hasOperatingHours" variant="soft" :color="isOpen ? 'success' : 'error'">
+              {{ isOpen ? 'Open now' : 'Closed' }}
             </UBadge>
+            <span v-else />
             <span class="text-sm text-[var(--aktiv-muted)]">
               {{ (hub.rating ?? 0).toFixed(1) }} ({{ hub.reviewsCount ?? 0 }})
             </span>

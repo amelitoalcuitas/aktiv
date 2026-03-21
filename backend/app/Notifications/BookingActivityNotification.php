@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Booking;
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class BookingActivityNotification extends Notification
@@ -20,7 +21,42 @@ class BookingActivityNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        $channels = [];
+
+        if ($notifiable->inapp_notifications_enabled ?? true) {
+            $channels[] = 'database';
+        }
+
+        $emailable = ['receipt_uploaded', 'booking_confirmed', 'booking_rejected', 'booking_cancelled'];
+        if (in_array($this->activityType, $emailable) && ($notifiable->email_notifications_enabled ?? true)) {
+            $channels[] = 'mail';
+        }
+
+        return $channels;
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $booking     = $this->booking;
+        $hub         = $booking->court->hub;
+        $courtName   = $booking->court->name;
+        $frontendUrl = config('app.frontend_url');
+
+        $subject = match ($this->activityType) {
+            'receipt_uploaded'  => "Receipt Uploaded – {$booking->booking_code}",
+            'booking_confirmed' => "Booking Confirmed – {$booking->booking_code}",
+            'booking_rejected'  => "Receipt Rejected – {$booking->booking_code}",
+            'booking_cancelled' => "Booking Cancelled – {$booking->booking_code}",
+            default             => "Booking Update – {$booking->booking_code}",
+        };
+
+        $view = $this->activityType === 'receipt_uploaded'
+            ? 'emails.receipt-uploaded-notification'
+            : 'emails.booking-status-update';
+
+        return (new MailMessage)
+            ->subject($subject)
+            ->view($view, compact('booking', 'hub', 'courtName', 'frontendUrl'));
     }
 
     /**

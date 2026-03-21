@@ -97,3 +97,10 @@ export interface HubSport {
   hub_id: number;
   sport: SportType;
 }
+
+export interface PaginationMeta {
+  total: number;
+  current_page: number;
+  last_page: number;
+  per_page: number;
+}

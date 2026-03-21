@@ -1,5 +1,22 @@
-import type { Hub, Court, HubContactNumber, HubWebsite, OperatingHoursEntry } from '~/types/hub';
+import type { Hub, Court, HubContactNumber, HubWebsite, OperatingHoursEntry, PaginationMeta } from '~/types/hub';
 import { useApi } from '~/utils/api';
+
+/**
+ * Returns true if the hub is currently open based on its operating_hours.
+ * Times in operating_hours are stored in Asia/Manila local time (HH:mm),
+ * and compared against the current local clock — matching HubProfileHeader's pattern.
+ */
+export function isHubOpenNow(hub: Hub): boolean {
+  const hours = hub.operating_hours;
+  if (!hours?.length) return false;
+  const now = new Date();
+  const todayHours = hours.find((oh) => oh.day_of_week === now.getDay());
+  if (!todayHours || todayHours.is_closed) return false;
+  const [openH, openM] = todayHours.opens_at.split(':').map(Number);
+  const [closeH, closeM] = todayHours.closes_at.split(':').map(Number);
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  return nowMins >= openH * 60 + openM && nowMins < closeH * 60 + closeM;
+}
 
 export const HUB_IMAGE_MAX_SIZE_MB = 10;
 export const HUB_IMAGE_MAX_BYTES = HUB_IMAGE_MAX_SIZE_MB * 1024 * 1024;
@@ -122,6 +139,34 @@ export function useHubs() {
   async function fetchHubs(): Promise<Hub[]> {
     const res = await apiFetch<{ data: Hub[] }>('/hubs');
     return res.data;
+  }
+
+  async function fetchHubsPaginated(params: {
+    page?: number;
+    per_page?: number;
+    city?: string;
+    sports?: string[];
+    search?: string;
+    limit?: number;
+    sort?: string;
+    lat?: number;
+    lng?: number;
+    radius?: number;
+  }): Promise<{ data: Hub[]; meta?: PaginationMeta; suggestions?: Hub[] }> {
+    const query = new URLSearchParams();
+    if (params.page) query.set('page', String(params.page));
+    if (params.per_page) query.set('per_page', String(params.per_page));
+    if (params.city) query.set('city', params.city);
+    if (params.search) query.set('search', params.search);
+    if (params.limit) query.set('limit', String(params.limit));
+    if (params.sort) query.set('sort', params.sort);
+    if (params.lat != null) query.set('lat', String(params.lat));
+    if (params.lng != null) query.set('lng', String(params.lng));
+    if (params.radius != null) query.set('radius', String(params.radius));
+    (params.sports ?? []).forEach((s) => query.append('sports[]', s));
+    const qs = query.toString();
+    const res = await apiFetch<{ data: Hub[]; meta?: PaginationMeta; suggestions?: Hub[] }>(`/hubs${qs ? `?${qs}` : ''}`);
+    return { data: res.data, meta: res.meta, suggestions: res.suggestions };
   }
 
   async function fetchHub(id: number | string): Promise<Hub> {
@@ -270,6 +315,7 @@ export function useHubs() {
 
   return {
     fetchHubs,
+    fetchHubsPaginated,
     fetchHub,
     fetchMyHubs,
     createHub,

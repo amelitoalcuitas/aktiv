@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>New Booking</title>
+    <title>Receipt Uploaded</title>
     <style>
         body { font-family: sans-serif; background: #f9fdf2; margin: 0; padding: 40px 20px; color: #1a1a1a; }
         .container { max-width: 480px; margin: 0 auto; background: #fff; border-radius: 8px; padding: 40px; }
         .header { text-align: center; margin-bottom: 28px; }
-        .icon { display: inline-block; width: 48px; height: 48px; background: #dbeafe; border-radius: 50%; line-height: 48px; font-size: 24px; margin-bottom: 12px; }
+        .icon { display: inline-block; width: 48px; height: 48px; background: #fef9c3; border-radius: 50%; line-height: 48px; font-size: 24px; margin-bottom: 12px; }
         h1 { margin: 0 0 4px; font-size: 1.25rem; color: #0f1728; }
         .subtitle { color: #64748b; font-size: 0.875rem; margin: 0; }
         .details { background: #f9fdf2; border: 1px solid #dbe4ef; border-radius: 8px; padding: 16px; margin: 24px 0; font-size: 0.875rem; }
@@ -17,15 +17,17 @@
         .details td:last-child { text-align: right; font-weight: 500; color: #0f1728; }
         .details .price td:last-child { color: #004e89; font-weight: 700; }
         .code { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.2em; color: #0f1728; margin: 4px 0; font-family: monospace; }
+        .cta { text-align: center; margin: 28px 0 8px; }
+        .cta a { display: inline-block; background: #004e89; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 0.9375rem; font-weight: 600; }
         .footer { font-size: 0.75rem; color: #94a3b8; margin-top: 32px; text-align: center; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="icon">📋</div>
-            <h1>New Booking Received</h1>
-            <p class="subtitle">A new booking has been made at <strong>{{ $hub->name }}</strong>.</p>
+            <div class="icon">🧾</div>
+            <h1>Payment Receipt Uploaded</h1>
+            <p class="subtitle">A customer has uploaded a receipt for their booking at <strong>{{ $hub->name }}</strong>.</p>
         </div>
 
         <div class="details">
@@ -56,12 +58,6 @@
                         {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
                     </td>
                 </tr>
-                @if ($booking->sport)
-                <tr>
-                    <td>Sport</td>
-                    <td class="capitalize">{{ $booking->sport }}</td>
-                </tr>
-                @endif
                 @if ($booking->total_price)
                 <tr class="price">
                     <td>Amount</td>
@@ -75,11 +71,12 @@
             </table>
         </div>
 
-        <div style="text-align:center;margin:28px 0 8px;">
-            <a href="{{ $frontendUrl }}/dashboard/hubs/{{ $hub->id }}/bookings" style="display:inline-block;background:#004e89;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-size:0.9375rem;font-weight:600;">Go to Dashboard</a>
+        <div class="cta">
+            <a href="{{ $frontendUrl }}/dashboard/hubs/{{ $hub->id }}/bookings">Review in Dashboard</a>
         </div>
 
         <p class="footer">
+            Log in to confirm or reject this payment receipt.<br>
             This is an automated message from Aktiv.
         </p>
     </div>

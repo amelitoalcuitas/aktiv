@@ -2,6 +2,7 @@
 import { useAuth } from '~/composables/useAuth';
 
 const { isAuthenticated } = useAuth();
+const route = useRoute();
 const scrolled = ref(false);
 
 onMounted(() => {
@@ -29,18 +30,25 @@ onMounted(() => {
         aria-label="Aktiv home"
       >
         <AppIcon class="h-6 w-auto" />
-        <AppLogo class="h-6 w-auto" />
+        <AppLogo class="hidden h-6 w-auto sm:block" />
       </NuxtLink>
 
       <nav class="flex items-center gap-2">
+        <UButton
+          to="/explore"
+          variant="ghost"
+          :color="route.path === '/explore' ? 'secondary' : 'neutral'"
+          :class="route.path === '/explore' ? 'underline underline-offset-4 font-semibold' : ''"
+        >
+          Hubs
+        </UButton>
         <template v-if="isAuthenticated">
+          <AppBookingButton />
           <AppNotificationBell />
           <AppUserMenu variant="header" />
         </template>
         <template v-else>
-          <UButton to="/auth/login" size="sm" color="primary">
-            Sign In
-          </UButton>
+          <UButton to="/auth/login" color="primary"> Sign In </UButton>
         </template>
       </nav>
     </div>

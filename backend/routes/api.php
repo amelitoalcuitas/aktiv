@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OwnerBookingController;
 use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\UserBookingController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -52,6 +53,11 @@ Route::post('/hubs/{hub}/courts/{court}/guest-bookings/{booking}/receipt', [Gues
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'store'])->name('api.hubs.courts.bookings.store');
     Route::post('/hubs/{hub}/courts/{court}/bookings/{booking}/receipt', [BookingController::class, 'uploadReceipt'])->name('api.hubs.courts.bookings.receipt');
+
+    // User bookings
+    Route::get('/user/bookings', [UserBookingController::class, 'index'])->name('api.user.bookings.index');
+    Route::get('/user/bookings/page-of', [UserBookingController::class, 'pageOf'])->name('api.user.bookings.page-of');
+    Route::post('/user/bookings/{booking}/cancel', [UserBookingController::class, 'cancel'])->name('api.user.bookings.cancel');
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])->name('api.notifications.index');

@@ -16,11 +16,20 @@ const menuItems = computed(() => {
 
   items.push([
     { label: 'Main Site', icon: 'i-heroicons-home', to: '/' },
+    {
+      label: 'My Bookings',
+      icon: 'i-heroicons-calendar-days',
+      to: '/bookings'
+    },
     { label: 'Profile', icon: 'i-heroicons-user', to: '/profile' }
   ]);
 
   items.push([
-    { label: 'Sign Out', icon: 'i-heroicons-arrow-right-on-rectangle', onSelect: logout }
+    {
+      label: 'Sign Out',
+      icon: 'i-heroicons-arrow-right-on-rectangle',
+      onSelect: logout
+    }
   ]);
 
   return items;
@@ -28,7 +37,12 @@ const menuItems = computed(() => {
 </script>
 
 <template>
-  <UDropdownMenu v-if="user" :modal="false" :items="menuItems" :ui="{ content: 'w-52' }">
+  <UDropdownMenu
+    v-if="user"
+    :modal="false"
+    :items="menuItems"
+    :ui="{ content: 'w-52' }"
+  >
     <!-- Sidebar variant: avatar + name + ellipsis -->
     <button
       v-if="variant === 'sidebar'"
@@ -42,17 +56,24 @@ const menuItems = computed(() => {
         class="flex-shrink-0"
       />
       <span class="min-w-0 flex-1 truncate text-left">{{ user?.name }}</span>
-      <UIcon name="i-heroicons-ellipsis-horizontal" class="h-4 w-4 flex-shrink-0" />
+      <UIcon
+        name="i-heroicons-ellipsis-horizontal"
+        class="h-4 w-4 flex-shrink-0"
+      />
     </button>
 
     <!-- Header variant: name + avatar -->
-    <UButton v-else variant="ghost" color="neutral" class="flex items-center gap-2 rounded-full px-3 py-1.5">
-      <span class="text-sm font-medium">{{ user?.name }}</span>
+    <UButton
+      v-else
+      variant="ghost"
+      color="neutral"
+      class="flex items-center gap-2 rounded-full"
+    >
+      <span class="hidden text-sm font-medium sm:block">{{ user?.name }}</span>
       <UAvatar
         :src="user?.avatar_url ?? undefined"
         :alt="user?.name"
         icon="i-heroicons-user"
-        size="sm"
       />
     </UButton>
   </UDropdownMenu>

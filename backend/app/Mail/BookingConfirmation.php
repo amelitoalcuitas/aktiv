@@ -14,11 +14,15 @@ class BookingConfirmation extends Mailable
 {
     use Queueable, SerializesModels;
 
+    public readonly string $frontendUrl;
+
     public function __construct(
         public readonly Booking $booking,
         public readonly Hub $hub,
         public readonly string $courtName,
-    ) {}
+    ) {
+        $this->frontendUrl = config('app.frontend_url');
+    }
 
     public function envelope(): Envelope
     {

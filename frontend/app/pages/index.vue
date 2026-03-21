@@ -6,11 +6,11 @@ definePageMeta({ layout: 'explore' });
 
 const exploreSection = ref<HTMLElement | null>(null);
 
-const { fetchHubs } = useHubs();
+const { fetchHubsPaginated } = useHubs();
 
 const { data: hubs, error: hubsError } = await useAsyncData<Hub[]>(
   'hubs-home',
-  () => fetchHubs(),
+  () => fetchHubsPaginated({ limit: 3, sort: 'courts_count' }).then((r) => r.data),
   { default: () => [] as Hub[] }
 );
 
@@ -82,10 +82,10 @@ const scrollToExploreSection = () => {
           <h2
             class="mt-2 text-3xl font-black leading-tight text-[#0f1728] md:text-5xl"
           >
-            Explore <span class="text-[#0f76bf]">Hubs</span>
+            Top <span class="text-[#0f76bf]">Hubs</span>
           </h2>
           <p class="mt-2 text-[15px] text-[#5d7086]">
-            There are many places to play, choose your next destination.
+            The most active hubs in the city — pick your next court.
           </p>
         </div>
 

@@ -8,7 +8,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'toggle-read': [id: string];
-  'open-booking': [bookingId: number, hubId: number];
+  'open-booking': [bookingId: number, hubId: number, activityType: string];
 }>();
 
 const iconMap: Record<string, string> = {
@@ -53,7 +53,8 @@ function handleClick() {
   emit(
     'open-booking',
     props.notification.data.booking_id,
-    props.notification.data.hub_id
+    props.notification.data.hub_id,
+    props.notification.activity_type
   );
 }
 </script>

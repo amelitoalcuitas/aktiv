@@ -358,7 +358,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
           <tr>
             <!-- Corner: sticky top + left -->
             <th
-              class="sticky left-0 top-0 z-30 w-20 min-w-[80px] border-b border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-3 py-3 text-left text-sm font-medium text-[var(--aktiv-muted)]"
+              class="sticky left-0 top-0 z-20 w-20 min-w-[80px] border-b border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-3 py-3 text-left text-sm font-medium text-[var(--aktiv-muted)]"
             >
               Time
             </th>
@@ -366,7 +366,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
             <th
               v-for="court in courts"
               :key="court.id"
-              class="sticky top-0 z-20 min-w-[144px] border-b border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-3 py-3 text-left"
+              class="sticky top-0 z-10 min-w-[144px] border-b border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-3 py-3 text-left"
             >
               <div class="flex flex-col gap-1">
                 <span
@@ -389,7 +389,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
           >
             <!-- Time label: sticky left -->
             <td
-              class="sticky left-0 z-10 w-20 min-w-[80px] border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-3 py-2 text-sm font-medium text-[var(--aktiv-muted)]"
+              class="sticky left-0 z-5 w-20 min-w-[80px] border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-3 py-2 text-sm font-medium text-[var(--aktiv-muted)]"
             >
               {{ formatTimeLabel(slot) }}
             </td>

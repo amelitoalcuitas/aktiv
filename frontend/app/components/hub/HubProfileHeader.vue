@@ -114,8 +114,7 @@ function onCoverImgError() {
 </script>
 
 <template>
-  <div>
-    <!-- Hero -->
+  <!-- Hero -->
     <section
       class="relative isolate overflow-hidden border-b border-[var(--aktiv-border)]"
     >
@@ -158,7 +157,11 @@ function onCoverImgError() {
               <p
                 v-if="activeHub?.operating_hours?.length"
                 class="m-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide"
-                :class="isCurrentlyOpen ? 'bg-green-500/25 text-green-300' : 'bg-red-500/25 text-red-300'"
+                :class="
+                  isCurrentlyOpen
+                    ? 'bg-green-500/25 text-green-300'
+                    : 'bg-red-500/25 text-red-300'
+                "
               >
                 <span
                   class="h-1.5 w-1.5 rounded-full"
@@ -229,7 +232,7 @@ function onCoverImgError() {
 
     <!-- Tab navigation -->
     <nav
-      class="sticky top-0 z-40 border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
+      class="sticky top-[76px] z-25 border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
     >
       <div
         class="mx-auto flex w-full max-w-[1160px] gap-6 overflow-x-auto px-4 md:px-6"
@@ -250,5 +253,4 @@ function onCoverImgError() {
         </NuxtLink>
       </div>
     </nav>
-  </div>
 </template>

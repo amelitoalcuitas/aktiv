@@ -30,6 +30,8 @@ class User extends Authenticatable implements MustVerifyEmail
         'phone',
         'google_id',
         'role',
+        'email_notifications_enabled',
+        'inapp_notifications_enabled',
     ];
 
     /**
@@ -52,7 +54,9 @@ class User extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password'          => 'hashed',
-            'role'              => UserRole::class,
+            'role'                       => UserRole::class,
+            'email_notifications_enabled' => 'boolean',
+            'inapp_notifications_enabled' => 'boolean',
         ];
     }
 

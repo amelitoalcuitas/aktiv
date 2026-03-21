@@ -36,6 +36,16 @@ const { data: activeHub, error: hubError } = await useAsyncData<Hub>(
         operating_hours: [],
         courts_count: 0,
         lowest_price_per_hour: null,
+        require_account_to_book: false,
+        payment_methods: [],
+        payment_qr_url: null,
+        digital_bank_name: null,
+        digital_bank_account: null,
+        contact_numbers: [],
+        websites: [],
+        rating: null,
+        reviews_count: 0,
+        rating_breakdown: null,
         created_at: ''
       }) as Hub
   }
@@ -113,147 +123,186 @@ function onCoverImgError() {
 }
 
 const ratingsModalOpen = ref(false);
+
+// ── Sticky CTA bar ────────────────────────────────────────────────────────────
+const heroSection = ref<HTMLElement | null>(null);
+const heroVisible = ref(true);
+
+onMounted(() => {
+  if (!heroSection.value) return;
+  const observer = new IntersectionObserver(
+    ([entry]) => {
+      heroVisible.value = entry!.isIntersecting;
+    },
+    { threshold: 0 }
+  );
+  observer.observe(heroSection.value);
+  onUnmounted(() => observer.disconnect());
+});
 </script>
 
 <template>
   <!-- Hero -->
-    <section
-      class="relative isolate overflow-hidden border-b border-[var(--aktiv-border)]"
+  <section
+    ref="heroSection"
+    class="relative isolate overflow-hidden border-b border-[var(--aktiv-border)]"
+  >
+    <img
+      v-if="coverImage"
+      :src="coverImage"
+      :alt="activeHub?.name"
+      class="h-[168px] sm:h-[260px] w-full object-cover"
+      @error="onCoverImgError"
+    />
+    <div
+      v-else
+      class="flex h-[168px] w-full items-center justify-center bg-[var(--aktiv-border)]"
     >
-      <img
-        v-if="coverImage"
-        :src="coverImage"
-        :alt="activeHub?.name"
-        class="h-[260px] w-full object-cover"
-        @error="onCoverImgError"
-      />
-      <div
-        v-else
-        class="flex h-[260px] w-full items-center justify-center bg-[var(--aktiv-border)]"
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        class="h-16 w-16 text-[var(--aktiv-muted)] opacity-30"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        stroke-width="1"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          class="h-20 w-20 text-[var(--aktiv-muted)] opacity-30"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          stroke-width="1"
-        >
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <circle cx="8.5" cy="8.5" r="1.5" />
-          <path d="M21 15l-5-5L5 21" />
-        </svg>
-      </div>
-      <div class="absolute inset-0 bg-black/50"></div>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <path d="M21 15l-5-5L5 21" />
+      </svg>
+    </div>
+    <div
+      class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"
+    ></div>
 
-      <div class="absolute inset-x-0 bottom-0">
-        <div class="mx-auto w-full max-w-[1160px] px-4 pb-6 md:px-6">
-          <div class="max-w-[760px] p-5">
-            <div class="flex flex-wrap items-center gap-2">
-              <p
-                class="m-0 inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white"
-              >
-                <UIcon name="i-heroicons-map-pin" class="h-4 w-4" />
-                {{ activeHub?.city }}
-              </p>
-              <p
-                v-if="activeHub?.operating_hours?.length"
-                class="m-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wide"
-                :class="
-                  isCurrentlyOpen
-                    ? 'bg-green-500/25 text-green-300'
-                    : 'bg-red-500/25 text-red-300'
-                "
-              >
-                <span
-                  class="h-1.5 w-1.5 rounded-full"
-                  :class="isCurrentlyOpen ? 'bg-green-400' : 'bg-red-400'"
-                />
-                {{ isCurrentlyOpen ? 'Open Now' : 'Closed' }}
-              </p>
-            </div>
+    <div class="absolute inset-x-0 bottom-0">
+      <div
+        class="mx-auto flex w-full max-w-[1160px] items-end justify-between px-4 pb-4 md:px-6"
+      >
+        <!-- Left: name + meta -->
+        <div class="min-w-0 flex-1 pr-4">
+          <h1
+            class="text-2xl font-black leading-tight text-white drop-shadow-md md:text-4xl"
+          >
+            {{ activeHub?.name }}
+          </h1>
 
-            <h1
-              class="mt-3 text-3xl font-black leading-tight text-white md:text-5xl"
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <!-- City + open/closed inline -->
+            <span
+              class="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-white"
             >
-              {{ activeHub?.name }}
-            </h1>
+              <UIcon name="i-heroicons-map-pin" class="h-3.5 w-3.5" />
+              {{ activeHub?.city }}
+              <template v-if="activeHub?.operating_hours?.length">
+                <span class="opacity-40">·</span>
+                <span
+                  class="inline-flex items-center gap-1 normal-case tracking-normal"
+                  :class="
+                    isCurrentlyOpen ? 'text-green-300' : 'text-red-300/80'
+                  "
+                >
+                  <span
+                    class="h-1.5 w-1.5 rounded-full"
+                    :class="isCurrentlyOpen ? 'bg-green-400' : 'bg-red-400'"
+                  />
+                  {{ isCurrentlyOpen ? 'Open now' : 'Closed' }}
+                </span>
+              </template>
+            </span>
 
-            <div class="mt-4 flex flex-wrap items-center gap-2.5">
-              <UBadge
-                v-for="sport in activeHub?.sports ?? []"
-                :key="sport"
-                variant="outline"
-                color="neutral"
-                class="border-white/35 bg-transparent text-white uppercase tracking-wide"
-              >
-                {{ sport }}
-              </UBadge>
+            <!-- Sport badges -->
+            <UBadge
+              v-for="sport in activeHub?.sports ?? []"
+              :key="sport"
+              variant="outline"
+              color="neutral"
+              class="border-white/35 bg-transparent text-white uppercase tracking-wide"
+            >
+              {{ sport }}
+            </UBadge>
 
-              <button
-                v-if="activeHub?.rating != null || (activeHub?.reviews_count ?? 0) >= 0"
-                type="button"
-                class="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white transition hover:bg-white/25"
-                @click="ratingsModalOpen = true"
-              >
-                <UIcon
-                  name="i-heroicons-star-solid"
-                  class="h-4 w-4 text-[#F0A202]"
-                />
-                {{ activeHub.rating != null ? activeHub.rating.toFixed(1) : '–' }}
-                ({{ activeHub.reviews_count ?? 0 }})
-              </button>
-
-              <HubRatingsModal
-                v-if="activeHub?.id"
-                v-model:open="ratingsModalOpen"
-                :hub="activeHub"
+            <!-- Rating -->
+            <button
+              v-if="
+                activeHub?.rating != null ||
+                (activeHub?.reviews_count ?? 0) >= 0
+              "
+              type="button"
+              class="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white transition hover:bg-white/25"
+              @click="ratingsModalOpen = true"
+            >
+              <UIcon
+                name="i-heroicons-star-solid"
+                class="h-4 w-4 text-[#F0A202]"
               />
+              {{ activeHub.rating != null ? activeHub.rating.toFixed(1) : '–' }}
+              ({{ activeHub.reviews_count ?? 0 }})
+            </button>
 
-              <UBadge
-                v-if="activeHub?.is_verified"
-                color="primary"
-                variant="soft"
-              >
-                Verified
-              </UBadge>
-            </div>
+            <HubRatingsModal
+              v-if="activeHub?.id"
+              v-model:open="ratingsModalOpen"
+              :hub="activeHub"
+            />
+
+            <!-- Verified -->
+            <UBadge
+              v-if="activeHub?.is_verified"
+              color="primary"
+              variant="soft"
+            >
+              Verified
+            </UBadge>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- Inactive hub banner (owner only) -->
-    <div
-      v-if="isInactiveOwnerView"
-      class="border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
-    >
-      <div class="mx-auto w-full max-w-[1160px] px-4 py-3 md:px-6">
-        <UAlert
-          icon="i-heroicons-eye-slash"
-          color="warning"
-          variant="subtle"
-          title="This hub is currently inactive"
-          description="Only you (the owner) can see this page. This hub is hidden from the public listing. You can activate it from the hub edit page."
-        />
+        <!-- Right: CTA -->
+        <div class="shrink-0">
+          <NuxtLink :to="`/hubs/${hubId}/scheduler`">
+            <UButton
+              label="Book a Court"
+              icon="i-heroicons-calendar-days"
+              color="primary"
+              size="xl"
+            />
+          </NuxtLink>
+        </div>
       </div>
     </div>
+  </section>
 
-    <!-- Tab navigation -->
-    <nav
-      class="sticky top-[76px] z-25 border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
-    >
-      <div
-        class="mx-auto flex w-full max-w-[1160px] gap-6 overflow-x-auto px-4 md:px-6"
-      >
+  <!-- Inactive hub banner (owner only) -->
+  <div
+    v-if="isInactiveOwnerView"
+    class="border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
+  >
+    <div class="mx-auto w-full max-w-[1160px] px-4 py-3 md:px-6">
+      <UAlert
+        icon="i-heroicons-eye-slash"
+        color="warning"
+        variant="subtle"
+        title="This hub is currently inactive"
+        description="Only you (the owner) can see this page. This hub is hidden from the public listing. You can activate it from the hub edit page."
+      />
+    </div>
+  </div>
+
+  <!-- Tab navigation -->
+  <nav
+    class="sticky top-[76px] z-25 border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
+  >
+    <div class="mx-auto flex w-full max-w-[1160px] items-center px-4 md:px-6">
+      <!-- Tabs (scrollable) -->
+      <div class="flex min-w-0 flex-1 overflow-x-auto">
         <NuxtLink
           v-for="tab in tabs"
           :key="tab.to"
           :to="tab.to"
-          class="inline-flex items-center gap-2 border-b-2 py-4 text-sm font-bold whitespace-nowrap transition"
+          class="inline-flex items-center gap-2 border-b-[3px] px-3 py-4 text-sm font-bold whitespace-nowrap transition"
           :class="
             isTabActive(tab.to)
-              ? 'border-[var(--aktiv-primary)] text-[var(--aktiv-primary)]'
+              ? 'border-[var(--aktiv-primary)] text-[var(--aktiv-primary)] bg-[var(--aktiv-primary)]/8'
               : 'border-transparent text-[var(--aktiv-muted)] hover:text-[var(--aktiv-ink)]'
           "
         >
@@ -261,5 +310,35 @@ const ratingsModalOpen = ref(false);
           {{ tab.label }}
         </NuxtLink>
       </div>
-    </nav>
+
+      <!-- Book a Court CTA — desktop only, visible when hero is off screen -->
+      <NuxtLink
+        v-show="!heroVisible"
+        :to="`/hubs/${hubId}/scheduler`"
+        class="hidden sm:block shrink-0 ml-3"
+      >
+        <UButton
+          label="Book a Court"
+          icon="i-heroicons-calendar-days"
+          color="primary"
+          size="lg"
+        />
+      </NuxtLink>
+    </div>
+  </nav>
+
+  <!-- FAB — mobile only, shown when hero is off-screen and not on scheduler -->
+  <NuxtLink
+    v-show="!heroVisible && route.path !== `/hubs/${hubId}/scheduler`"
+    :to="`/hubs/${hubId}/scheduler`"
+    class="fixed bottom-6 right-6 z-50 sm:hidden"
+  >
+    <UButton
+      label="Book a Court"
+      icon="i-heroicons-calendar-days"
+      color="primary"
+      size="xl"
+      class="rounded-full shadow-lg"
+    />
+  </NuxtLink>
 </template>

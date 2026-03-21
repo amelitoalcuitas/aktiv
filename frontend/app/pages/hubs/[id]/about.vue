@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import maplibregl from 'maplibre-gl';
 import type { Hub, Court } from '~/types/hub';
+import { useAuthStore } from '~/stores/auth';
 
 definePageMeta({ layout: 'hub' });
 
 const route = useRoute();
 const { fetchCourts } = useHubs();
+const authStore = useAuthStore();
 
 const hubId = computed(() => String(route.params.id ?? ''));
 
@@ -16,18 +18,34 @@ const { data: courts, error } = await useAsyncData<Court[]>(
   () => fetchCourts(hubId.value)
 );
 
-// ── Open/closed status ────────────────────────────────────────────────────
-const isCurrentlyOpen = computed(() => {
-  if (!hub.value?.operating_hours?.length) return false;
-  const now = new Date();
+// ── Owner check ────────────────────────────────────────────────────────────
+const isOwner = computed(() => authStore.user?.id === hub.value?.owner_id);
+
+function parseMins(time: string): number {
+  const parts = time.split(':');
+  const h = parseInt(parts[0] ?? '0', 10);
+  const m = parseInt(parts[1] ?? '0', 10);
+  return h * 60 + m;
+}
+
+// ── Today schedule helpers ─────────────────────────────────────────────────
+const todayDayOfWeek = new Date().getDay();
+
+const todayCloseLabel = computed(() => {
+  if (!hub.value?.operating_hours?.length) return null;
   const todayHours = hub.value.operating_hours.find(
-    (oh) => oh.day_of_week === now.getDay()
+    (oh) => oh.day_of_week === new Date().getDay()
   );
-  if (!todayHours || todayHours.is_closed) return false;
-  const [openH, openM] = todayHours.opens_at.split(':').map(Number);
-  const [closeH, closeM] = todayHours.closes_at.split(':').map(Number);
+  if (!todayHours || todayHours.is_closed) return null;
+  const now = new Date();
   const nowMins = now.getHours() * 60 + now.getMinutes();
-  return nowMins >= openH * 60 + openM && nowMins < closeH * 60 + closeM;
+  const openMins = parseMins(todayHours.opens_at);
+  const closeMins = parseMins(todayHours.closes_at);
+  if (nowMins < openMins || nowMins >= closeMins) return null;
+  const diff = closeMins - nowMins;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  return h > 0 ? `Closes in ${h}h${m > 0 ? ` ${m}m` : ''}` : `Closes in ${m}m`;
 });
 
 // ── Time helpers ──────────────────────────────────────────────────────────
@@ -96,24 +114,17 @@ onUnmounted(() => {
     </div>
 
     <template v-else-if="hub">
-      <!-- Card 1: Gallery -->
-      <div
-        v-if="hub.gallery_images.length > 0"
-        class="overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] shadow-sm"
-      >
-        <HubGallery :images="hub.gallery_images" :hub-name="hub.name" />
-      </div>
-
-      <!-- Card 2: Information -->
       <div
         class="rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-6 shadow-sm"
-        :class="hub.gallery_images.length > 0 ? 'mt-6' : ''"
       >
         <div class="flex flex-col gap-6 sm:flex-row sm:items-start">
-          <!-- Left column: all info sections -->
-          <div class="min-w-0 flex-1 space-y-6">
+          <!-- Left column: info sections -->
+          <div class="min-w-0 flex-1 divide-y divide-[var(--aktiv-border)]">
             <!-- About / Description -->
-            <div class="flex items-start gap-3">
+            <div
+              v-if="hub.description || isOwner"
+              class="flex items-start gap-3 py-6 first:pt-0"
+            >
               <UIcon
                 name="i-heroicons-building-storefront"
                 class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
@@ -123,39 +134,18 @@ onUnmounted(() => {
                   About
                 </h2>
                 <p
+                  v-if="hub.description"
                   class="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[var(--aktiv-muted)]"
                 >
-                  {{ hub.description || 'No description provided.' }}
+                  {{ hub.description }}
                 </p>
-              </div>
-            </div>
-
-            <!-- Sports offered -->
-            <div class="flex items-start gap-3">
-              <UIcon
-                name="i-heroicons-trophy"
-                class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
-              />
-              <div class="min-w-0">
-                <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
-                  Sports Offered
-                </h2>
-                <div
-                  v-if="hub.sports.length > 0"
-                  class="mt-2 flex flex-wrap gap-2"
-                >
-                  <UBadge
-                    v-for="sport in hub.sports"
-                    :key="sport"
-                    variant="outline"
-                    color="primary"
-                    class="capitalize"
+                <p v-else class="mt-1 text-sm italic text-[var(--aktiv-muted)]">
+                  No description yet.
+                  <NuxtLink
+                    :to="`/dashboard/hubs/${hubId}/edit`"
+                    class="not-italic text-[var(--aktiv-primary)] hover:underline"
+                    >Add one →</NuxtLink
                   >
-                    {{ sport }}
-                  </UBadge>
-                </div>
-                <p v-else class="mt-1 text-sm text-[var(--aktiv-muted)]">
-                  No sports listed.
                 </p>
               </div>
             </div>
@@ -163,7 +153,7 @@ onUnmounted(() => {
             <!-- Contact Numbers -->
             <div
               v-if="hub.contact_numbers && hub.contact_numbers.length > 0"
-              class="flex items-start gap-3"
+              class="flex items-start gap-3 py-6 first:pt-0"
             >
               <UIcon
                 name="i-heroicons-phone"
@@ -198,7 +188,7 @@ onUnmounted(() => {
             <!-- Websites -->
             <div
               v-if="hub.websites && hub.websites.length > 0"
-              class="flex items-start gap-3"
+              class="flex items-start gap-3 py-6 first:pt-0"
             >
               <UIcon
                 name="i-heroicons-globe-alt"
@@ -214,7 +204,7 @@ onUnmounted(() => {
                       :href="site.url"
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="text-sm text-[var(--aktiv-primary)] hover:underline break-all"
+                      class="break-all text-sm text-[var(--aktiv-primary)] hover:underline"
                       >{{ site.url }}</a
                     >
                   </li>
@@ -223,7 +213,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Courts -->
-            <div class="flex items-start gap-3">
+            <div class="flex items-start gap-3 py-6 first:pt-0">
               <UIcon
                 name="i-heroicons-rectangle-group"
                 class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
@@ -234,17 +224,17 @@ onUnmounted(() => {
                 </h2>
                 <div
                   v-if="courts && courts.length > 0"
-                  class="mt-3 grid gap-2 grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(180px,240px))]"
+                  class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2"
                 >
                   <NuxtLink
                     v-for="court in courts"
                     :key="court.id"
                     :to="`/hubs/${hubId}/scheduler?courtId=${court.id}`"
-                    class="rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-bg)] p-3 flex flex-col gap-1.5 cursor-pointer transition hover:border-[var(--aktiv-primary)] hover:shadow-sm"
+                    class="flex cursor-pointer flex-col gap-1.5 rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-bg)] p-3 transition hover:border-[var(--aktiv-primary)] hover:shadow-sm"
                   >
                     <div class="flex items-start justify-between gap-2">
                       <p
-                        class="font-semibold text-sm text-[var(--aktiv-ink)] leading-tight"
+                        class="text-sm font-semibold leading-tight text-[var(--aktiv-ink)]"
                       >
                         {{ court.name }}
                       </p>
@@ -256,33 +246,32 @@ onUnmounted(() => {
                       />
                     </div>
 
-                    <div
-                      class="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5"
+                    <!-- Hourly price -->
+                    <span
+                      class="text-lg font-black text-[var(--aktiv-primary)]"
                     >
+                      ₱{{
+                        parseFloat(court.price_per_hour).toLocaleString('en-PH')
+                      }}
                       <span
-                        class="text-base font-black text-[var(--aktiv-primary)]"
+                        class="text-xs font-normal text-[var(--aktiv-muted)]"
+                        >/ hr</span
                       >
-                        ₱{{
-                          parseFloat(court.price_per_hour).toLocaleString(
-                            'en-PH'
-                          )
-                        }}
-                        <span
-                          class="text-xs font-normal text-[var(--aktiv-muted)]"
-                          >/ hr</span
-                        >
-                      </span>
-                      <span
-                        v-if="court.open_play_price_per_head"
-                        class="text-xs text-[var(--aktiv-muted)]"
-                      >
-                        · ₱{{
-                          parseFloat(
-                            court.open_play_price_per_head
-                          ).toLocaleString('en-PH')
-                        }}/head
-                      </span>
-                    </div>
+                    </span>
+
+                    <!-- Open play price — distinct badge -->
+                    <UBadge
+                      v-if="court.open_play_price_per_head"
+                      variant="subtle"
+                      color="secondary"
+                      class="self-start text-xs"
+                    >
+                      Open Play · ₱{{
+                        parseFloat(
+                          court.open_play_price_per_head
+                        ).toLocaleString('en-PH')
+                      }}/head
+                    </UBadge>
 
                     <div
                       class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[var(--aktiv-muted)]"
@@ -325,24 +314,15 @@ onUnmounted(() => {
             </div>
 
             <!-- Schedule -->
-            <div class="flex items-start gap-3">
+            <div class="flex items-start gap-3 py-6 first:pt-0">
               <UIcon
                 name="i-heroicons-clock"
                 class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
               />
               <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
-                  <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
-                    Schedule
-                  </h2>
-                  <UBadge
-                    :label="
-                      isCurrentlyOpen ? 'Currently Open' : 'Currently Closed'
-                    "
-                    :color="isCurrentlyOpen ? 'success' : 'error'"
-                    variant="subtle"
-                  />
-                </div>
+                <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
+                  Schedule
+                </h2>
                 <div
                   v-if="hub.operating_hours && hub.operating_hours.length > 0"
                   class="mt-3 overflow-hidden rounded-xl border border-[var(--aktiv-border)] sm:max-w-sm"
@@ -354,12 +334,20 @@ onUnmounted(() => {
                     :key="oh.day_of_week"
                     class="flex items-center justify-between px-4 py-2.5 text-sm"
                     :class="
-                      index % 2 === 0
-                        ? 'bg-[var(--aktiv-bg)]'
-                        : 'bg-[var(--aktiv-surface)]'
+                      oh.day_of_week === todayDayOfWeek
+                        ? 'bg-[var(--aktiv-primary)]/8'
+                        : index % 2 === 0
+                          ? 'bg-[var(--aktiv-bg)]'
+                          : 'bg-[var(--aktiv-surface)]'
                     "
                   >
-                    <span class="font-medium text-[var(--aktiv-ink)]">
+                    <span
+                      :class="
+                        oh.day_of_week === todayDayOfWeek
+                          ? 'font-bold text-[var(--aktiv-ink)]'
+                          : 'font-medium text-[var(--aktiv-ink)]'
+                      "
+                    >
                       {{
                         ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][
                           oh.day_of_week
@@ -371,9 +359,25 @@ onUnmounted(() => {
                       class="rounded-full bg-[var(--aktiv-border)] px-2.5 py-0.5 text-xs font-medium text-[var(--aktiv-muted)]"
                       >Closed</span
                     >
-                    <span v-else class="text-[var(--aktiv-muted)]">
+                    <span
+                      v-else
+                      class="flex items-center gap-2"
+                      :class="
+                        oh.day_of_week === todayDayOfWeek
+                          ? 'font-semibold text-[var(--aktiv-ink)]'
+                          : 'text-[var(--aktiv-muted)]'
+                      "
+                    >
                       {{ formatTime(oh.opens_at) }} –
                       {{ formatTime(oh.closes_at) }}
+                      <span
+                        v-if="
+                          oh.day_of_week === todayDayOfWeek && todayCloseLabel
+                        "
+                        class="text-xs font-medium text-[var(--aktiv-primary)]"
+                      >
+                        {{ todayCloseLabel }}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -384,8 +388,18 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Right column: Location -->
+          <!-- Right column: Gallery + Location -->
           <div class="min-w-0 flex-1">
+            <!-- Gallery -->
+            <div
+              v-if="hub.gallery_images.length > 0"
+              class="mb-6 overflow-hidden rounded-xl border border-[var(--aktiv-border)]"
+            >
+              <HubGallery :images="hub.gallery_images" :hub-name="hub.name" />
+            </div>
+
+            <hr class="mb-6 border-[var(--aktiv-border)]" />
+
             <div class="flex items-start gap-3">
               <UIcon
                 name="i-heroicons-map-pin"
@@ -418,7 +432,7 @@ onUnmounted(() => {
             <div
               v-if="hasCoords"
               ref="mapContainer"
-              class="mt-4 h-48 w-full overflow-hidden rounded-xl border border-[var(--aktiv-border)]"
+              class="mt-3 h-48 w-full overflow-hidden rounded-xl border border-[var(--aktiv-border)]"
             />
           </div>
         </div>

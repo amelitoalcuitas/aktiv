@@ -48,7 +48,7 @@ watch(
         ref="carouselRef"
         :items="images"
         arrows
-        class="aspect-[16/7] w-full"
+        class="aspect-[16/9] w-full"
         autoplay
         :ui="{
           root: 'h-full',

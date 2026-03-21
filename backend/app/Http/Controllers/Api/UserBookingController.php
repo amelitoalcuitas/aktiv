@@ -66,6 +66,43 @@ class UserBookingController extends Controller
     }
 
     /**
+     * Return the most recent unreviewed booking from yesterday (Manila time) for the authenticated user.
+     *
+     * For local testing, pass ?test_booking_id=<id> to bypass the time window check.
+     */
+    public function pendingReview(Request $request): JsonResponse
+    {
+        $userId = $request->user()->id;
+
+        // Dev shortcut: force a specific booking for testing without waiting a day
+        if (app()->environment('local') && $request->filled('test_booking_id')) {
+            $booking = Booking::query()
+                ->where('id', $request->integer('test_booking_id'))
+                ->where('booked_by', $userId)
+                ->whereIn('status', ['confirmed', 'completed'])
+                ->whereDoesntHave('court.hub.ratings', fn ($q) => $q->where('user_id', $userId))
+                ->with(['court:id,name,hub_id', 'court.hub:id,name,cover_image_url'])
+                ->first();
+
+            return response()->json(['booking' => $booking ? new UserBookingResource($booking) : null]);
+        }
+
+        $from = now('Asia/Manila')->subDay()->startOfDay()->utc();
+        $to   = now('Asia/Manila')->startOfDay()->utc();
+
+        $booking = Booking::query()
+            ->where('booked_by', $userId)
+            ->whereIn('status', ['confirmed', 'completed'])
+            ->whereBetween('end_time', [$from, $to])
+            ->whereDoesntHave('court.hub.ratings', fn ($q) => $q->where('user_id', $userId))
+            ->with(['court:id,name,hub_id', 'court.hub:id,name,cover_image_url'])
+            ->orderByDesc('end_time')
+            ->first();
+
+        return response()->json(['booking' => $booking ? new UserBookingResource($booking) : null]);
+    }
+
+    /**
      * Cancel the user's own booking (only if pending_payment or payment_sent).
      */
     public function cancel(Booking $booking, Request $request): JsonResponse

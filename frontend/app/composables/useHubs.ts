@@ -1,4 +1,4 @@
-import type { Hub, Court, HubContactNumber, HubWebsite, OperatingHoursEntry, PaginationMeta } from '~/types/hub';
+import type { Hub, Court, HubRating, HubContactNumber, HubWebsite, OperatingHoursEntry, PaginationMeta } from '~/types/hub';
 import { useApi } from '~/utils/api';
 
 /**
@@ -313,6 +313,52 @@ export function useHubs() {
     await apiFetch(`/hubs/${hubId}/courts/${courtId}`, { method: 'DELETE' });
   }
 
+  // ── Ratings ────────────────────────────────────────────────────────────────
+
+  async function fetchHubRatings(
+    hubId: number | string,
+    cursor?: string,
+    sort?: 'newest' | 'highest' | 'lowest',
+    court?: string | null
+  ): Promise<{ data: HubRating[]; next_cursor: string | null }> {
+    const params = new URLSearchParams();
+    if (cursor) params.set('cursor', cursor);
+    if (sort) params.set('sort', sort);
+    if (court) params.set('court', court);
+    const qs = params.toString();
+    const res = await apiFetch<{ data: HubRating[]; next_cursor: string | null }>(
+      `/hubs/${hubId}/ratings${qs ? `?${qs}` : ''}`
+    );
+    return res;
+  }
+
+  async function fetchHubRatingCourts(hubId: number | string): Promise<string[]> {
+    const res = await apiFetch<{ data: string[] }>(`/hubs/${hubId}/ratings/courts`);
+    return res.data;
+  }
+
+  async function submitHubRating(
+    hubId: number | string,
+    rating: number,
+    comment?: string | null,
+    bookingId?: number | null
+  ): Promise<HubRating> {
+    const res = await apiFetch<{ data: HubRating }>(`/hubs/${hubId}/ratings`, {
+      method: 'POST',
+      body: { rating, comment: comment ?? null, booking_id: bookingId ?? null }
+    });
+    return res.data;
+  }
+
+  async function fetchPendingReview(
+    testBookingId?: number
+  ): Promise<{ booking: import('~/types/booking').Booking | null }> {
+    const qs = testBookingId ? `?test_booking_id=${testBookingId}` : '';
+    return apiFetch<{ booking: import('~/types/booking').Booking | null }>(
+      `/user/pending-review${qs}`
+    );
+  }
+
   return {
     fetchHubs,
     fetchHubsPaginated,
@@ -324,6 +370,10 @@ export function useHubs() {
     fetchCourts,
     createCourt,
     updateCourt,
-    deleteCourt
+    deleteCourt,
+    fetchHubRatings,
+    fetchHubRatingCourts,
+    submitHubRating,
+    fetchPendingReview
   };
 }

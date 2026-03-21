@@ -42,7 +42,9 @@ class HubController extends Controller
             ->where('is_active', true)
             ->with(['sports', 'images', 'contactNumbers', 'websites', 'settings', 'operatingHours'])
             ->withCount('courts')
-            ->withMin('courts', 'price_per_hour');
+            ->withMin('courts', 'price_per_hour')
+            ->withAvg('ratings', 'rating')
+            ->withCount('ratings as reviews_count');
 
         if ($search = $request->string('search')->trim()->value()) {
             $query->where('name', 'ilike', "%{$search}%");
@@ -130,8 +132,13 @@ class HubController extends Controller
         $hub->load(['sports', 'courts.sports', 'owner:id,name,avatar_url', 'images', 'contactNumbers', 'websites', 'operatingHours', 'settings']);
         $hub->loadCount('courts');
         $hub->loadAggregate('courts', 'min(price_per_hour)');
+        $hub->loadAvg('ratings', 'rating');
+        $hub->loadCount('ratings as reviews_count');
+        foreach ([1, 2, 3, 4, 5] as $star) {
+            $hub->loadCount(["ratings as ratings_{$star}" => fn ($q) => $q->where('rating', $star)]);
+        }
 
-        return response()->json(['data' => $this->formatHub($hub)]);
+        return response()->json(['data' => $this->formatHub($hub, withBreakdown: true)]);
     }
 
     /**
@@ -450,7 +457,9 @@ class HubController extends Controller
             ->where('is_active', true)
             ->with(['sports', 'images', 'contactNumbers', 'websites', 'settings', 'operatingHours'])
             ->withCount('courts')
-            ->withMin('courts', 'price_per_hour');
+            ->withMin('courts', 'price_per_hour')
+            ->withAvg('ratings', 'rating')
+            ->withCount('ratings as reviews_count');
 
         // Respect any city/sports filters the user already applied
         if ($city = $request->string('city')->trim()->value()) {
@@ -500,7 +509,7 @@ class HubController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function formatHub(Hub $hub): array
+    private function formatHub(Hub $hub, bool $withBreakdown = false): array
     {
         return [
             'id'                   => $hub->id,
@@ -545,6 +554,15 @@ class HubController extends Controller
                 : [],
             'courts_count'         => $hub->courts_count ?? 0,
             'lowest_price_per_hour' => $hub->courts_min_price_per_hour,
+            'rating'               => $hub->ratings_avg_rating !== null ? round((float) $hub->ratings_avg_rating, 1) : null,
+            'reviews_count'        => $hub->reviews_count ?? 0,
+            'rating_breakdown'     => $withBreakdown ? [
+                5 => (int) ($hub->ratings_5 ?? 0),
+                4 => (int) ($hub->ratings_4 ?? 0),
+                3 => (int) ($hub->ratings_3 ?? 0),
+                2 => (int) ($hub->ratings_2 ?? 0),
+                1 => (int) ($hub->ratings_1 ?? 0),
+            ] : null,
             'operating_hours'      => $hub->operatingHours
                 ? $hub->operatingHours->map(fn ($oh): array => [
                     'day_of_week' => $oh->day_of_week,

@@ -63,13 +63,26 @@ export interface Hub {
   operating_hours: OperatingHoursEntry[];
   created_at: string;
 
+  // Rating stats from API
+  rating: number | null;
+  reviews_count: number;
+  rating_breakdown?: Record<number, number> | null;
+
   // Client-side helpers used on legacy listing pages (computed from API data)
   coverImageUrl?: string;
   courtsCount?: number;
   lowestPricePerHour?: number;
-  rating?: number;
   reviewsCount?: number;
   isOpenNow?: boolean;
+}
+
+export interface HubRating {
+  id: number;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+  court_name: string | null;
+  user: { id: number; name: string; avatar_url: string | null };
 }
 
 export interface Court {

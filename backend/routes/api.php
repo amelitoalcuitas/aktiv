@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CourtController;
 use App\Http\Controllers\Api\GuestBookingController;
 use App\Http\Controllers\Api\HubController;
+use App\Http\Controllers\Api\HubRatingController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OwnerBookingController;
@@ -39,6 +40,8 @@ Route::prefix('auth')->group(function (): void {
 // Public hub routes
 Route::get('/hubs', [HubController::class, 'index'])->name('api.hubs.index');
 Route::get('/hubs/{hub}', [HubController::class, 'show'])->name('api.hubs.show');
+Route::get('/hubs/{hub}/ratings', [HubRatingController::class, 'index'])->name('api.hubs.ratings.index');
+Route::get('/hubs/{hub}/ratings/courts', [HubRatingController::class, 'courts'])->name('api.hubs.ratings.courts');
 Route::get('/hubs/{hub}/courts', [CourtController::class, 'index'])->name('api.hubs.courts.index');
 Route::get('/hubs/{hub}/bookings', [BookingController::class, 'hubIndex'])->name('api.hubs.bookings.index');
 Route::get('/bookings/{code}/qr', [BookingController::class, 'qrCode'])->name('api.bookings.qr');
@@ -57,7 +60,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     // User bookings
     Route::get('/user/bookings', [UserBookingController::class, 'index'])->name('api.user.bookings.index');
     Route::get('/user/bookings/page-of', [UserBookingController::class, 'pageOf'])->name('api.user.bookings.page-of');
+    Route::get('/user/pending-review', [UserBookingController::class, 'pendingReview'])->name('api.user.pending-review');
     Route::post('/user/bookings/{booking}/cancel', [UserBookingController::class, 'cancel'])->name('api.user.bookings.cancel');
+
+    // Hub ratings
+    Route::post('/hubs/{hub}/ratings', [HubRatingController::class, 'store'])->name('api.hubs.ratings.store');
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index'])->name('api.notifications.index');

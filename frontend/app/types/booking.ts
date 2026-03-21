@@ -58,7 +58,7 @@ export interface UserBooking extends Booking {
   court: {
     id: number;
     name: string;
-    hub: { id: number; name: string } | null;
+    hub: { id: number; name: string; cover_image_url?: string | null } | null;
   } | null;
 }
 

@@ -28,7 +28,7 @@ class SchemaTablesTest extends TestCase
 
         $this->assertNotNull($isApproved);
         $this->assertNotNull($isVerified);
-        $this->assertSame('1', (string) ($isApproved['default'] ?? ''));
-        $this->assertSame('0', (string) ($isVerified['default'] ?? ''));
+        $this->assertSame('1', trim((string) ($isApproved['default'] ?? ''), "'"));
+        $this->assertSame('0', trim((string) ($isVerified['default'] ?? ''), "'"));
     }
 }

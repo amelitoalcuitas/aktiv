@@ -85,8 +85,14 @@ const formattedPrice = computed(() => {
               {{ isOpen ? 'Open now' : 'Closed' }}
             </UBadge>
             <span v-else />
-            <span class="text-sm text-[var(--aktiv-muted)]">
-              {{ (hub.rating ?? 0).toFixed(1) }} ({{ hub.reviewsCount ?? 0 }})
+            <span class="inline-flex items-center gap-1 text-sm text-[var(--aktiv-muted)]">
+              <UIcon
+                v-if="hub.rating != null"
+                name="i-heroicons-star-solid"
+                class="h-3.5 w-3.5 text-[#F0A202]"
+              />
+              {{ hub.rating != null ? hub.rating.toFixed(1) : '–' }}
+              <span class="text-xs">({{ hub.reviews_count ?? 0 }})</span>
             </span>
           </div>
 

@@ -111,6 +111,8 @@ const coverImage = ref(
 function onCoverImgError() {
   coverImage.value = '';
 }
+
+const ratingsModalOpen = ref(false);
 </script>
 
 <template>
@@ -188,18 +190,25 @@ function onCoverImgError() {
                 {{ sport }}
               </UBadge>
 
-              <span
-                v-if="activeHub?.rating != null"
-                class="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white"
+              <button
+                v-if="activeHub?.rating != null || (activeHub?.reviews_count ?? 0) >= 0"
+                type="button"
+                class="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-xs font-bold text-white transition hover:bg-white/25"
+                @click="ratingsModalOpen = true"
               >
                 <UIcon
                   name="i-heroicons-star-solid"
-                  class="h-4 w-4 text-[var(--aktiv-accent)]"
+                  class="h-4 w-4 text-[#F0A202]"
                 />
-                {{ (activeHub.rating ?? 0).toFixed(1) }} ({{
-                  activeHub.reviewsCount ?? 0
-                }})
-              </span>
+                {{ activeHub.rating != null ? activeHub.rating.toFixed(1) : '–' }}
+                ({{ activeHub.reviews_count ?? 0 }})
+              </button>
+
+              <HubRatingsModal
+                v-if="activeHub?.id"
+                v-model:open="ratingsModalOpen"
+                :hub="activeHub"
+              />
 
               <UBadge
                 v-if="activeHub?.is_verified"

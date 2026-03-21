@@ -88,4 +88,9 @@ class Hub extends Model
     {
         return $this->hasMany(HubOperatingHours::class)->orderBy('day_of_week');
     }
+
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(HubRating::class);
+    }
 }

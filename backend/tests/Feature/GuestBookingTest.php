@@ -108,13 +108,14 @@ class GuestBookingTest extends TestCase
         $end = $start->copy()->addHour();
 
         $response = $this->postJson("/api/hubs/{$hub->id}/courts/{$court->id}/guest-bookings", [
-            'email'        => 'guest@example.com',
-            'otp'          => '123456',
-            'guest_name'   => 'Juan dela Cruz',
-            'sport'        => 'badminton',
-            'start_time'   => $start->toISOString(),
-            'end_time'     => $end->toISOString(),
-            'session_type' => 'private',
+            'email'          => 'guest@example.com',
+            'otp'            => '123456',
+            'guest_name'     => 'Juan dela Cruz',
+            'sport'          => 'badminton',
+            'start_time'     => $start->toISOString(),
+            'end_time'       => $end->toISOString(),
+            'session_type'   => 'private',
+            'payment_method' => 'pay_on_site',
         ]);
 
         $response->assertCreated()->assertJsonPath('data.status', 'pending_payment');
@@ -133,13 +134,14 @@ class GuestBookingTest extends TestCase
         $end = $start->copy()->addHour();
 
         $response = $this->postJson("/api/hubs/{$hub->id}/courts/{$court->id}/guest-bookings", [
-            'email'        => 'guest@example.com',
-            'otp'          => '999999',
-            'guest_name'   => 'Juan dela Cruz',
-            'sport'        => 'badminton',
-            'start_time'   => $start->toISOString(),
-            'end_time'     => $end->toISOString(),
-            'session_type' => 'private',
+            'email'          => 'guest@example.com',
+            'otp'            => '999999',
+            'guest_name'     => 'Juan dela Cruz',
+            'sport'          => 'badminton',
+            'start_time'     => $start->toISOString(),
+            'end_time'       => $end->toISOString(),
+            'session_type'   => 'private',
+            'payment_method' => 'pay_on_site',
         ]);
 
         $response->assertUnprocessable()->assertJsonFragment(['message' => 'Invalid or expired verification code.']);
@@ -156,13 +158,14 @@ class GuestBookingTest extends TestCase
         $end = $start->copy()->addHours(3);
 
         $response = $this->postJson("/api/hubs/{$hub->id}/courts/{$court->id}/guest-bookings", [
-            'email'        => 'guest@example.com',
-            'otp'          => '123456',
-            'guest_name'   => 'Juan dela Cruz',
-            'sport'        => 'badminton',
-            'start_time'   => $start->toISOString(),
-            'end_time'     => $end->toISOString(),
-            'session_type' => 'private',
+            'email'          => 'guest@example.com',
+            'otp'            => '123456',
+            'guest_name'     => 'Juan dela Cruz',
+            'sport'          => 'badminton',
+            'start_time'     => $start->toISOString(),
+            'end_time'       => $end->toISOString(),
+            'session_type'   => 'private',
+            'payment_method' => 'pay_on_site',
         ]);
 
         $response->assertUnprocessable()->assertJsonFragment(['message' => 'Guest bookings are limited to a maximum of 2 hours.']);
@@ -187,13 +190,14 @@ class GuestBookingTest extends TestCase
         Cache::put("guest_otp:{$hub->id}:guest@example.com", '123456', now()->addMinutes(10));
 
         $response = $this->postJson("/api/hubs/{$hub->id}/courts/{$court->id}/guest-bookings", [
-            'email'        => 'guest@example.com',
-            'otp'          => '123456',
-            'guest_name'   => 'Juan dela Cruz',
-            'sport'        => 'badminton',
-            'start_time'   => $start->toISOString(),
-            'end_time'     => $end->toISOString(),
-            'session_type' => 'private',
+            'email'          => 'guest@example.com',
+            'otp'            => '123456',
+            'guest_name'     => 'Juan dela Cruz',
+            'sport'          => 'badminton',
+            'start_time'     => $start->toISOString(),
+            'end_time'       => $end->toISOString(),
+            'session_type'   => 'private',
+            'payment_method' => 'pay_on_site',
         ]);
 
         $response->assertConflict();
@@ -217,13 +221,14 @@ class GuestBookingTest extends TestCase
         $end = $start->copy()->addHour();
 
         $response = $this->postJson("/api/hubs/{$hub->id}/courts/{$court->id}/guest-bookings", [
-            'email'        => 'guest@example.com',
-            'otp'          => '123456',
-            'guest_name'   => 'Juan dela Cruz',
-            'sport'        => 'badminton',
-            'start_time'   => $start->toISOString(),
-            'end_time'     => $end->toISOString(),
-            'session_type' => 'private',
+            'email'          => 'guest@example.com',
+            'otp'            => '123456',
+            'guest_name'     => 'Juan dela Cruz',
+            'sport'          => 'badminton',
+            'start_time'     => $start->toISOString(),
+            'end_time'       => $end->toISOString(),
+            'session_type'   => 'private',
+            'payment_method' => 'pay_on_site',
         ]);
 
         $response->assertUnprocessable();

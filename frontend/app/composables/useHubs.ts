@@ -352,11 +352,18 @@ export function useHubs() {
 
   async function fetchPendingReview(
     testBookingId?: number
-  ): Promise<{ booking: import('~/types/booking').Booking | null }> {
+  ): Promise<{ bookings: import('~/types/booking').UserBooking[] }> {
     const qs = testBookingId ? `?test_booking_id=${testBookingId}` : '';
-    return apiFetch<{ booking: import('~/types/booking').Booking | null }>(
+    return apiFetch<{ bookings: import('~/types/booking').UserBooking[] }>(
       `/user/pending-review${qs}`
     );
+  }
+
+  async function skipBookingReview(bookingId: number): Promise<void> {
+    await apiFetch('/user/booking-review-skip', {
+      method: 'POST',
+      body: { booking_id: bookingId },
+    });
   }
 
   return {
@@ -374,6 +381,7 @@ export function useHubs() {
     fetchHubRatings,
     fetchHubRatingCourts,
     submitHubRating,
-    fetchPendingReview
+    fetchPendingReview,
+    skipBookingReview
   };
 }

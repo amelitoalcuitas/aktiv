@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserBookingResource;
 use App\Models\Booking;
+use App\Models\BookingReviewSkip;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -20,7 +21,7 @@ class UserBookingController extends Controller
         $query = Booking::query()
             ->where('booked_by', $request->user()->id)
             ->with(['court:id,name,hub_id', 'court.hub:id,name'])
-            ->orderByDesc('start_time');
+            ->orderByDesc('created_at');
 
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -47,16 +48,16 @@ class UserBookingController extends Controller
             ->where('booked_by', $userId)
             ->firstOrFail();
 
-        // Bookings sorted start_time DESC: count those with a later start_time
+        // Bookings sorted created_at DESC: count those with a later created_at
         $position = Booking::query()
             ->where('booked_by', $userId)
-            ->where('start_time', '>', $booking->start_time)
+            ->where('created_at', '>', $booking->created_at)
             ->count();
 
-        // Tie-break: same start_time, higher id sorts first in default Eloquent order
+        // Tie-break: same created_at, higher id sorts first in default Eloquent order
         $ties = Booking::query()
             ->where('booked_by', $userId)
-            ->where('start_time', $booking->start_time)
+            ->where('created_at', $booking->created_at)
             ->where('id', '>', $booking->id)
             ->count();
 
@@ -66,40 +67,56 @@ class UserBookingController extends Controller
     }
 
     /**
-     * Return the most recent unreviewed booking from yesterday (Manila time) for the authenticated user.
+     * Return all unreviewed ended bookings for the authenticated user (one per hub, most recent).
      *
-     * For local testing, pass ?test_booking_id=<id> to bypass the time window check.
+     * For local testing, pass ?test_booking_id=<id> to force a specific booking.
      */
     public function pendingReview(Request $request): JsonResponse
     {
         $userId = $request->user()->id;
 
-        // Dev shortcut: force a specific booking for testing without waiting a day
+        // Dev shortcut: force a specific booking for testing
         if (app()->environment('local') && $request->filled('test_booking_id')) {
             $booking = Booking::query()
                 ->where('id', $request->integer('test_booking_id'))
                 ->where('booked_by', $userId)
                 ->whereIn('status', ['confirmed', 'completed'])
                 ->whereDoesntHave('court.hub.ratings', fn ($q) => $q->where('user_id', $userId))
+                ->whereDoesntHave('reviewSkip', fn ($q) => $q->where('user_id', $userId))
                 ->with(['court:id,name,hub_id', 'court.hub:id,name,cover_image_url'])
                 ->first();
 
-            return response()->json(['booking' => $booking ? new UserBookingResource($booking) : null]);
+            return response()->json(['bookings' => $booking ? UserBookingResource::collection(collect([$booking])) : []]);
         }
 
-        $from = now('Asia/Manila')->subDay()->startOfDay()->utc();
-        $to   = now('Asia/Manila')->startOfDay()->utc();
-
-        $booking = Booking::query()
+        $bookings = Booking::query()
             ->where('booked_by', $userId)
             ->whereIn('status', ['confirmed', 'completed'])
-            ->whereBetween('end_time', [$from, $to])
+            ->where('end_time', '<', now())
             ->whereDoesntHave('court.hub.ratings', fn ($q) => $q->where('user_id', $userId))
+            ->whereDoesntHave('reviewSkip', fn ($q) => $q->where('user_id', $userId))
             ->with(['court:id,name,hub_id', 'court.hub:id,name,cover_image_url'])
             ->orderByDesc('end_time')
-            ->first();
+            ->get()
+            ->unique(fn ($b) => $b->court->hub_id)
+            ->values();
 
-        return response()->json(['booking' => $booking ? new UserBookingResource($booking) : null]);
+        return response()->json(['bookings' => UserBookingResource::collection($bookings)]);
+    }
+
+    /**
+     * Permanently skip the review prompt for a specific booking.
+     */
+    public function skipReview(Request $request): JsonResponse
+    {
+        $request->validate(['booking_id' => ['required', 'integer', 'exists:bookings,id']]);
+
+        BookingReviewSkip::query()->firstOrCreate([
+            'user_id'    => $request->user()->id,
+            'booking_id' => $request->booking_id,
+        ]);
+
+        return response()->json(['ok' => true]);
     }
 
     /**

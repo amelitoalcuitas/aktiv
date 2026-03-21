@@ -1,18 +1,26 @@
 <script setup lang="ts">
-import type { BookingStatus } from '~/types/booking';
+import type { BookingStatus, UserBooking } from '~/types/booking';
 import { useUserBookingStore } from '~/stores/booking';
 
 defineEmits<{ close: [] }>();
 
 const bookingStore = useUserBookingStore();
 
-const statusConfig: Record<BookingStatus, { label: string; color: 'warning' | 'info' | 'success' | 'error' | 'neutral' }> = {
+type DisplayStatus = BookingStatus | 'expired';
+
+const statusConfig: Record<DisplayStatus, { label: string; color: 'warning' | 'info' | 'success' | 'error' | 'neutral' }> = {
   pending_payment: { label: 'Pending Payment', color: 'warning' },
   payment_sent:    { label: 'Payment Sent',    color: 'info' },
   confirmed:       { label: 'Confirmed',       color: 'success' },
   cancelled:       { label: 'Cancelled',       color: 'error' },
   completed:       { label: 'Completed',       color: 'neutral' },
+  expired:         { label: 'Expired',         color: 'neutral' },
 };
+
+function effectiveStatus(booking: UserBooking): DisplayStatus {
+  if (booking.status === 'cancelled' && booking.cancelled_by === 'system') return 'expired';
+  return booking.status;
+}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-PH', {
@@ -70,12 +78,12 @@ function formatTime(start: string, end: string): string {
             </p>
           </div>
           <UBadge
-            :color="statusConfig[booking.status]?.color ?? 'neutral'"
+            :color="statusConfig[effectiveStatus(booking)]?.color ?? 'neutral'"
             variant="subtle"
             size="xs"
             class="mt-0.5 shrink-0"
           >
-            {{ statusConfig[booking.status]?.label ?? booking.status }}
+            {{ statusConfig[effectiveStatus(booking)]?.label ?? booking.status }}
           </UBadge>
         </NuxtLink>
       </template>

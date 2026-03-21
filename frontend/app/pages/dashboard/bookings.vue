@@ -114,14 +114,15 @@ async function loadBookings() {
 
 // ── Filters ───────────────────────────────────────────────────
 
-const statusFilter = ref<BookingStatus[]>([]);
+const statusFilter = ref<(BookingStatus | 'expired')[]>([]);
 const courtFilter = ref<number[]>([]);
 
-const STATUS_OPTIONS: { label: string; value: BookingStatus }[] = [
+const STATUS_OPTIONS: { label: string; value: BookingStatus | 'expired' }[] = [
   { label: 'Pending Payment', value: 'pending_payment' },
   { label: 'Receipt Sent', value: 'payment_sent' },
   { label: 'Confirmed', value: 'confirmed' },
   { label: 'Cancelled', value: 'cancelled' },
+  { label: 'Expired', value: 'expired' },
   { label: 'Completed', value: 'completed' }
 ];
 
@@ -136,7 +137,7 @@ const filteredBookings = computed(() => {
     list = list.filter((b) => formatDateString(new Date(b.start_time)) === ds);
   }
   if (statusFilter.value.length > 0)
-    list = list.filter((b) => statusFilter.value.includes(b.status));
+    list = list.filter((b) => statusFilter.value.includes(effectiveStatus(b)));
   if (courtFilter.value.length > 0)
     list = list.filter((b) => courtFilter.value.includes(b.court_id));
   return list;
@@ -441,8 +442,15 @@ function formatDateRange(start: string, end: string): string {
   return `${dateStr} · ${timeStart} – ${timeEnd}`;
 }
 
+type DisplayStatus = BookingStatus | 'expired';
+
+function effectiveStatus(booking: BookingDetail): DisplayStatus {
+  if (booking.status === 'cancelled' && booking.cancelled_by === 'system') return 'expired';
+  return booking.status;
+}
+
 function statusColor(
-  status: BookingStatus
+  status: DisplayStatus
 ): 'warning' | 'success' | 'error' | 'neutral' | 'primary' {
   switch (status) {
     case 'pending_payment':
@@ -454,11 +462,12 @@ function statusColor(
     case 'cancelled':
       return 'error';
     case 'completed':
+    case 'expired':
       return 'neutral';
   }
 }
 
-function statusLabel(status: BookingStatus): string {
+function statusLabel(status: DisplayStatus): string {
   switch (status) {
     case 'pending_payment':
       return 'Pending Payment';
@@ -470,6 +479,8 @@ function statusLabel(status: BookingStatus): string {
       return 'Cancelled';
     case 'completed':
       return 'Completed';
+    case 'expired':
+      return 'Expired';
   }
 }
 
@@ -479,7 +490,6 @@ const isCancellable = (status: BookingStatus) =>
 const columns = [
   { accessorKey: 'customer', header: 'Customer' },
   { accessorKey: 'court', header: 'Court' },
-  { accessorKey: 'sport', header: 'Sport' },
   { accessorKey: 'datetime', header: 'Date & Time' },
   { accessorKey: 'status', header: 'Status' },
   { accessorKey: 'receipt', header: 'Receipt' },
@@ -703,12 +713,6 @@ function bookingDropdownItems(booking: BookingDetail) {
               </span>
             </template>
 
-            <template #sport-cell="{ row }">
-              <span class="text-sm capitalize text-[#0f1728]">
-                {{ row.original.sport }}
-              </span>
-            </template>
-
             <template #datetime-cell="{ row }">
               <span class="whitespace-nowrap text-sm text-[#64748b]">
                 {{
@@ -723,8 +727,8 @@ function bookingDropdownItems(booking: BookingDetail) {
             <template #status-cell="{ row }">
               <div class="space-y-1">
                 <UBadge
-                  :label="statusLabel(row.original.status)"
-                  :color="statusColor(row.original.status)"
+                  :label="statusLabel(effectiveStatus(row.original))"
+                  :color="statusColor(effectiveStatus(row.original))"
                   variant="subtle"
                 />
                 <p

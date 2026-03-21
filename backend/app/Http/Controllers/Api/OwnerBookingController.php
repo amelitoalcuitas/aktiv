@@ -182,7 +182,7 @@ class OwnerBookingController extends Controller
             'payment_note' => $request->payment_note,
             'receipt_image_url' => null,
             'receipt_uploaded_at' => null,
-            'expires_at' => now()->addHour(),
+            'expires_at' => $this->resolveExpiresAt($booking->payment_method ?? 'digital_bank', $booking->start_time),
         ]);
 
         // Notify the booker (registered users only)
@@ -382,5 +382,15 @@ class OwnerBookingController extends Controller
             'cancelled_by' => $booking->cancelled_by,
             'created_at' => $booking->created_at->toIso8601String(),
         ];
+    }
+
+    private function resolveExpiresAt(string $paymentMethod, Carbon $startTime): Carbon
+    {
+        if ($paymentMethod === 'pay_on_site') {
+            return $startTime->copy();
+        }
+
+        // digital_bank: 1 hour from now, capped at start_time
+        return now()->addHour()->min($startTime);
     }
 }

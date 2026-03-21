@@ -190,7 +190,8 @@ bookings
   payment_note          TEXT        (nullable — rejection reason or internal note)
   payment_confirmed_by  UUID        FK → users.id        (nullable — hub owner who confirmed)
   payment_confirmed_at  TIMESTAMP   (nullable)
-  expires_at            TIMESTAMP   (nullable — set to created_at + 1h; reset on rejection; null for owner_added)
+  payment_method        VARCHAR     (nullable — pay_on_site | digital_bank; null for owner_added)
+  expires_at            TIMESTAMP   (nullable — digital_bank: created_at + 1h capped at start_time; pay_on_site: start_time; null for owner_added)
   cancelled_by          ENUM        (nullable — user, owner, system)
   created_at            TIMESTAMP
 ```
@@ -329,8 +330,8 @@ hub_reviews
 - [ ] All scheduler bookings are `session_type = private`; no session type toggle in the UI
 - [ ] Booking requires a logged-in account; guests are shown a Log in to Book button
 - [ ] New booking starts as `pending_payment`; slot is immediately blocked on the scheduler
-- [ ] User uploads GCash/bank transfer receipt image within 1 hour or booking is auto-cancelled
-- [ ] Auto-cancel job: cancels `pending_payment` bookings older than 1 hour with no receipt uploaded
+- [ ] User uploads GCash/bank transfer receipt image (digital_bank: within 1 hour or start_time, whichever is sooner; pay_on_site: no receipt needed, booking expires at start_time)
+- [ ] Auto-cancel job: cancels `pending_payment` bookings whose `expires_at` has passed
 - [ ] On receipt upload, status moves to `pending_review`; hub owner is notified via email
 - [ ] Hub owner dashboard: "Pending Confirmations" queue — review receipt, confirm or reject with a note
 - [ ] On confirm → status becomes `confirmed`; user is notified
@@ -491,6 +492,22 @@ const map = new maplibregl.Map({
   zoom: 12
 });
 ```
+
+---
+
+## Production Deployment Notes
+
+### Laravel Scheduler (Required)
+
+The app uses Laravel's task scheduler for background jobs (e.g. auto-cancelling expired bookings). In production, add a single cron entry on the server:
+
+```
+* * * * * cd /var/www && php artisan schedule:run >> /dev/null 2>&1
+```
+
+This one entry covers all scheduled commands — no additional setup needed when new scheduled tasks are added.
+
+> In local Docker dev, a dedicated `scheduler` service in `docker-compose.yml` runs `php artisan schedule:work` instead.
 
 ---
 
@@ -680,7 +697,7 @@ frontend/
 | Booking payment               | ✅ Receipt upload flow — user pays offline (GCash/bank transfer), uploads receipt, owner confirms manually. Statuses: `pending_payment` → `payment_sent` → `confirmed`. See [SCHEDULER_FLOW.md](SCHEDULER_FLOW.md) |
 | Online payment gateway        | ⏳ Deferred to future phase; all price fields stored in DB now to ease future integration                                                                                                                          |
 | Booking auth requirement      | ✅ Account required to book; guests redirected to login/register                                                                                                                                                   |
-| Slot holding / auto-cancel    | ✅ `pending_payment` bookings auto-cancelled after 1 hour if no receipt uploaded                                                                                                                                   |
+| Slot holding / auto-cancel    | ✅ `expires_at` is payment-method-aware: `digital_bank` → `min(now + 1h, start_time)`; `pay_on_site` → `start_time`. `CancelExpiredBookings` command cancels when `expires_at` passes. |
 | Owner walk-in bookings        | ✅ Owners can add bookings for on-site customers (registered user or anonymous guest); instantly confirmed                                                                                                         |
 | Scheduler contact notice      | ✅ Non-dismissible info alert above calendar; shows hub contact numbers from `hub_contact_numbers`                                                                                                                 |
 | Maps                          | ✅ OpenFreeMap (Bright tiles) + MapLibre GL JS — fully free, no API key needed                                                                                                                                     |

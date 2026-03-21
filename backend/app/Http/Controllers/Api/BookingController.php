@@ -11,6 +11,7 @@ use App\Mail\BookingConfirmation;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
+use App\Models\GuestBookingPenalty;
 use Illuminate\Http\Request;
 use App\Services\ImageUploadService;
 use Carbon\Carbon;
@@ -98,6 +99,15 @@ class BookingController extends Controller
     {
         abort_if($court->hub_id !== $hub->id, 404);
 
+        // Check if the user is booking-banned
+        $user = $request->user();
+        if ($user->isBookingBanned()) {
+            return response()->json([
+                'message' => 'Your account is temporarily restricted from making new bookings.',
+                'banned_until' => $user->booking_banned_until->toIso8601String(),
+            ], 403);
+        }
+
         $startTime = Carbon::parse($request->start_time);
         $endTime = Carbon::parse($request->end_time);
 
@@ -131,7 +141,8 @@ class BookingController extends Controller
             'status' => 'pending_payment',
             'booking_source' => 'self_booked',
             'total_price' => $totalPrice,
-            'expires_at' => now()->addHour(),
+            'payment_method' => $request->payment_method,
+            'expires_at' => $this->resolveExpiresAt($request->payment_method, $startTime),
         ]);
 
         $userEmail = $request->user()->email;
@@ -227,5 +238,15 @@ class BookingController extends Controller
             'Content-Type'  => 'image/svg+xml',
             'Cache-Control' => 'public, max-age=31536000, immutable',
         ]);
+    }
+
+    private function resolveExpiresAt(string $paymentMethod, Carbon $startTime): Carbon
+    {
+        if ($paymentMethod === 'pay_on_site') {
+            return $startTime->copy();
+        }
+
+        // digital_bank: 1 hour from now, capped at start_time
+        return now()->addHour()->min($startTime);
     }
 }

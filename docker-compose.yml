@@ -195,6 +195,59 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  # ─── Laravel Scheduler ────────────────────────────────────────────────────
+  scheduler:
+    image: aktiv-backend
+    container_name: aktiv_scheduler
+    working_dir: /var/www
+    volumes:
+      - ./backend:/var/www
+    environment:
+      - APP_ENV=local
+      - APP_KEY=${APP_KEY}
+      - APP_DEBUG=true
+      - APP_URL=http://localhost:8080
+      - FILESYSTEM_DISK=s3
+      - DB_CONNECTION=pgsql
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-aktiv}
+      - DB_USERNAME=${DB_USERNAME:-aktiv_user}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - CACHE_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+      - BROADCAST_CONNECTION=reverb
+      - REVERB_APP_ID=${REVERB_APP_ID}
+      - REVERB_APP_KEY=${REVERB_APP_KEY}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET}
+      - REVERB_HOST=reverb
+      - REVERB_PORT=8080
+      - REVERB_SCHEME=http
+      - MAIL_MAILER=smtp
+      - MAIL_HOST=mailpit
+      - MAIL_PORT=1025
+      - MAIL_USERNAME=null
+      - MAIL_PASSWORD=null
+      - MAIL_ENCRYPTION=null
+      - MAIL_FROM_ADDRESS=hello@aktiv.local
+      - MAIL_FROM_NAME=Aktiv
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_BUCKET=aktiv-media
+      - AWS_ENDPOINT=http://minio:9000
+      - AWS_URL=http://localhost:9000/aktiv-media
+      - AWS_USE_PATH_STYLE_ENDPOINT=true
+    command: php artisan schedule:work
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
   # ─── PostgreSQL database ───────────────────────────────────────────────────
   db:
     image: postgres:16-alpine

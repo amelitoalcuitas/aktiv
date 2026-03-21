@@ -9,5 +9,7 @@ export interface User {
   google_id: string | null;
   role: UserRole;
   email_verified_at: string | null;
+  expired_booking_strikes: number;
+  booking_banned_until: string | null;
   created_at: string;
 }

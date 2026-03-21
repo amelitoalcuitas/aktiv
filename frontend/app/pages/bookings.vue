@@ -10,6 +10,8 @@ definePageMeta({ middleware: ['auth'] });
 useHead({ title: 'My Bookings · Aktiv' });
 
 const { fetchMyBookings, cancelMyBooking, findBookingPage } = useBooking();
+const bookingStore = useUserBookingStore();
+const authStore = useAuthStore();
 const toast = useToast();
 const route = useRoute();
 const router = useRouter();
@@ -42,16 +44,25 @@ const statusOptions = [
 ];
 
 // ── Status display helpers ────────────────────────────────────
+type DisplayStatus = BookingStatus | 'expired';
+
 const statusConfig: Record<
-  BookingStatus,
+  DisplayStatus,
   { label: string; color: 'warning' | 'info' | 'success' | 'error' | 'neutral' }
 > = {
   pending_payment: { label: 'Pending Payment', color: 'warning' },
   payment_sent: { label: 'Payment Sent', color: 'info' },
   confirmed: { label: 'Confirmed', color: 'success' },
   cancelled: { label: 'Cancelled', color: 'error' },
-  completed: { label: 'Completed', color: 'neutral' }
+  completed: { label: 'Completed', color: 'neutral' },
+  expired: { label: 'Expired', color: 'neutral' }
 };
+
+function effectiveStatus(booking: UserBooking): DisplayStatus {
+  if (booking.status === 'cancelled' && booking.cancelled_by === 'system')
+    return 'expired';
+  return booking.status;
+}
 
 // ── Load bookings ─────────────────────────────────────────────
 async function load() {
@@ -76,7 +87,7 @@ watch([selectedStatus, currentPage], ([status, page]) => {
     query: {
       ...(status ? { status } : {}),
       ...(page > 1 ? { page: String(page) } : {}),
-      ...(route.query.bookingId ? { bookingId: route.query.bookingId } : {}),
+      ...(route.query.bookingId ? { bookingId: route.query.bookingId } : {})
     }
   });
   load();
@@ -97,7 +108,9 @@ async function scrollToBooking(id: number) {
   if (!el) return;
   el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   highlightedId.value = id;
-  setTimeout(() => { highlightedId.value = null; }, 5000);
+  setTimeout(() => {
+    highlightedId.value = null;
+  }, 5000);
 }
 
 async function resolveAndScrollToBooking(id: number) {
@@ -111,7 +124,12 @@ async function resolveAndScrollToBooking(id: number) {
       currentPage.value = page; // triggers load() via watcher
       await new Promise<void>((resolve) => {
         if (!loading.value) return resolve();
-        const stop = watch(loading, (v) => { if (!v) { stop(); resolve(); } });
+        const stop = watch(loading, (v) => {
+          if (!v) {
+            stop();
+            resolve();
+          }
+        });
       });
     }
     scrollToBooking(id);
@@ -133,6 +151,32 @@ watch(
   }
 );
 
+// ── Ban state ─────────────────────────────────────────────────
+const isBanned = computed(() => {
+  const until = authStore.user?.booking_banned_until;
+  return !!until && new Date(until).getTime() > Date.now();
+});
+
+const banExpiryFormatted = computed(() => {
+  const until = authStore.user?.booking_banned_until;
+  if (!until) return '';
+  return new Date(until).toLocaleDateString('en-PH', {
+    timeZone: 'Asia/Manila',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+});
+
+// ── WebSocket sync ────────────────────────────────────────────
+watch(
+  () => bookingStore.lastBookingEvent,
+  () => {
+    load();
+  }
+);
+
 // ── Date/time helpers ─────────────────────────────────────────
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-PH', {
@@ -141,6 +185,15 @@ function formatDate(iso: string): string {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
+  });
+}
+
+function formatExpiry(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-PH', {
+    timeZone: 'Asia/Manila',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
   });
 }
 
@@ -230,6 +283,26 @@ function canUploadReceipt(booking: UserBooking): boolean {
   <div class="mx-auto max-w-3xl px-4 py-8">
     <h1 class="mb-6 text-2xl font-bold text-[var(--aktiv-ink)]">My Bookings</h1>
 
+    <!-- Ban notice -->
+    <div
+      v-if="isBanned"
+      class="mb-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+    >
+      <UIcon name="i-heroicons-no-symbol" class="mt-0.5 h-4 w-4 shrink-0" />
+      <span>
+        Your account is temporarily restricted from making new bookings until
+        <strong>{{ banExpiryFormatted }}</strong>. This was triggered by multiple expired bookings.
+      </span>
+    </div>
+
+    <!-- Receipt reminder -->
+    <div class="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+      <UIcon name="i-heroicons-exclamation-triangle" class="mt-0.5 h-4 w-4 shrink-0" />
+      <span>
+        Please upload your payment receipt within 1 hour of booking. Repeatedly letting bookings expire may result in a temporary booking restriction.
+      </span>
+    </div>
+
     <!-- Status filter tabs -->
     <div class="mb-6 flex flex-wrap gap-2">
       <button
@@ -267,7 +340,12 @@ function canUploadReceipt(booking: UserBooking): boolean {
       />
       <template v-if="selectedStatus">
         <p class="text-lg font-semibold text-[var(--aktiv-ink)]">
-          No {{ statusConfig[selectedStatus as BookingStatus]?.label ?? selectedStatus }} bookings
+          No
+          {{
+            statusConfig[selectedStatus as BookingStatus]?.label ??
+            selectedStatus
+          }}
+          bookings
         </p>
         <p class="text-sm text-[var(--aktiv-muted)]">
           You don't have any bookings with this status.
@@ -305,8 +383,15 @@ function canUploadReceipt(booking: UserBooking): boolean {
         <div class="flex items-start justify-between gap-3">
           <!-- Left: hub + court + date -->
           <div class="min-w-0 flex-1">
-            <p class="truncate font-semibold text-[var(--aktiv-ink)]">
-              {{ booking.court?.hub?.name ?? '—' }}
+            <NuxtLink
+              v-if="booking.court?.hub?.id"
+              :to="`/hubs/${booking.court.hub.id}/scheduler`"
+              class="truncate font-semibold text-[var(--aktiv-ink)] hover:text-[#004e89] hover:underline transition-colors"
+            >
+              {{ booking.court.hub.name }}
+            </NuxtLink>
+            <p v-else class="truncate font-semibold text-[var(--aktiv-ink)]">
+              —
             </p>
             <p class="mt-0.5 text-sm text-[var(--aktiv-muted)]">
               {{ booking.court?.name ?? '—' }}
@@ -317,16 +402,26 @@ function canUploadReceipt(booking: UserBooking): boolean {
             <p class="text-sm text-[var(--aktiv-muted)]">
               {{ formatTime(booking.start_time, booking.end_time) }}
             </p>
+            <p
+              v-if="booking.status === 'pending_payment' && booking.expires_at"
+              class="mt-0.5 text-xs text-[var(--aktiv-muted)]"
+            >
+              Expires at {{ formatExpiry(booking.expires_at) }}
+            </p>
           </div>
 
           <!-- Right: status + price -->
           <div class="flex flex-col items-end gap-1.5 shrink-0">
             <UBadge
-              :color="statusConfig[booking.status]?.color ?? 'neutral'"
+              :color="
+                statusConfig[effectiveStatus(booking)]?.color ?? 'neutral'
+              "
               variant="subtle"
               size="sm"
             >
-              {{ statusConfig[booking.status]?.label ?? booking.status }}
+              {{
+                statusConfig[effectiveStatus(booking)]?.label ?? booking.status
+              }}
             </UBadge>
             <span
               v-if="booking.total_price"
@@ -368,17 +463,6 @@ function canUploadReceipt(booking: UserBooking): boolean {
             @click="openCancel(booking)"
           >
             Cancel
-          </UButton>
-
-          <UButton
-            v-if="booking.court?.hub?.id"
-            size="sm"
-            variant="ghost"
-            color="neutral"
-            icon="i-heroicons-arrow-top-right-on-square"
-            :to="`/hubs/${booking.court.hub.id}/scheduler`"
-          >
-            View Hub
           </UButton>
         </div>
       </div>

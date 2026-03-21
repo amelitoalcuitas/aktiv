@@ -16,16 +16,20 @@ class StoreGuestBookingRequest extends FormRequest
     {
         $court = $this->route('court');
         $allowedSports = $court ? $court->sports->pluck('sport')->toArray() : [];
+        $allowedPaymentMethods = $court
+            ? ($court->hub->settings?->payment_methods ?? ['pay_on_site'])
+            : ['pay_on_site', 'digital_bank'];
 
         return [
-            'email'        => ['required', 'email', 'max:255'],
-            'otp'          => ['required', 'string', 'size:6'],
-            'guest_name'   => ['required', 'string', 'max:255'],
-            'guest_phone'  => ['nullable', 'string', 'max:20'],
-            'sport'        => ['required', 'string', Rule::in($allowedSports)],
-            'start_time'   => ['required', 'date', 'after:now'],
-            'end_time'     => ['required', 'date', 'after:start_time'],
-            'session_type' => ['required', Rule::in(['private', 'open_play'])],
+            'email'          => ['required', 'email', 'max:255'],
+            'otp'            => ['required', 'string', 'size:6'],
+            'guest_name'     => ['required', 'string', 'max:255'],
+            'guest_phone'    => ['nullable', 'string', 'max:20'],
+            'sport'          => ['required', 'string', Rule::in($allowedSports)],
+            'start_time'     => ['required', 'date', 'after:now'],
+            'end_time'       => ['required', 'date', 'after:start_time'],
+            'session_type'   => ['required', Rule::in(['private', 'open_play'])],
+            'payment_method' => ['required', 'string', Rule::in($allowedPaymentMethods)],
         ];
     }
 

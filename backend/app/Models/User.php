@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Notifications\ResetPasswordNotification;
 use App\Notifications\VerifyEmailNotification;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -52,12 +53,24 @@ class User extends Authenticatable implements MustVerifyEmail
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
-            'role'                       => UserRole::class,
+            'email_verified_at'           => 'datetime',
+            'password'                    => 'hashed',
+            'role'                        => UserRole::class,
             'email_notifications_enabled' => 'boolean',
             'inapp_notifications_enabled' => 'boolean',
+            'strikes_reset_at'            => 'datetime',
+            'booking_banned_until'        => 'datetime',
         ];
+    }
+
+    public function isBookingBanned(): bool
+    {
+        return $this->booking_banned_until !== null && $this->booking_banned_until->isFuture();
+    }
+
+    public function bookingBanExpiresAt(): ?Carbon
+    {
+        return $this->isBookingBanned() ? $this->booking_banned_until : null;
     }
 
     public function isAdmin(): bool

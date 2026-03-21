@@ -136,7 +136,8 @@ class GuestBookingController extends Controller
             'guest_email'    => $request->email,
             'guest_phone'    => $request->guest_phone,
             'total_price'    => $totalPrice,
-            'expires_at'     => now()->addHour(),
+            'payment_method' => $request->payment_method,
+            'expires_at'     => $this->resolveExpiresAt($request->payment_method, $startTime),
         ]);
 
         Cache::forget($cacheKey);
@@ -222,5 +223,15 @@ class GuestBookingController extends Controller
                 'receipt_uploaded_at'  => $booking->receipt_uploaded_at->toIso8601String(),
             ],
         ]);
+    }
+
+    private function resolveExpiresAt(string $paymentMethod, Carbon $startTime): Carbon
+    {
+        if ($paymentMethod === 'pay_on_site') {
+            return $startTime->copy();
+        }
+
+        // digital_bank: 1 hour from now, capped at start_time
+        return now()->addHour()->min($startTime);
     }
 }

@@ -15,22 +15,21 @@ const { fetchPendingReview } = useHubs();
 await init();
 
 // Post-booking review popup state
-const pendingReviewBooking = ref<UserBooking | null>(null);
+const reviewQueue = ref<UserBooking[]>([]);
 const reviewPopupOpen = ref(false);
+const pendingReviewBooking = computed(() => reviewQueue.value[0] ?? null);
+
+function advanceQueue() {
+  reviewQueue.value.shift();
+  if (!reviewQueue.value.length) reviewPopupOpen.value = false;
+}
 
 async function checkPendingReview(testBookingId?: number) {
   try {
     const res = await fetchPendingReview(testBookingId);
-    if (res.booking) {
-      const b = res.booking as UserBooking;
-      // Don't re-show if already dismissed in this session
-      const alreadyDismissed = (() => {
-        try { return !!localStorage.getItem(`reviewed_booking_${b.id}`); } catch { return false; }
-      })();
-      if (!alreadyDismissed) {
-        pendingReviewBooking.value = b;
-        reviewPopupOpen.value = true;
-      }
+    if (res.bookings?.length) {
+      reviewQueue.value = res.bookings;
+      setTimeout(() => { reviewPopupOpen.value = true; }, 1500);
     }
   } catch {
     // Silently ignore — non-critical
@@ -77,7 +76,8 @@ if (import.meta.client) {
       v-if="pendingReviewBooking"
       v-model:open="reviewPopupOpen"
       :booking="pendingReviewBooking"
-      @submitted="pendingReviewBooking = null"
+      @submitted="advanceQueue"
+      @skipped="advanceQueue"
     />
   </UApp>
 </template>

@@ -17,11 +17,16 @@ class StoreBookingRequest extends FormRequest
         $court = $this->route('court');
         $allowedSports = $court ? $court->sports->pluck('sport')->toArray() : [];
 
+        $allowedPaymentMethods = $court
+            ? ($court->hub->settings?->payment_methods ?? ['pay_on_site'])
+            : ['pay_on_site', 'digital_bank'];
+
         return [
             'sport' => ['required', 'string', Rule::in($allowedSports)],
             'start_time' => ['required', 'date', 'after:now'],
             'end_time' => ['required', 'date', 'after:start_time'],
             'session_type' => ['required', Rule::in(['private', 'open_play'])],
+            'payment_method' => ['required', 'string', Rule::in($allowedPaymentMethods)],
         ];
     }
 

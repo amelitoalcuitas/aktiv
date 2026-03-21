@@ -9,6 +9,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:open', value: boolean): void;
   (e: 'submitted'): void;
+  (e: 'skipped'): void;
 }>();
 
 const isOpen = computed({
@@ -16,7 +17,7 @@ const isOpen = computed({
   set: (val) => emit('update:open', val),
 });
 
-const { submitHubRating } = useHubs();
+const { submitHubRating, skipBookingReview } = useHubs();
 const toast = useToast();
 
 const selectedRating = ref(0);
@@ -41,8 +42,6 @@ async function handleSubmit() {
   submitting.value = true;
   try {
     await submitHubRating(hubId.value, selectedRating.value, comment.value || null, props.booking.id);
-    // Remember so popup won't re-show if user navigates without page reload
-    try { localStorage.setItem(`reviewed_booking_${props.booking.id}`, '1'); } catch {}
     toast.add({ title: 'Thanks for your feedback!', color: 'success' });
     emit('submitted');
     isOpen.value = false;
@@ -53,8 +52,9 @@ async function handleSubmit() {
   }
 }
 
-function handleSkip() {
-  try { localStorage.setItem(`reviewed_booking_${props.booking.id}`, '1'); } catch {}
+async function handleSkip() {
+  try { await skipBookingReview(props.booking.id); } catch {}
+  emit('skipped');
   isOpen.value = false;
 }
 </script>

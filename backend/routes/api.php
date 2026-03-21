@@ -61,6 +61,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/user/bookings', [UserBookingController::class, 'index'])->name('api.user.bookings.index');
     Route::get('/user/bookings/page-of', [UserBookingController::class, 'pageOf'])->name('api.user.bookings.page-of');
     Route::get('/user/pending-review', [UserBookingController::class, 'pendingReview'])->name('api.user.pending-review');
+    Route::post('/user/booking-review-skip', [UserBookingController::class, 'skipReview'])->name('api.user.booking-review-skip');
     Route::post('/user/bookings/{booking}/cancel', [UserBookingController::class, 'cancel'])->name('api.user.bookings.cancel');
 
     // Hub ratings

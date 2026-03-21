@@ -50,7 +50,9 @@ const todayCloseLabel = computed(() => {
 
 // ── Time helpers ──────────────────────────────────────────────────────────
 function formatTime(time: string): string {
-  const [h, m] = time.split(':').map(Number);
+  const parts = time.split(':').map(Number);
+  const h = parts[0] ?? 0;
+  const m = parts[1] ?? 0;
   const period = h >= 12 ? 'PM' : 'AM';
   const hour = h % 12 || 12;
   return m === 0
@@ -90,8 +92,7 @@ onMounted(() => {
     container: mapContainer.value,
     style: 'https://tiles.openfreemap.org/styles/bright',
     center: [lng, lat],
-    zoom: 15,
-    interactive: false
+    zoom: 15
   });
 
   new maplibregl.Marker({ color: '#004e89' }).setLngLat([lng, lat]).addTo(map);
@@ -123,12 +124,8 @@ onUnmounted(() => {
             <!-- About / Description -->
             <div
               v-if="hub.description || isOwner"
-              class="flex items-start gap-3 py-6 first:pt-0"
+              class="py-6 first:pt-0"
             >
-              <UIcon
-                name="i-heroicons-building-storefront"
-                class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
-              />
               <div class="min-w-0">
                 <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
                   About
@@ -153,12 +150,8 @@ onUnmounted(() => {
             <!-- Contact Numbers -->
             <div
               v-if="hub.contact_numbers && hub.contact_numbers.length > 0"
-              class="flex items-start gap-3 py-6 first:pt-0"
+              class="py-6 first:pt-0"
             >
-              <UIcon
-                name="i-heroicons-phone"
-                class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
-              />
               <div class="min-w-0">
                 <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
                   Contact
@@ -188,12 +181,8 @@ onUnmounted(() => {
             <!-- Websites -->
             <div
               v-if="hub.websites && hub.websites.length > 0"
-              class="flex items-start gap-3 py-6 first:pt-0"
+              class="py-6 first:pt-0"
             >
-              <UIcon
-                name="i-heroicons-globe-alt"
-                class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
-              />
               <div class="min-w-0">
                 <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
                   Websites
@@ -212,12 +201,18 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <!-- Gallery -->
+            <div
+              v-if="hub.gallery_images.length > 0"
+              class="py-6 first:pt-0"
+            >
+              <div class="overflow-hidden rounded-xl border border-[var(--aktiv-border)]">
+                <HubGallery :images="hub.gallery_images" :hub-name="hub.name" />
+              </div>
+            </div>
+
             <!-- Courts -->
-            <div class="flex items-start gap-3 py-6 first:pt-0">
-              <UIcon
-                name="i-heroicons-rectangle-group"
-                class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
-              />
+            <div class="py-6 first:pt-0">
               <div class="min-w-0 flex-1">
                 <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
                   Courts
@@ -314,18 +309,14 @@ onUnmounted(() => {
             </div>
 
             <!-- Schedule -->
-            <div class="flex items-start gap-3 py-6 first:pt-0">
-              <UIcon
-                name="i-heroicons-clock"
-                class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
-              />
+            <div class="py-6 first:pt-0">
               <div class="min-w-0 flex-1">
                 <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
                   Schedule
                 </h2>
                 <div
                   v-if="hub.operating_hours && hub.operating_hours.length > 0"
-                  class="mt-3 overflow-hidden rounded-xl border border-[var(--aktiv-border)] sm:max-w-sm"
+                  class="mt-3 overflow-hidden rounded-xl border border-[var(--aktiv-border)]"
                 >
                   <div
                     v-for="(oh, index) in [...hub.operating_hours].sort(
@@ -388,23 +379,10 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Right column: Gallery + Location -->
-          <div class="min-w-0 flex-1">
-            <!-- Gallery -->
-            <div
-              v-if="hub.gallery_images.length > 0"
-              class="mb-6 overflow-hidden rounded-xl border border-[var(--aktiv-border)]"
-            >
-              <HubGallery :images="hub.gallery_images" :hub-name="hub.name" />
-            </div>
+          <!-- Right column: Location -->
+          <div class="flex min-w-0 flex-1 flex-col">
 
-            <hr class="mb-6 border-[var(--aktiv-border)]" />
-
-            <div class="flex items-start gap-3">
-              <UIcon
-                name="i-heroicons-map-pin"
-                class="mt-0.5 h-5 w-5 shrink-0 text-[var(--aktiv-primary)]"
-              />
+            <div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center justify-between gap-2">
                   <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
@@ -432,7 +410,7 @@ onUnmounted(() => {
             <div
               v-if="hasCoords"
               ref="mapContainer"
-              class="mt-3 h-48 w-full overflow-hidden rounded-xl border border-[var(--aktiv-border)]"
+              class="mt-3 min-h-[280px] flex-1 overflow-hidden rounded-xl border border-[var(--aktiv-border)] sm:min-h-[320px]"
             />
           </div>
         </div>

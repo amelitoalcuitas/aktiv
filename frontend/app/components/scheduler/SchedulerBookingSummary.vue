@@ -51,7 +51,7 @@ const selectedPaymentMethod = ref<'pay_on_site' | 'digital_bank' | null>(null);
 watch(
   hubPaymentMethods,
   (methods) => {
-    selectedPaymentMethod.value = methods.length === 1 ? methods[0]! : null;
+    selectedPaymentMethod.value = methods.length === 1 ? (methods[0]! as 'pay_on_site' | 'digital_bank') : null;
   },
   { immediate: true }
 );
@@ -233,7 +233,9 @@ function handleBookNow() {
   }
   // Reset payment selection when opening
   selectedPaymentMethod.value =
-    hubPaymentMethods.value.length === 1 ? hubPaymentMethods.value[0]! : null;
+    hubPaymentMethods.value.length === 1
+      ? (hubPaymentMethods.value[0]! as 'pay_on_site' | 'digital_bank')
+      : null;
   isConfirmOpen.value = true;
 }
 
@@ -291,6 +293,13 @@ async function submitBooking() {
     isSubmitting.value = false;
   }
 }
+
+function scrollToSchedule() {
+  const el = document.getElementById('schedule');
+  if (!el) return;
+  const top = el.getBoundingClientRect().top + window.scrollY - 140;
+  window.scrollTo({ top, behavior: 'smooth' });
+}
 </script>
 
 <template>
@@ -332,6 +341,15 @@ async function submitBooking() {
         Click any available time slot in the grid above to add it to your
         booking.
       </p>
+      <UButton
+        label="Book a Court"
+        icon="i-heroicons-calendar-days"
+        color="primary"
+        size="xl"
+        block
+        class="mt-4"
+        @click="scrollToSchedule"
+      />
     </div>
 
     <template v-else>
@@ -646,8 +664,6 @@ async function submitBooking() {
         :title="submitError"
         class="mt-3"
       />
-
     </template>
-
   </AppModal>
 </template>

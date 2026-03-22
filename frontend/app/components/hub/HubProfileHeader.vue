@@ -119,39 +119,11 @@ function onCoverImgError() {
 
 const ratingsModalOpen = ref(false);
 
-function handleBookCourt() {
-  const aboutPath = `/hubs/${hubId.value}/about`;
-  if (route.path === aboutPath) {
-    const el = document.getElementById('schedule');
-    if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 140;
-    window.scrollTo({ top, behavior: 'smooth' });
-  } else {
-    navigateTo(aboutPath);
-  }
-}
-
-// ── Sticky CTA bar ────────────────────────────────────────────────────────────
-const heroSection = ref<HTMLElement | null>(null);
-const heroVisible = ref(true);
-
-onMounted(() => {
-  if (!heroSection.value) return;
-  const observer = new IntersectionObserver(
-    ([entry]) => {
-      heroVisible.value = entry!.isIntersecting;
-    },
-    { threshold: 0 }
-  );
-  observer.observe(heroSection.value);
-  onUnmounted(() => observer.disconnect());
-});
 </script>
 
 <template>
   <!-- Hero -->
   <section
-    ref="heroSection"
     class="relative isolate overflow-hidden border-b border-[var(--aktiv-border)]"
   >
     <img
@@ -260,16 +232,6 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Right: CTA -->
-        <div class="shrink-0">
-          <UButton
-            label="Book a Court"
-            icon="i-heroicons-calendar-days"
-            color="primary"
-            size="xl"
-            @click="handleBookCourt"
-          />
-        </div>
       </div>
     </div>
   </section>
@@ -313,16 +275,6 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <!-- Book a Court CTA — desktop only, visible when hero is off screen -->
-      <div v-show="!heroVisible" class="hidden sm:block shrink-0 ml-3">
-        <UButton
-          label="Book a Court"
-          icon="i-heroicons-calendar-days"
-          color="primary"
-          size="lg"
-          @click="handleBookCourt"
-        />
-      </div>
     </div>
   </nav>
 

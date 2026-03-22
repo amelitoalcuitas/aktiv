@@ -12,12 +12,18 @@ const isVerifyModalOpen = ref(false);
 const verifyHub = computed(() => hubStore.myHubs[0] ?? null);
 
 const navLinks = [
-  { label: 'My Hubs', icon: 'i-heroicons-building-office-2', to: '/dashboard' },
+  { label: 'Overview', icon: 'i-heroicons-home', to: '/dashboard' },
+  { label: 'My Hubs', icon: 'i-heroicons-building-office-2', to: '/dashboard/hubs' },
   { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: '/dashboard/courts' },
   {
     label: 'Bookings',
     icon: 'i-heroicons-calendar-days',
     to: '/dashboard/bookings'
+  },
+  {
+    label: 'Reviews',
+    icon: 'i-heroicons-star',
+    to: '/dashboard/reviews'
   },
   {
     label: 'Settings',

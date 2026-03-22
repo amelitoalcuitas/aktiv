@@ -70,7 +70,7 @@
         </div>
 
         <div style="text-align:center;margin:28px 0 8px;">
-            <a href="{{ $frontendUrl }}/dashboard/hubs/{{ $hub->id }}/bookings" style="display:inline-block;background:#004e89;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-size:0.9375rem;font-weight:600;">Go to Dashboard</a>
+            <a href="{{ $frontendUrl }}/dashboard/bookings?hubId={{ $hub->id }}&bookingId={{ $booking->id }}" style="display:inline-block;background:#004e89;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-size:0.9375rem;font-weight:600;">Go to Dashboard</a>
         </div>
 
         <p class="footer">

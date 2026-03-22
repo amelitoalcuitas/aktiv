@@ -72,7 +72,7 @@
         </div>
 
         <div class="cta">
-            <a href="{{ $frontendUrl }}/dashboard/hubs/{{ $hub->id }}/bookings">Review in Dashboard</a>
+            <a href="{{ $frontendUrl }}/dashboard/bookings?hubId={{ $hub->id }}&bookingId={{ $booking->id }}">Review in Dashboard</a>
         </div>
 
         <p class="footer">

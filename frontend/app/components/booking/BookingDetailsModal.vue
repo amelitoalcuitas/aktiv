@@ -160,6 +160,11 @@ function statusLabel(status?: BookingStatus): string {
   }
 }
 
+const isEditable = computed(() => {
+  if (!props.booking) return false;
+  return !['cancelled', 'completed', 'confirmed'].includes(props.booking.status);
+});
+
 const isCancellable = computed(() => {
   if (!props.booking) return false;
   return !['cancelled', 'completed', 'confirmed'].includes(
@@ -261,52 +266,54 @@ const calendarDate = computed({
           @submit="onSubmit"
           class="space-y-4"
         >
-          <UFormField label="Court" name="court_id">
-            <USelectMenu
-              v-model="state.court_id"
-              :items="courtOptions"
-              value-key="value"
-              class="w-full"
-            />
-          </UFormField>
-
-          <UFormField label="Date" name="date">
-            <UPopover :popper="{ placement: 'bottom-start' }" class="w-full">
-              <UButton
-                color="neutral"
-                variant="outline"
-                icon="i-heroicons-calendar-days"
-                class="w-full justify-start"
-              >
-                {{ dateString }}
-              </UButton>
-              <template #content>
-                <div class="p-2">
-                  <UCalendar v-model="calendarDate" class="p-0" />
-                </div>
-              </template>
-            </UPopover>
-          </UFormField>
-
-          <div class="grid grid-cols-2 gap-4">
-            <UFormField label="Start Time" name="start_time">
+          <template v-if="isEditable">
+            <UFormField label="Court" name="court_id">
               <USelectMenu
-                v-model="state.start_time"
-                :items="timeOptions"
+                v-model="state.court_id"
+                :items="courtOptions"
                 value-key="value"
                 class="w-full"
               />
             </UFormField>
 
-            <UFormField label="End Time" name="end_time">
-              <USelectMenu
-                v-model="state.end_time"
-                :items="timeOptions"
-                value-key="value"
-                class="w-full"
-              />
+            <UFormField label="Date" name="date">
+              <UPopover :popper="{ placement: 'bottom-start' }" class="w-full">
+                <UButton
+                  color="neutral"
+                  variant="outline"
+                  icon="i-heroicons-calendar-days"
+                  class="w-full justify-start"
+                >
+                  {{ dateString }}
+                </UButton>
+                <template #content>
+                  <div class="p-2">
+                    <UCalendar v-model="calendarDate" class="p-0" />
+                  </div>
+                </template>
+              </UPopover>
             </UFormField>
-          </div>
+
+            <div class="grid grid-cols-2 gap-4">
+              <UFormField label="Start Time" name="start_time">
+                <USelectMenu
+                  v-model="state.start_time"
+                  :items="timeOptions"
+                  value-key="value"
+                  class="w-full"
+                />
+              </UFormField>
+
+              <UFormField label="End Time" name="end_time">
+                <USelectMenu
+                  v-model="state.end_time"
+                  :items="timeOptions"
+                  value-key="value"
+                  class="w-full"
+                />
+              </UFormField>
+            </div>
+          </template>
 
           <!-- Receipt Image -->
           <div
@@ -350,6 +357,7 @@ const calendarDate = computed({
 
           <!-- Note: The form submit will be attached to an invisible button hidden down below. We place the visual button in footer. -->
           <button
+            v-if="isEditable"
             type="submit"
             id="booking-details-modal-submit"
             class="hidden"
@@ -375,7 +383,7 @@ const calendarDate = computed({
             Cancel Booking
           </UButton>
         </div>
-        <div class="flex gap-2">
+        <div v-if="isEditable" class="flex gap-2">
           <UButton
             color="primary"
             variant="solid"

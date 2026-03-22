@@ -878,6 +878,7 @@ function bookingDropdownItems(booking: BookingDetail) {
 
     <!-- ── Booking Details modal ─────────────────────────────────────── -->
     <BookingDetailsModal
+      v-if="selectedBooking && !['cancelled', 'completed', 'confirmed'].includes(selectedBooking.status)"
       v-model:open="isDetailsOpen"
       :booking="selectedBooking"
       :courts="hubCourts"
@@ -888,6 +889,11 @@ function bookingDropdownItems(booking: BookingDetail) {
       @action-reject="onModalReject"
       @action-cancel="onModalCancel"
       @action-update="onModalUpdate"
+    />
+    <BookingViewModal
+      v-else
+      v-model:open="isDetailsOpen"
+      :booking="selectedBooking"
     />
   </div>
 </template>

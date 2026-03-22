@@ -189,8 +189,10 @@ function formatDate(iso: string): string {
 }
 
 function formatExpiry(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-PH', {
+  return new Date(iso).toLocaleString('en-PH', {
     timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
@@ -291,15 +293,22 @@ function canUploadReceipt(booking: UserBooking): boolean {
       <UIcon name="i-heroicons-no-symbol" class="mt-0.5 h-4 w-4 shrink-0" />
       <span>
         Your account is temporarily restricted from making new bookings until
-        <strong>{{ banExpiryFormatted }}</strong>. This was triggered by multiple expired bookings.
+        <strong>{{ banExpiryFormatted }}</strong
+        >. This was triggered by multiple expired bookings.
       </span>
     </div>
 
     <!-- Receipt reminder -->
-    <div class="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <UIcon name="i-heroicons-exclamation-triangle" class="mt-0.5 h-4 w-4 shrink-0" />
+    <div
+      class="mb-4 flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+    >
+      <UIcon
+        name="i-heroicons-exclamation-triangle"
+        class="mt-0.5 h-4 w-4 shrink-0"
+      />
       <span>
-        Please upload your payment receipt within 1 hour of booking. Repeatedly letting bookings expire may result in a temporary booking restriction.
+        Please upload your payment receipt within 1 hour of booking. Repeatedly
+        letting bookings expire may result in a temporary booking restriction.
       </span>
     </div>
 
@@ -385,26 +394,37 @@ function canUploadReceipt(booking: UserBooking): boolean {
           <div class="min-w-0 flex-1">
             <NuxtLink
               v-if="booking.court?.hub?.id"
-              :to="`/hubs/${booking.court.hub.id}/scheduler`"
-              class="truncate font-semibold text-[var(--aktiv-ink)] hover:text-[#004e89] hover:underline transition-colors"
+              :to="`/hubs/${booking.court.hub.id}/about`"
+              target="_blank"
+              class="truncate font-semibold text-[var(--aktiv-ink)] hover:text-[#004e89] hover:underline transition-colors md:text-lg"
             >
-              {{ booking.court.hub.name }}
+              <div class="flex gap-2 items-center">
+                <span>{{ booking.court.hub.name }}</span>
+
+                <UIcon
+                  name="i-lucide-square-arrow-out-up-right"
+                  class="size-3"
+                />
+              </div>
             </NuxtLink>
-            <p v-else class="truncate font-semibold text-[var(--aktiv-ink)]">
+            <p
+              v-else
+              class="truncate font-semibold text-[var(--aktiv-ink)] md:text-lg"
+            >
               —
             </p>
-            <p class="mt-0.5 text-sm text-[var(--aktiv-muted)]">
+            <p class="mt-0.5 text-sm md:text-base text-[var(--aktiv-muted)]">
               {{ booking.court?.name ?? '—' }}
             </p>
-            <p class="mt-1 text-sm text-[var(--aktiv-ink)]">
+            <p class="mt-1 text-sm md:text-base text-[var(--aktiv-ink)]">
               {{ formatDate(booking.start_time) }}
             </p>
-            <p class="text-sm text-[var(--aktiv-muted)]">
+            <p class="text-sm md:text-base text-[var(--aktiv-muted)]">
               {{ formatTime(booking.start_time, booking.end_time) }}
             </p>
             <p
               v-if="booking.status === 'pending_payment' && booking.expires_at"
-              class="mt-0.5 text-xs text-[var(--aktiv-muted)]"
+              class="mt-0.5 text-xs md:text-sm text-[var(--aktiv-muted)]"
             >
               Expires at {{ formatExpiry(booking.expires_at) }}
             </p>
@@ -417,7 +437,6 @@ function canUploadReceipt(booking: UserBooking): boolean {
                 statusConfig[effectiveStatus(booking)]?.color ?? 'neutral'
               "
               variant="subtle"
-              size="sm"
             >
               {{
                 statusConfig[effectiveStatus(booking)]?.label ?? booking.status
@@ -425,7 +444,7 @@ function canUploadReceipt(booking: UserBooking): boolean {
             </UBadge>
             <span
               v-if="booking.total_price"
-              class="text-sm font-semibold text-[var(--aktiv-ink)]"
+              class="text-3xl font-semibold text-[var(--aktiv-primary)]"
             >
               ₱{{ Number(booking.total_price).toLocaleString('en-PH') }}
             </span>
@@ -445,7 +464,6 @@ function canUploadReceipt(booking: UserBooking): boolean {
         <div class="mt-3 flex flex-wrap items-center gap-2">
           <UButton
             v-if="canUploadReceipt(booking)"
-            size="sm"
             variant="outline"
             icon="i-heroicons-arrow-up-tray"
             class="border-[#004e89] text-[#004e89] hover:bg-[#e8f0f8]"
@@ -456,7 +474,6 @@ function canUploadReceipt(booking: UserBooking): boolean {
 
           <UButton
             v-if="isCancellable(booking)"
-            size="sm"
             color="error"
             variant="outline"
             icon="i-heroicons-x-mark"

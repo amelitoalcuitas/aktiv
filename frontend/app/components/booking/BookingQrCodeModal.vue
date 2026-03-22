@@ -48,7 +48,11 @@ async function downloadQr() {
   ctx.fillStyle = '#0f1728';
   ctx.font = 'bold 20px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(props.booking.booking_code, totalWidth / 2, qrSize + padding + 30);
+  ctx.fillText(
+    props.booking.booking_code,
+    totalWidth / 2,
+    qrSize + padding + 30
+  );
 
   ctx.font = '12px sans-serif';
   ctx.fillStyle = '#64748b';
@@ -87,82 +91,85 @@ function formatDate(iso: string) {
     :ui="{ content: 'sm:max-w-sm' }"
   >
     <template #content>
-      <div class="max-h-[90vh] overflow-y-auto p-6">
-        <!-- Header -->
-        <div class="mb-5 text-center">
-          <div
-            class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-100"
-          >
-            <UIcon
-              name="i-heroicons-check-circle"
-              class="h-6 w-6 text-green-600"
-            />
-          </div>
-          <h2 class="text-lg font-semibold text-[#0f1728]">
-            Booking Confirmed!
-          </h2>
-          <p class="mt-1 text-sm text-[#64748b]">
-            Show this code at the venue to confirm your spot.
-          </p>
-          <p class="mt-1 flex items-center justify-center gap-1 text-xs text-[#64748b]">
-            <UIcon name="i-heroicons-envelope" class="h-3.5 w-3.5 shrink-0" />
-            A confirmation email with this code has been sent to you.
-          </p>
-        </div>
-
-        <!-- Booking summary -->
-        <div
-          v-if="booking"
-          class="mb-4 rounded-lg border border-[#dbe4ef] bg-[#f9fdf2] px-4 py-3 text-sm"
-        >
-          <div v-if="courtName" class="font-medium text-[#0f1728]">
-            {{ courtName }}
-          </div>
-          <div class="text-[#64748b]">{{ formatDate(booking.start_time) }}</div>
-          <div class="text-[#64748b]">
-            {{ formatTime(booking.start_time) }} –
-            {{ formatTime(booking.end_time) }}
-          </div>
-          <div
-            v-if="booking.total_price"
-            class="mt-1 font-semibold text-[#004e89]"
-          >
-            ₱{{ booking.total_price }}
-          </div>
-        </div>
-
-        <!-- QR code -->
-        <div class="flex flex-col items-center gap-3">
-          <div class="rounded-xl border border-[#dbe4ef] bg-white p-3">
-            <img
-              v-if="qrSrc"
-              :src="qrSrc"
-              alt="Booking QR code"
-              class="block h-[220px] w-[220px]"
-            />
-          </div>
-
-          <!-- Booking code -->
-          <div v-if="booking?.booking_code" class="text-center">
-            <p class="text-xs text-[#64748b]">Booking Code</p>
-            <p
-              class="mt-0.5 font-mono text-2xl font-bold tracking-widest text-[#0f1728]"
+      <div class="flex max-h-[90vh] flex-col">
+        <div class="flex-1 overflow-y-auto p-6">
+          <!-- Header -->
+          <div class="mb-5 text-center">
+            <div
+              class="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-green-100"
             >
-              {{ booking.booking_code }}
+              <UIcon
+                name="i-heroicons-check-circle"
+                class="h-6 w-6 text-green-600"
+              />
+            </div>
+            <h2 class="text-lg font-semibold text-[#0f1728]">
+              Booking Confirmed!
+            </h2>
+            <p class="mt-1 text-sm text-[#64748b]">
+              Show this code at the venue to confirm your spot.
             </p>
           </div>
 
-          <!-- Instructions -->
-          <p class="text-center text-xs text-[#64748b]">
-            Show the QR code or tell the hub owner your booking code. They'll
-            scan it to confirm your payment on arrival.
-          </p>
+          <!-- Booking summary -->
+          <div
+            v-if="booking"
+            class="mb-4 rounded-lg border border-[#dbe4ef] bg-[#f9fdf2] px-4 py-3 text-sm"
+          >
+            <div v-if="courtName" class="font-medium text-[#0f1728]">
+              {{ courtName }}
+            </div>
+            <div class="text-[#64748b]">
+              {{ formatDate(booking.start_time) }}
+            </div>
+            <div class="text-[#64748b]">
+              {{ formatTime(booking.start_time) }} –
+              {{ formatTime(booking.end_time) }}
+            </div>
+            <div
+              v-if="booking.total_price"
+              class="mt-1 font-semibold text-[#004e89]"
+            >
+              ₱{{ booking.total_price }}
+            </div>
+          </div>
 
+          <!-- QR code -->
+          <div class="flex flex-col items-center gap-3">
+            <div class="rounded-xl border border-[#dbe4ef] bg-white p-3">
+              <img
+                v-if="qrSrc"
+                :src="qrSrc"
+                alt="Booking QR code"
+                class="block h-[220px] w-[220px]"
+              />
+            </div>
+
+            <!-- Booking code -->
+            <div v-if="booking?.booking_code" class="text-center">
+              <p class="text-xs text-[#64748b]">Booking Code</p>
+              <p
+                class="mt-0.5 font-mono text-2xl font-bold tracking-widest text-[#0f1728]"
+              >
+                {{ booking.booking_code }}
+              </p>
+            </div>
+
+            <!-- Instructions -->
+            <p class="text-center text-xs text-[#64748b]">
+              Show the QR code or tell the hub owner your booking code. They'll
+              scan it to confirm your payment on arrival.
+            </p>
+          </div>
+        </div>
+
+        <!-- Sticky footer -->
+        <div class="border-t border-[#dbe4ef] bg-white p-4">
           <!-- Track link for guest bookings -->
           <NuxtLink
             v-if="booking?.guest_tracking_token"
             :to="`/booking/track/${booking.guest_tracking_token}`"
-            class="w-full rounded-md bg-[#004e89] px-4 py-2.5 text-center text-sm font-semibold text-white"
+            class="mb-2 block w-full rounded-md bg-[#004e89] px-4 py-2.5 text-center text-sm font-semibold text-white"
             @click="emit('update:open', false)"
           >
             Track Your Booking

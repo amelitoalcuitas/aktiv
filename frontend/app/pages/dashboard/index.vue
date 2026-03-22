@@ -1,208 +1,280 @@
 <script setup lang="ts">
+import type { BookingDetail } from '~/types/booking';
 import { useHubStore } from '~/stores/hub';
 
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] });
 
+useHead({ title: 'Dashboard · Aktiv' });
+
 const hubStore = useHubStore();
-const toast = useToast();
+const { fetchHubBookings } = useOwnerBookings();
+
+// ── State ──────────────────────────────────────────────────────────────────────
+
+const loading = ref(true);
+const pendingBookings = ref<BookingDetail[]>([]);
+const todayBookings = ref<BookingDetail[]>([]);
+const isVerifyModalOpen = ref(false);
+
+// ── Computed ───────────────────────────────────────────────────────────────────
+
+const activeHubsCount = computed(
+  () => hubStore.myHubs.filter((h) => h.is_active).length
+);
+
+const todayConfirmedCount = computed(
+  () => todayBookings.value.filter((b) => b.status === 'confirmed').length
+);
+
+const verifyHub = computed(() => hubStore.myHubs[0] ?? null);
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 onMounted(async () => {
   await hubStore.fetchMyHubs();
+  if (hubStore.myHubs.length) {
+    await loadDashboardData();
+  }
+  loading.value = false;
 });
+
+async function loadDashboardData() {
+  const todayStr = new Date().toLocaleDateString('en-CA', {
+    timeZone: 'Asia/Manila',
+  });
+
+  const results = await Promise.all(
+    hubStore.myHubs.map((hub) =>
+      Promise.all([
+        fetchHubBookings(hub.id, { status: 'pending_payment' }),
+        fetchHubBookings(hub.id, { date_from: todayStr, date_to: todayStr }),
+      ])
+    )
+  );
+
+  const allPending: BookingDetail[] = [];
+  const allToday: BookingDetail[] = [];
+
+  for (const [pending, today] of results) {
+    allPending.push(...pending);
+    allToday.push(...today);
+  }
+
+  pendingBookings.value = allPending.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  todayBookings.value = allToday.sort(
+    (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+  );
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const failedImages = ref(new Set<string>());
-
-function onImgError(id: string) {
-  failedImages.value = new Set(failedImages.value).add(id);
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-PH', {
+    timeZone: 'Asia/Manila',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
-function formatPrice(price: string | null) {
-  if (!price) return '—';
-  return `₱${parseFloat(price).toFixed(0)}/hr`;
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString('en-PH', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
-const { updateHub } = useHubs();
-const togglingHubs = ref(new Set<string>());
-
-async function toggleActive(
-  hub: { id: string; is_active: boolean },
-  value: boolean
-) {
-  togglingHubs.value = new Set(togglingHubs.value).add(hub.id);
-  try {
-    await updateHub(hub.id, { is_active: value });
-    hub.is_active = value;
-  } catch {
-    toast.add({ title: 'Failed to update hub status', color: 'error' });
-  } finally {
-    togglingHubs.value.delete(hub.id);
-    togglingHubs.value = new Set(togglingHubs.value);
-  }
+function bookerName(booking: BookingDetail) {
+  return booking.booked_by_user?.name ?? booking.guest_name ?? 'Guest';
 }
+
+function hubNameForBooking(booking: BookingDetail) {
+  const hub = hubStore.myHubs.find((h) => h.id === booking.court?.hub_id);
+  return hub?.name ?? '—';
+}
+
+const statusConfig: Record<string, { label: string; color: string }> = {
+  pending_payment: { label: 'Pending Payment', color: 'text-amber-600 bg-amber-50' },
+  payment_sent: { label: 'Payment Sent', color: 'text-blue-600 bg-blue-50' },
+  confirmed: { label: 'Confirmed', color: 'text-green-700 bg-green-50' },
+  cancelled: { label: 'Cancelled', color: 'text-red-600 bg-red-50' },
+  completed: { label: 'Completed', color: 'text-[#64748b] bg-[#f0f4f8]' },
+};
 </script>
 
 <template>
   <div>
     <!-- Header -->
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-[#0f1728]">My Hubs</h1>
-        <p class="mt-1 text-sm text-[#64748b]">
-          Manage your sports hubs and courts.
-        </p>
-      </div>
-      <UButton
-        to="/hubs/create"
-        icon="i-heroicons-plus"
-        class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
-      >
-        Create Hub
-      </UButton>
-    </div>
-
-    <!-- Loading -->
-    <div
-      v-if="!hubStore.initialized || hubStore.loading"
-      class="flex items-center gap-2 text-[#64748b]"
-    >
-      <UIcon name="i-heroicons-arrow-path" class="h-5 w-5 animate-spin" />
-      <span class="text-sm">Loading hubs…</span>
-    </div>
-
-    <!-- Empty state -->
-    <div
-      v-else-if="!hubStore.myHubs.length"
-      class="rounded-2xl border border-dashed border-[#dbe4ef] bg-white p-12 text-center"
-    >
-      <UIcon
-        name="i-heroicons-building-office-2"
-        class="mx-auto h-12 w-12 text-[#c8d5e0]"
-      />
-      <h3 class="mt-4 text-base font-semibold text-[#0f1728]">No hubs yet</h3>
+    <div class="mb-6">
+      <h1 class="text-2xl font-bold text-[#0f1728]">Overview</h1>
       <p class="mt-1 text-sm text-[#64748b]">
-        Create your first hub to start managing courts and bookings.
+        Welcome back. Here's what's happening today.
       </p>
-      <UButton
-        to="/hubs/create"
-        icon="i-heroicons-plus"
-        class="mt-5 bg-[#004e89] font-semibold hover:bg-[#003d6b]"
-      >
-        Create Hub
-      </UButton>
     </div>
 
-    <!-- Hub cards grid -->
-    <div v-else class="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-      <div
-        v-for="hub in hubStore.myHubs"
-        :key="hub.id"
-        class="flex flex-col overflow-hidden rounded-2xl border border-[#dbe4ef] bg-white cursor-pointer transition duration-150 ease-out hover:shadow-md"
-        @click="navigateTo(`/hubs/${hub.id}/edit`)"
-      >
-        <!-- Cover image -->
-        <div class="relative h-36 bg-[#e8f0f8]">
-          <img
-            v-if="hub.cover_image_url && !failedImages.has(hub.id)"
-            :src="hub.cover_image_url"
-            :alt="hub.name"
-            class="h-full w-full object-cover"
-            @error="onImgError(hub.id)"
-          />
-          <div v-else class="flex h-full items-center justify-center">
-            <UIcon
-              name="i-heroicons-building-office-2"
-              class="h-12 w-12 text-[#c8d5e0]"
-            />
+    <!-- Loading skeleton -->
+    <div v-if="loading" class="flex items-center gap-2 text-[#64748b]">
+      <UIcon name="i-heroicons-arrow-path" class="h-5 w-5 animate-spin" />
+      <span class="text-sm">Loading dashboard…</span>
+    </div>
+
+    <template v-else>
+      <!-- ── Stat Cards ──────────────────────────────────────────────────────── -->
+      <div class="mb-6 grid gap-4 sm:grid-cols-3">
+        <!-- Pending Payments -->
+        <NuxtLink
+          to="/dashboard/bookings?status=pending_payment"
+          class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5 transition hover:shadow-md"
+        >
+          <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-amber-50">
+            <UIcon name="i-heroicons-clock" class="h-6 w-6 text-amber-500" />
           </div>
-          <!-- Verified badge -->
-          <span
-            v-if="hub.is_verified"
-            class="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-[#004e89] px-2.5 py-1 text-xs font-bold text-white"
+          <div>
+            <p class="text-sm text-[#64748b]">Pending Payments</p>
+            <p class="text-2xl font-bold text-[#0f1728]">{{ pendingBookings.length }}</p>
+          </div>
+        </NuxtLink>
+
+        <!-- Today's Confirmed -->
+        <NuxtLink
+          to="/dashboard/bookings"
+          class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5 transition hover:shadow-md"
+        >
+          <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-green-50">
+            <UIcon name="i-heroicons-calendar-days" class="h-6 w-6 text-green-600" />
+          </div>
+          <div>
+            <p class="text-sm text-[#64748b]">Today's Bookings</p>
+            <p class="text-2xl font-bold text-[#0f1728]">{{ todayConfirmedCount }}</p>
+          </div>
+        </NuxtLink>
+
+        <!-- Active Hubs -->
+        <NuxtLink
+          to="/dashboard/hubs"
+          class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5 transition hover:shadow-md"
+        >
+          <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#e8f0f8]">
+            <UIcon name="i-heroicons-building-office-2" class="h-6 w-6 text-[#004e89]" />
+          </div>
+          <div>
+            <p class="text-sm text-[#64748b]">Active Hubs</p>
+            <p class="text-2xl font-bold text-[#0f1728]">{{ activeHubsCount }}</p>
+          </div>
+        </NuxtLink>
+      </div>
+
+      <div class="grid gap-6 lg:grid-cols-2">
+        <!-- ── Pending Bookings ──────────────────────────────────────────────── -->
+        <div class="rounded-2xl border border-[#dbe4ef] bg-white">
+          <div class="flex items-center justify-between border-b border-[#dbe4ef] px-5 py-4">
+            <h2 class="text-sm font-semibold text-[#0f1728]">Pending Payments</h2>
+            <NuxtLink
+              to="/dashboard/bookings?status=pending_payment"
+              class="text-xs font-medium text-[#004e89] hover:underline"
+            >
+              View all
+            </NuxtLink>
+          </div>
+
+          <!-- Empty state -->
+          <div
+            v-if="!pendingBookings.length"
+            class="flex flex-col items-center justify-center px-5 py-10 text-center"
           >
-            <UIcon name="i-heroicons-check-badge" class="h-3.5 w-3.5" />
-            Verified
-          </span>
+            <UIcon name="i-heroicons-check-circle" class="h-8 w-8 text-green-400" />
+            <p class="mt-2 text-sm text-[#64748b]">No pending payments</p>
+          </div>
+
+          <!-- List -->
+          <ul v-else class="divide-y divide-[#f0f4f8]">
+            <li
+              v-for="booking in pendingBookings.slice(0, 10)"
+              :key="booking.id"
+              class="flex cursor-pointer items-start justify-between gap-3 px-5 py-3.5 hover:bg-[#f8fafc]"
+              @click="navigateTo({ path: '/dashboard/bookings', query: { hubId: booking.court?.hub_id, bookingId: booking.id } })"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium text-[#0f1728]">
+                  {{ bookerName(booking) }}
+                </p>
+                <p class="mt-0.5 truncate text-xs text-[#64748b]">
+                  {{ hubNameForBooking(booking) }} · {{ booking.court?.name }}
+                </p>
+                <p class="mt-0.5 text-xs text-[#64748b]">
+                  {{ formatDateTime(booking.start_time) }}
+                </p>
+              </div>
+              <span
+                class="flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="statusConfig[booking.status]?.color"
+              >
+                {{ statusConfig[booking.status]?.label }}
+              </span>
+            </li>
+          </ul>
         </div>
 
-        <!-- Body -->
-        <div class="flex flex-1 flex-col p-4">
-          <div class="flex items-start justify-between gap-2">
-            <div>
-              <h2 class="font-bold text-[#0f1728] leading-tight">
-                {{ hub.name }}
-              </h2>
-              <p class="mt-0.5 flex items-center gap-1 text-xs text-[#64748b]">
-                <UIcon name="i-heroicons-map-pin" class="h-3.5 w-3.5" />
-                {{ hub.city }}
-              </p>
-            </div>
+        <!-- ── Today's Schedule ────────────────────────────────────────────── -->
+        <div class="rounded-2xl border border-[#dbe4ef] bg-white">
+          <div class="flex items-center justify-between border-b border-[#dbe4ef] px-5 py-4">
+            <h2 class="text-sm font-semibold text-[#0f1728]">Today's Schedule</h2>
+            <NuxtLink
+              to="/dashboard/bookings"
+              class="text-xs font-medium text-[#004e89] hover:underline"
+            >
+              View all
+            </NuxtLink>
+          </div>
 
-            <div class="flex items-center gap-2" @click.stop>
+          <!-- Empty state -->
+          <div
+            v-if="!todayBookings.length"
+            class="flex flex-col items-center justify-center px-5 py-10 text-center"
+          >
+            <UIcon name="i-heroicons-calendar" class="h-8 w-8 text-[#c8d5e0]" />
+            <p class="mt-2 text-sm text-[#64748b]">No bookings scheduled for today</p>
+          </div>
+
+          <!-- List -->
+          <ul v-else class="divide-y divide-[#f0f4f8]">
+            <li
+              v-for="booking in todayBookings"
+              :key="booking.id"
+              class="flex cursor-pointer items-start justify-between gap-3 px-5 py-3.5 hover:bg-[#f8fafc]"
+              @click="navigateTo({ path: '/dashboard/bookings', query: { hubId: booking.court?.hub_id, bookingId: booking.id } })"
+            >
+              <div class="min-w-0">
+                <p class="truncate text-sm font-medium text-[#0f1728]">
+                  {{ bookerName(booking) }}
+                </p>
+                <p class="mt-0.5 truncate text-xs text-[#64748b]">
+                  {{ hubNameForBooking(booking) }} · {{ booking.court?.name }}
+                </p>
+                <p class="mt-0.5 text-xs text-[#64748b]">
+                  {{ formatTime(booking.start_time) }} – {{ formatTime(booking.end_time) }}
+                </p>
+              </div>
               <span
-                class="text-xs font-medium"
-                :class="
-                  hub.is_active
-                    ? 'text-[var(--aktiv-primary)]'
-                    : 'text-[var(--aktiv-muted)]'
-                "
+                class="flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="statusConfig[booking.status]?.color"
               >
-                {{ hub.is_active ? 'Active' : 'Inactive' }}
+                {{ statusConfig[booking.status]?.label }}
               </span>
-              <UTooltip
-                text="Show or hide this hub from public."
-                :delay-duration="200"
-              >
-                <USwitch
-                  :model-value="hub.is_active"
-                  :loading="togglingHubs.has(hub.id)"
-                  @update:model-value="toggleActive(hub, $event)"
-                />
-              </UTooltip>
-            </div>
-          </div>
-
-          <!-- Stats row -->
-          <div class="mt-3 flex items-center gap-3 text-xs text-[#64748b]">
-            <span class="flex items-center gap-1">
-              <UIcon name="i-heroicons-squares-2x2" class="h-3.5 w-3.5" />
-              {{ hub.courts_count }}
-              {{ hub.courts_count === 1 ? 'court' : 'courts' }}
-            </span>
-            <span class="flex items-center gap-1">
-              <UIcon name="i-heroicons-currency-dollar" class="h-3.5 w-3.5" />
-              from {{ formatPrice(hub.lowest_price_per_hour) }}
-            </span>
-          </div>
-
-          <!-- View courts link -->
-          <div class="mt-auto pt-3 w-full justify-end flex gap-4">
-            <NuxtLink
-              :to="{
-                path: '/hubs/' + hub.id
-              }"
-              class="text-xs font-medium text-[#004e89] hover:underline"
-              @click.stop
-            >
-              View Page
-            </NuxtLink>
-
-            <NuxtLink
-              :to="{
-                path: '/dashboard/courts',
-                query: { hubId: String(hub.id) }
-              }"
-              class="text-xs font-medium text-[#004e89] hover:underline"
-              @click.stop
-            >
-              Manage courts
-            </NuxtLink>
-          </div>
+            </li>
+          </ul>
         </div>
       </div>
-    </div>
+    </template>
+
+    <BookingVerifyModal
+      v-model:open="isVerifyModalOpen"
+      :hub="verifyHub"
+    />
   </div>
 </template>

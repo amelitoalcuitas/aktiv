@@ -1,6 +1,6 @@
 <script setup lang="ts">
 const props = defineProps<{
-  images: { id: number; url: string; order: number }[];
+  images: { id: string; url: string; order: number }[];
   hubName?: string;
 }>();
 

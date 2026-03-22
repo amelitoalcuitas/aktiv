@@ -10,17 +10,17 @@ export type BookingSource = 'self_booked' | 'owner_added';
 export type CancelledBy = 'user' | 'owner' | 'system';
 
 export interface Booking {
-  id: number;
+  id: string;
   booking_code: string | null;
-  court_id: number;
-  booked_by: number | null;
+  court_id: string;
+  booked_by: string | null;
   sport: string;
   start_time: string;
   end_time: string;
   session_type: SessionType;
   status: BookingStatus;
   booking_source: BookingSource;
-  created_by: number | null;
+  created_by: string | null;
   guest_name: string | null;
   guest_phone: string | null;
   guest_email: string | null;
@@ -28,7 +28,7 @@ export interface Booking {
   receipt_image_url: string | null;
   receipt_uploaded_at: string | null;
   payment_note: string | null;
-  payment_confirmed_by: number | null;
+  payment_confirmed_by: string | null;
   payment_confirmed_at: string | null;
   expires_at: string | null;
   cancelled_by: CancelledBy | null;
@@ -37,9 +37,9 @@ export interface Booking {
 
 /** Full booking shape returned by owner dashboard endpoints (includes eager-loaded relations). */
 export interface BookingDetail extends Booking {
-  court: { id: number; name: string; hub_id: number } | null;
+  court: { id: string; name: string; hub_id: string } | null;
   booked_by_user: {
-    id: number;
+    id: string;
     name: string;
     email: string;
     phone: string | null;
@@ -49,27 +49,27 @@ export interface BookingDetail extends Booking {
 
 /** A time slot the user has selected in the resource grid (UI state only). */
 export interface SelectedSlot {
-  courtId: number;
+  courtId: string;
   slotStart: Date; // exact start of the 1-hour slot
 }
 
 /** Booking shape returned by the user's own booking list endpoint (includes court + hub). */
 export interface UserBooking extends Booking {
   court: {
-    id: number;
+    id: string;
     name: string;
-    hub: { id: number; name: string; cover_image_url?: string | null } | null;
+    hub: { id: string; name: string; cover_image_url?: string | null } | null;
   } | null;
 }
 
 /** Minimal booking shape for rendering the calendar (no PII). */
 export interface CalendarBooking {
-  id: number;
+  id: string;
   start_time: string;
   end_time: string;
   session_type: SessionType;
   status: BookingStatus;
   is_own: boolean;
-  court_id?: number;
+  court_id?: string;
   expires_at?: string | null;
 }

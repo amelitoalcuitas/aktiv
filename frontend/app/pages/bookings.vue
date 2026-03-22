@@ -24,7 +24,7 @@ const loading = ref(false);
 const selectedStatus = ref<string>((route.query.status as string) ?? '');
 const currentPage = ref(Number(route.query.page) || 1);
 
-const highlightedId = ref<number | null>(null);
+const highlightedId = ref<string | null>(null);
 
 const cancelTarget = ref<UserBooking | null>(null);
 const cancelConfirmOpen = ref(false);
@@ -101,7 +101,7 @@ watch(selectedStatus, () => {
 await load();
 
 // ── Scroll-to + highlight from ?bookingId query param ────────────
-async function scrollToBooking(id: number) {
+async function scrollToBooking(id: string) {
   await nextTick();
   await new Promise((r) => setTimeout(r, 80));
   const el = document.getElementById(`booking-${id}`);
@@ -113,7 +113,7 @@ async function scrollToBooking(id: number) {
   }, 5000);
 }
 
-async function resolveAndScrollToBooking(id: number) {
+async function resolveAndScrollToBooking(id: string) {
   if (bookings.value.some((b) => b.id === id)) {
     scrollToBooking(id);
     return;
@@ -139,14 +139,14 @@ async function resolveAndScrollToBooking(id: number) {
 }
 
 onMounted(() => {
-  const id = Number(route.query.bookingId);
+  const id = route.query.bookingId as string | undefined;
   if (id) resolveAndScrollToBooking(id);
 });
 
 watch(
   () => route.query.bookingId,
   (val) => {
-    const id = Number(val);
+    const id = val as string | undefined;
     if (id) resolveAndScrollToBooking(id);
   }
 );

@@ -22,7 +22,7 @@ export const useUserBookingStore = defineStore('userBooking', () => {
     await fetchInitial();
   }
 
-  function subscribe(userId: number) {
+  function subscribe(userId: string) {
     if (echoChannel.value) return;
 
     const { $echo } = useNuxtApp();

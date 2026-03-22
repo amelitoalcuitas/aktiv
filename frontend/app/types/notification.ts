@@ -7,12 +7,12 @@ export type NotificationActivityType =
 
 export interface NotificationData {
   activity_type: NotificationActivityType;
-  booking_id: number;
+  booking_id: string;
   booking_code: string;
   customer_name: string;
   court_name: string;
   hub_name: string;
-  hub_id: number;
+  hub_id: string;
   start_time: string;
   message: string;
 }

@@ -12,13 +12,13 @@ export function useBooking() {
   async function fetchHubBookings(
     hubId: string | number,
     params?: FetchBookingsParams
-  ): Promise<Record<number, CalendarBooking[]>> {
+  ): Promise<Record<string, CalendarBooking[]>> {
     const query = new URLSearchParams();
     if (params?.date_from) query.set('date_from', params.date_from);
     if (params?.date_to) query.set('date_to', params.date_to);
 
     const qs = query.toString();
-    const response = await apiFetch<{ data: Record<number, CalendarBooking[]> }>(
+    const response = await apiFetch<{ data: Record<string, CalendarBooking[]> }>(
       `/hubs/${hubId}/bookings${qs ? `?${qs}` : ''}`
     );
     return response.data;
@@ -64,10 +64,10 @@ export function useBooking() {
   async function uploadReceipt(
     hubId: string | number,
     courtId: string | number,
-    bookingId: number,
+    bookingId: string,
     file: File
   ): Promise<{
-    id: number;
+    id: string;
     status: string;
     receipt_image_url: string;
     receipt_uploaded_at: string;
@@ -78,7 +78,7 @@ export function useBooking() {
     const response = await apiFetch<{
       message: string;
       data: {
-        id: number;
+        id: string;
         status: string;
         receipt_image_url: string;
         receipt_uploaded_at: string;
@@ -129,11 +129,11 @@ export function useBooking() {
   async function uploadGuestReceipt(
     hubId: string | number,
     courtId: string | number,
-    bookingId: number,
+    bookingId: string,
     email: string,
     file: File
   ): Promise<{
-    id: number;
+    id: string;
     status: string;
     receipt_image_url: string;
     receipt_uploaded_at: string;
@@ -145,7 +145,7 @@ export function useBooking() {
     const response = await apiFetch<{
       message: string;
       data: {
-        id: number;
+        id: string;
         status: string;
         receipt_image_url: string;
         receipt_uploaded_at: string;
@@ -169,7 +169,7 @@ export function useBooking() {
 
   async function confirmBooking(
     hubId: string | number,
-    bookingId: number
+    bookingId: string
   ): Promise<void> {
     await apiFetch(`/dashboard/hubs/${hubId}/bookings/${bookingId}/confirm`, {
       method: 'POST',
@@ -178,7 +178,7 @@ export function useBooking() {
 
   async function rejectBooking(
     hubId: string | number,
-    bookingId: number,
+    bookingId: string,
     paymentNote: string
   ): Promise<void> {
     await apiFetch(`/dashboard/hubs/${hubId}/bookings/${bookingId}/reject`, {
@@ -201,12 +201,12 @@ export function useBooking() {
     );
   }
 
-  async function findBookingPage(bookingId: number): Promise<number> {
+  async function findBookingPage(bookingId: string): Promise<number> {
     const res = await apiFetch<{ page: number }>(`/user/bookings/page-of?booking_id=${bookingId}`);
     return res.page;
   }
 
-  async function cancelMyBooking(bookingId: number): Promise<UserBooking> {
+  async function cancelMyBooking(bookingId: string): Promise<UserBooking> {
     const response = await apiFetch<{ data: UserBooking }>(
       `/user/bookings/${bookingId}/cancel`,
       { method: 'POST' }

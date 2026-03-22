@@ -1,7 +1,7 @@
 export type UserRole = 'user' | 'admin' | 'super_admin';
 
 export interface User {
-  id: number;
+  id: string;
   name: string;
   email: string;
   avatar_url: string | null;

@@ -7,11 +7,11 @@ import { useOwnerBookings } from '~/composables/useOwnerBookings';
 
 const props = defineProps<{
   open: boolean;
-  hubId?: number;
+  hubId?: string;
   courts: Court[];
   initialDate?: string;
   initialHour?: number;
-  initialCourtId?: number;
+  initialCourtId?: string;
   operatingHours?: OperatingHoursEntry[];
 }>();
 
@@ -34,12 +34,12 @@ const formRef = useTemplateRef('formRef');
 // Schema
 const schema = z
   .object({
-    courtId: z.number({ message: 'Select a court.' }).min(1, 'Select a court.'),
+    courtId: z.string({ message: 'Select a court.' }).min(1, 'Select a court.'),
     date: z.string().min(1, 'Select a date.'),
     startHour: z.number(),
     endHour: z.number(),
     customerMode: z.enum(['guest', 'registered']),
-    bookedBy: z.number().optional(),
+    bookedBy: z.string().optional(),
     guestName: z.string().optional(),
     guestPhone: z.string().optional(),
     guestEmail: z
@@ -83,7 +83,7 @@ const walkInForm = reactive<Schema>({
 const userSearchQuery = ref('');
 const userSearchResults = ref<
   {
-    id: number;
+    id: string;
     name: string;
     email: string;
     phone: string | null;
@@ -92,7 +92,7 @@ const userSearchResults = ref<
 >([]);
 const userSearchLoading = ref(false);
 const selectedUser = ref<{
-  id: number;
+  id: string;
   name: string;
   email: string;
 } | null>(null);
@@ -126,7 +126,7 @@ const userSelectItems = computed(() =>
 );
 
 function onUserSelect(
-  item: { label: string; value: number; email: string } | null
+  item: { label: string; value: string; email: string } | null
 ) {
   if (!item) {
     selectedUser.value = null;

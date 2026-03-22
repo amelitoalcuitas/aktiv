@@ -2,7 +2,7 @@ import type { BookingStatus } from '~/types/booking';
 import { useApi } from '~/utils/api';
 
 export interface GuestTrackingBooking {
-  id: number;
+  id: string;
   booking_code: string;
   status: BookingStatus;
   guest_name: string | null;
@@ -14,8 +14,8 @@ export interface GuestTrackingBooking {
   receipt_image_url: string | null;
   receipt_uploaded_at: string | null;
   payment_note: string | null;
-  court: { id: number; name: string };
-  hub: { id: number; name: string; slug: string };
+  court: { id: string; name: string };
+  hub: { id: string; name: string; slug: string };
 }
 
 export function useGuestTracking() {

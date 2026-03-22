@@ -64,7 +64,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     items.value.unshift(notification);
   }
 
-  function subscribe(userId: number) {
+  function subscribe(userId: string) {
     if (echoChannel.value) return;
 
     const { $echo } = useNuxtApp();

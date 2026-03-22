@@ -74,7 +74,7 @@ const mobileGrandTotal = computed(() => {
 
 // ── Scheduler: selected date & bookings ────────────────────────────────────
 const selectedDate = ref(new Date());
-const bookingsMap = ref<Record<number, CalendarBooking[]>>({});
+const bookingsMap = ref<Record<string, CalendarBooking[]>>({});
 
 function formatDateString(date: Date): string {
   const y = date.getFullYear();

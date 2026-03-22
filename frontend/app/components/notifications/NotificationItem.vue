@@ -8,7 +8,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'toggle-read': [id: string];
-  'open-booking': [bookingId: number, hubId: number, activityType: string];
+  'open-booking': [bookingId: string, hubId: string, activityType: string];
 }>();
 
 const iconMap: Record<string, string> = {

@@ -85,7 +85,7 @@ async function handleMarkAllRead() {
   toast.add({ title: 'All notifications marked as read.', color: 'success' });
 }
 
-async function handleOpenBooking(bookingId: number, hubId: number, activityType: string) {
+async function handleOpenBooking(bookingId: string, hubId: string, activityType: string) {
   await openBookingFromNotification(bookingId, hubId, activityType);
 }
 </script>

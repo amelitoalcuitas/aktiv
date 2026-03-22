@@ -25,7 +25,7 @@ const { data: courts } = await useAsyncData<Court[]>(
 const selectedDate = ref(new Date());
 
 // ── Bookings map keyed by court.id ─────────────────────────────
-const bookingsMap = ref<Record<number, CalendarBooking[]>>({});
+const bookingsMap = ref<Record<string, CalendarBooking[]>>({});
 
 function formatDateString(date: Date): string {
   const y = date.getFullYear();

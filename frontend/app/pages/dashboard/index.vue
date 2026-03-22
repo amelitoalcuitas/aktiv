@@ -14,9 +14,9 @@ onMounted(async () => {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const failedImages = ref(new Set<number>());
+const failedImages = ref(new Set<string>());
 
-function onImgError(id: number) {
+function onImgError(id: string) {
   failedImages.value = new Set(failedImages.value).add(id);
 }
 
@@ -26,10 +26,10 @@ function formatPrice(price: string | null) {
 }
 
 const { updateHub } = useHubs();
-const togglingHubs = ref(new Set<number>());
+const togglingHubs = ref(new Set<string>());
 
 async function toggleActive(
-  hub: { id: number; is_active: boolean },
+  hub: { id: string; is_active: boolean },
   value: boolean
 ) {
   togglingHubs.value = new Set(togglingHubs.value).add(hub.id);

@@ -9,7 +9,7 @@ import type {
 const props = withDefaults(
   defineProps<{
     courts: Court[];
-    bookingsMap: Record<number, CalendarBooking[]>;
+    bookingsMap: Record<string, CalendarBooking[]>;
     selectedDate: Date;
     minTime?: string;
     maxTime?: string;
@@ -125,8 +125,8 @@ onMounted(() => {
 });
 onUnmounted(() => clearInterval(nowTimer));
 
-const grid = computed<Record<number, CellState[]>>(() => {
-  const result: Record<number, CellState[]> = {};
+const grid = computed<Record<string, CellState[]>>(() => {
+  const result: Record<string, CellState[]> = {};
   for (const court of props.courts) {
     const bookings = props.bookingsMap[court.id] ?? [];
     result[court.id] = timeSlots.value.map((slot) => {
@@ -143,8 +143,8 @@ const grid = computed<Record<number, CellState[]>>(() => {
 });
 
 // ── Merged grid (rowspan for consecutive same-booking slots) ───
-const mergedGrid = computed<Record<number, MergedCell[]>>(() => {
-  const result: Record<number, MergedCell[]> = {};
+const mergedGrid = computed<Record<string, MergedCell[]>>(() => {
+  const result: Record<string, MergedCell[]> = {};
   for (const court of props.courts) {
     const flat = grid.value[court.id] ?? [];
     const merged: MergedCell[] = flat.map((c) => ({
@@ -247,7 +247,7 @@ const headerLabel = computed(() =>
 );
 
 // ── Selected slot check ──────────────────────────────────────
-function isSlotSelected(courtId: number, slotIdx: number): boolean {
+function isSlotSelected(courtId: string, slotIdx: number): boolean {
   if (!props.selectedSlots?.length) return false;
   const slot = timeSlots.value[slotIdx];
   if (!slot) return false;
@@ -286,12 +286,12 @@ watch(
 );
 
 // ── Safe cell accessors (avoid repeated optional chaining in template) ──
-function getCellState(courtId: number, slotIdx: number): CellState {
+function getCellState(courtId: string, slotIdx: number): CellState {
   return grid.value[courtId]?.[slotIdx] ?? { type: 'past', booking: null };
 }
 
 // Only safe to call when getCellState(...).type === 'booked'
-function getCellBooking(courtId: number, slotIdx: number): CalendarBooking {
+function getCellBooking(courtId: string, slotIdx: number): CalendarBooking {
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   return grid.value[courtId]![slotIdx]!.booking!;
 }

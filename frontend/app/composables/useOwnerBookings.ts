@@ -3,13 +3,13 @@ import { useApi } from '~/utils/api';
 
 interface FetchBookingsParams {
   status?: BookingStatus;
-  court_id?: number;
+  court_id?: string;
   date_from?: string;
   date_to?: string;
 }
 
 interface UserSearchResult {
-  id: number;
+  id: string;
   name: string;
   email: string;
   phone: string | null;
@@ -17,12 +17,12 @@ interface UserSearchResult {
 }
 
 interface WalkInPayload {
-  court_id: number;
+  court_id: string;
   sport?: string;
   start_time: string;
   end_time: string;
   session_type?: 'private' | 'open_play';
-  booked_by?: number | null;
+  booked_by?: string | null;
   guest_name?: string | null;
   guest_phone?: string | null;
   guest_email?: string | null;
@@ -50,7 +50,7 @@ export function useOwnerBookings() {
 
   async function confirmBooking(
     hubId: number | string,
-    bookingId: number
+    bookingId: string
   ): Promise<BookingDetail> {
     const res = await apiFetch<{ message: string; data: BookingDetail }>(
       `/dashboard/hubs/${hubId}/bookings/${bookingId}/confirm`,
@@ -61,7 +61,7 @@ export function useOwnerBookings() {
 
   async function rejectBooking(
     hubId: number | string,
-    bookingId: number,
+    bookingId: string,
     paymentNote: string
   ): Promise<BookingDetail> {
     const res = await apiFetch<{ message: string; data: BookingDetail }>(
@@ -73,7 +73,7 @@ export function useOwnerBookings() {
 
   async function cancelBooking(
     hubId: number | string,
-    bookingId: number
+    bookingId: string
   ): Promise<BookingDetail> {
     const res = await apiFetch<{ message: string; data: BookingDetail }>(
       `/dashboard/hubs/${hubId}/bookings/${bookingId}/cancel`,
@@ -103,7 +103,7 @@ export function useOwnerBookings() {
 
   async function updateBooking(
     hubId: number | string,
-    bookingId: number,
+    bookingId: string,
     data: Record<string, any>
   ): Promise<BookingDetail> {
     const res = await apiFetch<{ message: string; data: BookingDetail }>(

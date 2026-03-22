@@ -13,7 +13,7 @@ const route = useRoute();
 
 // ── Hub selector ──────────────────────────────────────────────────────────────
 
-const selectedHubId = ref<number | undefined>(undefined);
+const selectedHubId = ref<string | undefined>(undefined);
 const courts = ref<Court[]>([]);
 const courtsLoading = ref(false);
 
@@ -30,7 +30,7 @@ onMounted(async () => {
     const queryHubIdRaw = Array.isArray(route.query.hubId)
       ? route.query.hubId[0]
       : route.query.hubId;
-    const queryHubId = Number(queryHubIdRaw);
+    const queryHubId = queryHubIdRaw ?? undefined;
     const hasMatchingHub = hubStore.myHubs.some(
       (h: Hub) => h.id === queryHubId
     );

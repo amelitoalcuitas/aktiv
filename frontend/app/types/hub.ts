@@ -31,7 +31,7 @@ export interface OperatingHoursEntry {
 
 /** Matches the Hub object returned by the API */
 export interface Hub {
-  id: number;
+  id: string;
   name: string;
   description: string | null;
   city: string;
@@ -44,7 +44,7 @@ export interface Hub {
   lat: string | null;
   lng: string | null;
   cover_image_url: string | null;
-  gallery_images: { id: number; url: string; order: number }[];
+  gallery_images: { id: string; url: string; order: number }[];
   is_active: boolean;
   is_approved: boolean;
   is_verified: boolean;
@@ -55,8 +55,8 @@ export interface Hub {
   payment_qr_url: string | null;
   digital_bank_name: string | null;
   digital_bank_account: string | null;
-  owner_id: number;
-  owner?: { id: number; name: string; avatar_url: string | null } | null;
+  owner_id: string;
+  owner?: { id: string; name: string; avatar_url: string | null } | null;
   sports: SportType[];
   contact_numbers: HubContactNumber[];
   websites: HubWebsite[];
@@ -79,17 +79,17 @@ export interface Hub {
 }
 
 export interface HubRating {
-  id: number;
+  id: string;
   rating: number;
   comment: string | null;
   created_at: string;
   court_name: string | null;
-  user: { id: number; name: string; avatar_url: string | null };
+  user: { id: string; name: string; avatar_url: string | null };
 }
 
 export interface Court {
-  id: number;
-  hub_id: number;
+  id: string;
+  hub_id: string;
   name: string;
   surface: SurfaceType | null;
   indoor: boolean;
@@ -102,14 +102,14 @@ export interface Court {
 }
 
 export interface CourtSport {
-  id: number;
-  court_id: number;
+  id: string;
+  court_id: string;
   sport: SportType;
 }
 
 export interface HubSport {
-  id: number;
-  hub_id: number;
+  id: string;
+  hub_id: string;
   sport: SportType;
 }
 

@@ -21,7 +21,7 @@ const emit = defineEmits<{
   'action-confirm': [BookingDetail];
   'action-reject': [BookingDetail];
   'action-cancel': [BookingDetail];
-  'action-update': [{ id: number; data: any }];
+  'action-update': [{ id: string; data: any }];
 }>();
 
 const isOpen = computed({
@@ -32,7 +32,7 @@ const isOpen = computed({
 // Schema for Editable Fields
 const schema = z
   .object({
-    court_id: z.number().min(1, 'Court is required'),
+    court_id: z.string().min(1, 'Court is required'),
     date: z.date(),
     start_time: z.string().min(1, 'Start time is required'),
     end_time: z.string().min(1, 'End time is required')

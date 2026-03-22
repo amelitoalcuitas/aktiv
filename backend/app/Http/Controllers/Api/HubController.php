@@ -225,7 +225,7 @@ class HubController extends Controller
         unset($validated['remove_payment_qr']);
 
         $settingsData = [];
-        foreach (['require_account_to_book', 'payment_methods', 'digital_bank_name', 'digital_bank_account'] as $field) {
+        foreach (['require_account_to_book', 'guest_booking_limit', 'guest_max_hours', 'payment_methods', 'digital_bank_name', 'digital_bank_account'] as $field) {
             if (array_key_exists($field, $validated)) {
                 $settingsData[$field] = $validated[$field];
                 unset($validated[$field]);
@@ -536,6 +536,8 @@ class HubController extends Controller
             'is_approved'             => $hub->is_approved,
             'is_verified'             => $hub->is_verified,
             'require_account_to_book' => $hub->settings?->require_account_to_book ?? true,
+            'guest_booking_limit'     => $hub->settings?->guest_booking_limit ?? 1,
+            'guest_max_hours'         => $hub->settings?->guest_max_hours ?? 2,
             'payment_methods'         => $hub->settings?->payment_methods ?? ['pay_on_site'],
             'payment_qr_url'          => $hub->settings?->payment_qr_url,
             'digital_bank_name'       => $hub->settings?->digital_bank_name,

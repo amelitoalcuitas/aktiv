@@ -16,6 +16,8 @@ class HubSettings extends Model
     protected $fillable = [
         'hub_id',
         'require_account_to_book',
+        'guest_booking_limit',
+        'guest_max_hours',
         'payment_methods',
         'payment_qr_url',
         'digital_bank_name',
@@ -29,6 +31,8 @@ class HubSettings extends Model
     {
         return [
             'require_account_to_book' => 'boolean',
+            'guest_booking_limit'     => 'integer',
+            'guest_max_hours'         => 'integer',
             'payment_methods'         => 'array',
         ];
     }

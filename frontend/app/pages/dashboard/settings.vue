@@ -25,6 +25,8 @@ const selectedHub = computed<Hub | undefined>(() =>
 
 // true = require account (default), false = allow guests
 const requireAccount = ref(true);
+const guestBookingLimit = ref(1);
+const guestMaxHours = ref(2);
 
 // ── Payment settings ──────────────────────────────────────────
 
@@ -39,6 +41,8 @@ const digitalBankAccount = ref('');
 watch(selectedHub, (hub) => {
   if (hub) {
     requireAccount.value = hub.require_account_to_book;
+    guestBookingLimit.value = hub.guest_booking_limit ?? 1;
+    guestMaxHours.value = hub.guest_max_hours ?? 2;
     const methods = hub.payment_methods ?? ['pay_on_site'];
     payOnSite.value = methods.includes('pay_on_site');
     digitalBank.value = methods.includes('digital_bank');
@@ -121,7 +125,12 @@ async function applyToAllHubs() {
 
     // If there's an existing QR from the server (no new file selected), fetch it as a File
     let qrFile = paymentQrFile.value;
-    if (digitalBank.value && !qrFile && paymentQrPreview.value && !removePaymentQr.value) {
+    if (
+      digitalBank.value &&
+      !qrFile &&
+      paymentQrPreview.value &&
+      !removePaymentQr.value
+    ) {
       const res = await fetch(paymentQrPreview.value);
       const blob = await res.blob();
       qrFile = new File([blob], 'payment_qr.jpg', { type: blob.type });
@@ -131,6 +140,12 @@ async function applyToAllHubs() {
       otherHubs.map((h: Hub) =>
         updateHub(h.id, {
           require_account_to_book: requireAccount.value,
+          guest_booking_limit: requireAccount.value
+            ? undefined
+            : guestBookingLimit.value,
+          guest_max_hours: requireAccount.value
+            ? undefined
+            : guestMaxHours.value,
           payment_methods: paymentMethods,
           payment_qr_image: qrFile,
           ...(removePaymentQr.value ? { remove_payment_qr: true } : {}),
@@ -192,6 +207,10 @@ async function saveSettings() {
 
     await updateHub(selectedHubId.value, {
       require_account_to_book: requireAccount.value,
+      guest_booking_limit: requireAccount.value
+        ? undefined
+        : guestBookingLimit.value,
+      guest_max_hours: requireAccount.value ? undefined : guestMaxHours.value,
       payment_methods: paymentMethods,
       payment_qr_image: paymentQrFile.value,
       ...(removePaymentQr.value ? { remove_payment_qr: true } : {}),
@@ -260,42 +279,75 @@ async function saveSettings() {
 
           <div class="space-y-4">
             <!-- Require Account toggle -->
-            <div class="flex items-start justify-between gap-4">
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-medium text-[#0f1728]"
-                  >Require Account when Booking</span
-                >
-                <UPopover mode="hover" :open-delay="100">
-                  <UIcon
-                    name="i-heroicons-information-circle"
-                    class="h-4 w-4 text-[#64748b] cursor-help"
-                  />
+            <div class="flex flex-col gap-3">
+              <div class="flex items-start justify-between gap-4">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-[#0f1728]"
+                    >Require Account when Booking</span
+                  >
+                  <UPopover mode="hover" :open-delay="100">
+                    <UIcon
+                      name="i-heroicons-information-circle"
+                      class="h-4 w-4 text-[#64748b] cursor-help"
+                    />
 
-                  <template #content>
-                    <div
-                      class="max-w-xs rounded-md bg-white p-3 text-sm text-[#0f1728] shadow-lg border border-[#dbe4ef]"
-                    >
-                      <span>
-                        When enabled, only registered users can book courts at
-                        this hub. When disabled, guests may book with email
-                        verification (max 2 hours, 1 active booking per email).
-                      </span>
-                    </div>
-                  </template>
-                </UPopover>
+                    <template #content>
+                      <div
+                        class="max-w-xs rounded-md bg-white p-3 text-sm text-[#0f1728] shadow-lg border border-[#dbe4ef]"
+                      >
+                        <span>
+                          When enabled, only registered users can book courts at
+                          this hub. When disabled, guests may book with email
+                          verification (limits configurable below).
+                        </span>
+                      </div>
+                    </template>
+                  </UPopover>
+                </div>
+                <USwitch v-model="requireAccount" />
               </div>
-              <USwitch v-model="requireAccount" />
+
+              <!-- Guest booking limit fields (shown when guests are allowed) -->
+              <div
+                v-if="!requireAccount"
+                class="ml-4 border-l-2 border-[#dbe4ef] pl-4 flex flex-col gap-3"
+              >
+                <div class="flex flex-col gap-1">
+                  <label class="text-sm font-medium text-[#0f1728]"
+                    >Max active bookings per guest</label
+                  >
+                  <UInput
+                    v-model.number="guestBookingLimit"
+                    type="number"
+                    :min="1"
+                    :max="10"
+                    class="max-w-[100px]"
+                  />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-sm font-medium text-[#0f1728]"
+                    >Max hours per guest session</label
+                  >
+                  <UInput
+                    v-model.number="guestMaxHours"
+                    type="number"
+                    :min="1"
+                    :max="12"
+                    class="max-w-[100px]"
+                  />
+                </div>
+              </div>
             </div>
 
-            <!-- Guest info note (shown when guests are allowed) -->
-            <UAlert
-              v-if="!requireAccount"
-              color="info"
-              variant="soft"
-              icon="i-heroicons-envelope"
-              title="Guest bookings enabled"
-              description="Guests will be required to verify their email address before booking. This confirms their identity and prevents spam bookings. Guests are limited to 1 active booking and a maximum of 2 hours per session."
-            />
+            <template v-if="!requireAccount">
+              <UAlert
+                color="info"
+                variant="soft"
+                icon="i-heroicons-envelope"
+                title="Guest bookings enabled"
+                :description="`Guests will be required to verify their email address before booking. This confirms their identity and prevents spam bookings. Guests are limited to ${guestBookingLimit} active booking${guestBookingLimit !== 1 ? 's' : ''} and a maximum of ${guestMaxHours} hour${guestMaxHours !== 1 ? 's' : ''} per session.`"
+              />
+            </template>
           </div>
         </div>
 

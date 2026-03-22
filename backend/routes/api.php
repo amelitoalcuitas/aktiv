@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CourtController;
 use App\Http\Controllers\Api\GuestBookingController;
+use App\Http\Controllers\Api\GuestBookingTrackingController;
 use App\Http\Controllers\Api\HubController;
 use App\Http\Controllers\Api\HubRatingController;
 use App\Http\Controllers\Api\NotificationController;
@@ -51,6 +52,11 @@ Route::get('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'in
 Route::post('/hubs/{hub}/courts/{court}/guest-verify', [GuestBookingController::class, 'sendVerificationCode'])->name('api.hubs.courts.guest-verify');
 Route::post('/hubs/{hub}/courts/{court}/guest-bookings', [GuestBookingController::class, 'store'])->name('api.hubs.courts.guest-bookings.store');
 Route::post('/hubs/{hub}/courts/{court}/guest-bookings/{booking}/receipt', [GuestBookingController::class, 'uploadReceipt'])->name('api.hubs.courts.guest-bookings.receipt');
+
+// Guest booking tracking routes (public — protected by per-booking UUID token)
+Route::get('/guest-bookings/{token}', [GuestBookingTrackingController::class, 'show'])->name('api.guest-bookings.show');
+Route::post('/guest-bookings/{token}/receipt', [GuestBookingTrackingController::class, 'uploadReceipt'])->name('api.guest-bookings.receipt');
+Route::post('/guest-bookings/{token}/cancel', [GuestBookingTrackingController::class, 'cancel'])->name('api.guest-bookings.cancel');
 
 // Authenticated routes (any logged-in user)
 Route::middleware('auth:sanctum')->group(function (): void {

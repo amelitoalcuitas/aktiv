@@ -79,9 +79,15 @@
             Show the QR code or tell the hub owner your booking code when you arrive. They'll scan or enter it to confirm your payment on site.
         </div>
 
+        @if(isset($guestTrackingToken) && $guestTrackingToken)
+        <div style="text-align:center;margin:28px 0 8px;">
+            <a href="{{ $frontendUrl }}/booking/track/{{ $guestTrackingToken }}" style="display:inline-block;background:#004e89;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-size:0.9375rem;font-weight:600;">Track Your Booking</a>
+        </div>
+        @else
         <div style="text-align:center;margin:28px 0 8px;">
             <a href="{{ $frontendUrl }}/bookings" style="display:inline-block;background:#004e89;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-size:0.9375rem;font-weight:600;">View My Bookings</a>
         </div>
+        @endif
 
         <p class="footer">
             If you did not make this booking, please contact {{ $hub->name }} directly.<br>

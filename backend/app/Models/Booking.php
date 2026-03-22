@@ -13,6 +13,7 @@ class Booking extends Model
     use HasFactory;
     protected $fillable = [
         'booking_code',
+        'guest_tracking_token',
         'court_id',
         'booked_by',
         'sport',

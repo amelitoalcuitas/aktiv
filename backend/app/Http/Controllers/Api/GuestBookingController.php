@@ -18,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class GuestBookingController extends Controller
 {
@@ -35,16 +36,17 @@ class GuestBookingController extends Controller
             ], 403);
         }
 
-        // Check if the guest already has an active booking at this hub
+        // Check if the guest has reached the active booking limit at this hub
+        $guestBookingLimit = $hub->settings?->guest_booking_limit ?? 1;
         $courtIds = $hub->courts()->pluck('id');
-        $hasActiveBooking = Booking::whereIn('court_id', $courtIds)
+        $activeBookingCount = Booking::whereIn('court_id', $courtIds)
             ->where('guest_email', $request->email)
             ->whereNotIn('status', ['cancelled'])
-            ->exists();
+            ->count();
 
-        if ($hasActiveBooking) {
+        if ($activeBookingCount >= $guestBookingLimit) {
             return response()->json([
-                'message' => 'You already have an active booking at this hub. Guests are limited to 1 active booking per hub.',
+                'message' => "You have reached the active booking limit ({$guestBookingLimit}) for guests at this hub.",
             ], 422);
         }
 
@@ -84,23 +86,26 @@ class GuestBookingController extends Controller
         $startTime = Carbon::parse($request->start_time);
         $endTime = Carbon::parse($request->end_time);
 
-        // Enforce 2-hour maximum for guest bookings
-        if ($startTime->diffInMinutes($endTime) > 120) {
+        // Enforce configurable max-hours for guest bookings
+        $guestMaxMinutes = ($hub->settings?->guest_max_hours ?? 2) * 60;
+        if ($startTime->diffInMinutes($endTime) > $guestMaxMinutes) {
+            $maxHours = $hub->settings?->guest_max_hours ?? 2;
             return response()->json([
-                'message' => 'Guest bookings are limited to a maximum of 2 hours.',
+                'message' => "Guest bookings are limited to a maximum of {$maxHours} hours.",
             ], 422);
         }
 
-        // Enforce 1 active booking per email per hub
+        // Enforce configurable active booking limit per email per hub
+        $guestBookingLimit = $hub->settings?->guest_booking_limit ?? 1;
         $courtIds = $hub->courts()->pluck('id');
-        $hasActiveBooking = Booking::whereIn('court_id', $courtIds)
+        $activeBookingCount = Booking::whereIn('court_id', $courtIds)
             ->where('guest_email', $request->email)
             ->whereNotIn('status', ['cancelled'])
-            ->exists();
+            ->count();
 
-        if ($hasActiveBooking) {
+        if ($activeBookingCount >= $guestBookingLimit) {
             return response()->json([
-                'message' => 'You already have an active booking at this hub. Guests are limited to 1 active booking per hub.',
+                'message' => "You have reached the active booking limit ({$guestBookingLimit}) for guests at this hub.",
             ], 422);
         }
 
@@ -142,7 +147,10 @@ class GuestBookingController extends Controller
 
         Cache::forget($cacheKey);
 
-        Mail::to($booking->guest_email)->send(new BookingConfirmation($booking, $hub, $court->name));
+        $trackingToken = (string) Str::uuid();
+        $booking->update(['guest_tracking_token' => $trackingToken]);
+
+        Mail::to($booking->guest_email)->send(new BookingConfirmation($booking, $hub, $court->name, $trackingToken));
 
         // Notify hub owner (in-app + email)
         $owner = $hub->owner()->first();

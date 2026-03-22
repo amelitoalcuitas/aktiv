@@ -49,6 +49,8 @@ export interface Hub {
   is_approved: boolean;
   is_verified: boolean;
   require_account_to_book: boolean;
+  guest_booking_limit: number;
+  guest_max_hours: number;
   payment_methods: Array<'pay_on_site' | 'digital_bank'>;
   payment_qr_url: string | null;
   digital_bank_name: string | null;

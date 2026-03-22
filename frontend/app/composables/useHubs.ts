@@ -53,6 +53,8 @@ export function useHubs() {
       gallery_images: File[];
       remove_gallery_image_ids: number[];
       operating_hours: OperatingHoursEntry[];
+      guest_booking_limit: number;
+      guest_max_hours: number;
       payment_methods: Array<'pay_on_site' | 'digital_bank'>;
       payment_qr_image: File | null;
       digital_bank_name: string | null;
@@ -86,6 +88,8 @@ export function useHubs() {
     if (payload.require_account_to_book !== undefined) {
       formData.append('require_account_to_book', payload.require_account_to_book ? '1' : '0');
     }
+    appendIfDefined('guest_booking_limit', payload.guest_booking_limit);
+    appendIfDefined('guest_max_hours', payload.guest_max_hours);
 
     if (payload.cover_image) {
       validateImageSize(payload.cover_image, 'Cover image');
@@ -225,6 +229,8 @@ export function useHubs() {
       remove_gallery_image_ids: number[];
       is_active: boolean;
       require_account_to_book: boolean;
+      guest_booking_limit: number;
+      guest_max_hours: number;
       contact_numbers: HubContactNumber[];
       websites: HubWebsite[];
       operating_hours: OperatingHoursEntry[];

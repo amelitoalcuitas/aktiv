@@ -35,6 +35,8 @@ class UpdateHubRequest extends FormRequest
             'remove_gallery_image_ids.*' => ['integer', 'exists:hub_images,id'],
             'is_active'                 => ['sometimes', 'nullable', 'boolean'],
             'require_account_to_book'   => ['sometimes', 'nullable', 'boolean'],
+            'guest_booking_limit'       => ['sometimes', 'integer', 'min:1', 'max:10'],
+            'guest_max_hours'           => ['sometimes', 'integer', 'min:1', 'max:12'],
             'payment_methods'           => ['sometimes', 'array', 'min:1'],
             'payment_methods.*'         => ['string', 'in:pay_on_site,digital_bank'],
             'payment_qr_image'          => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:10240'],

@@ -140,10 +140,12 @@ const groups = computed<GuestGroup[]>(() => {
   });
 });
 
-// Check if any contiguous range exceeds 2 hours
+const guestMaxHours = computed(() => props.hub?.guest_max_hours ?? 2);
+
+// Check if any contiguous range exceeds the hub's guest max hours
 const hasOversizedRange = computed(() =>
   groups.value.some((g) =>
-    g.ranges.some((r) => (r.end.getTime() - r.start.getTime()) > 2 * 3_600_000)
+    g.ranges.some((r) => (r.end.getTime() - r.start.getTime()) > guestMaxHours.value * 3_600_000)
   )
 );
 
@@ -293,7 +295,7 @@ function handleClose() {
         variant="soft"
         icon="i-heroicons-exclamation-triangle"
         title="Selection too long"
-        description="Guest bookings are limited to a maximum of 2 hours per contiguous time range. Please adjust your selection."
+        :description="`Guest bookings are limited to a maximum of ${guestMaxHours} hour${guestMaxHours !== 1 ? 's' : ''} per contiguous time range. Please adjust your selection.`"
         class="mb-4"
       />
 
@@ -366,18 +368,6 @@ function handleClose() {
             :title="sendError"
           />
         </div>
-
-        <div class="mt-5 flex justify-end gap-2">
-          <UButton color="neutral" variant="ghost" @click="handleClose">Cancel</UButton>
-          <UButton
-            color="primary"
-            :loading="isSendingCode"
-            :disabled="!guestName || !email || !guestPhone || hasOversizedRange || !selectedPaymentMethod"
-            @click="handleSendCode"
-          >
-            Send Verification Code
-          </UButton>
-        </div>
       </template>
 
       <!-- ── Step 2: OTP entry ─────────────────────────────────── -->
@@ -432,8 +422,23 @@ function handleClose() {
             :title="bookingError"
           />
         </div>
+      </template>
+    </template>
 
-        <div class="mt-5 flex justify-end gap-2">
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <template v-if="step === 'details'">
+          <UButton color="neutral" variant="ghost" @click="handleClose">Cancel</UButton>
+          <UButton
+            color="primary"
+            :loading="isSendingCode"
+            :disabled="!guestName || !email || !guestPhone || hasOversizedRange || !selectedPaymentMethod"
+            @click="handleSendCode"
+          >
+            Send Verification Code
+          </UButton>
+        </template>
+        <template v-else>
           <UButton color="neutral" variant="ghost" @click="handleClose">Cancel</UButton>
           <UButton
             color="primary"
@@ -443,8 +448,8 @@ function handleClose() {
           >
             Verify &amp; Book
           </UButton>
-        </div>
-      </template>
+        </template>
+      </div>
     </template>
   </UModal>
 

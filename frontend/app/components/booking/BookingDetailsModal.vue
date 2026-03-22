@@ -316,17 +316,11 @@ const calendarDate = computed({
             <h4 class="mb-2 text-sm font-medium text-[#0f1728]">
               Receipt Image
             </h4>
-            <a
-              :href="booking.receipt_image_url"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <img
-                :src="booking.receipt_image_url"
-                alt="Receipt"
-                class="max-h-64 w-full rounded-lg object-contain bg-gray-50 border border-[#dbe4ef]"
-              />
-            </a>
+            <AppImageViewer
+              :src="booking.receipt_image_url"
+              alt="Receipt"
+              image-class="max-h-64 w-full rounded-lg object-contain bg-gray-50 border border-[#dbe4ef]"
+            />
           </div>
 
           <!-- Confirm / Reject alert -->

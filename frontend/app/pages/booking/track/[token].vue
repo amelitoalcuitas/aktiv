@@ -40,6 +40,7 @@ const isEnded = computed(() => {
 const canUpload = computed(
   () =>
     booking.value?.status === 'pending_payment' &&
+    booking.value?.payment_method !== 'pay_on_site' &&
     !isExpired.value &&
     !isEnded.value
 );
@@ -308,6 +309,19 @@ const statusConfig: Record<
               </table>
             </div>
 
+            <!-- QR code -->
+            <div class="flex flex-col items-center py-2">
+              <p class="mb-2 text-xs text-[#64748b]">Scan at the venue</p>
+              <div class="rounded-xl border border-[#dbe4ef] bg-white p-3">
+                <img
+                  :src="`/api/bookings/${booking.booking_code}/qr`"
+                  alt="Booking QR code"
+                  width="160"
+                  height="160"
+                />
+              </div>
+            </div>
+
             <!-- Ended banner -->
             <div
               v-if="
@@ -323,7 +337,9 @@ const statusConfig: Record<
             <!-- pending_payment + rejection note -->
             <div
               v-if="
-                booking.status === 'pending_payment' && booking.payment_note
+                booking.status === 'pending_payment' &&
+                booking.payment_note &&
+                booking.payment_method !== 'pay_on_site'
               "
               class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
             >
@@ -461,12 +477,27 @@ const statusConfig: Record<
               </UButton>
             </div>
 
+            <!-- pay_on_site pending: show venue instruction -->
+            <div
+              v-if="
+                booking.status === 'pending_payment' &&
+                booking.payment_method === 'pay_on_site'
+              "
+              class="rounded-lg border border-[#dbe4ef] bg-[#f9fdf2] px-3 py-2 text-sm text-[#64748b]"
+            >
+              <p class="font-medium text-[#0f1728]">Pay at the venue</p>
+              <p class="mt-0.5">
+                Show your booking code at the venue to complete payment.
+              </p>
+            </div>
+
             <!-- Expired upload state -->
             <div
               v-if="
                 booking.status === 'pending_payment' &&
                 (isExpired || isEnded) &&
-                !canUpload
+                !canUpload &&
+                booking.payment_method !== 'pay_on_site'
               "
               class="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
             >

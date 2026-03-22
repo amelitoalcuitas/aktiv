@@ -91,7 +91,7 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_BUCKET=aktiv-media
       - AWS_ENDPOINT=http://minio:9000
-      - AWS_URL=http://localhost:9000/aktiv-media
+      - AWS_URL=http://localhost:8080/minio/aktiv-media
       - AWS_USE_PATH_STYLE_ENDPOINT=true
     expose:
       - "9000"
@@ -185,7 +185,7 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_BUCKET=aktiv-media
       - AWS_ENDPOINT=http://minio:9000
-      - AWS_URL=http://localhost:9000/aktiv-media
+      - AWS_URL=http://localhost:8080/minio/aktiv-media
       - AWS_USE_PATH_STYLE_ENDPOINT=true
     command: php artisan queue:work --sleep=3 --tries=3
     depends_on:
@@ -238,7 +238,7 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_BUCKET=aktiv-media
       - AWS_ENDPOINT=http://minio:9000
-      - AWS_URL=http://localhost:9000/aktiv-media
+      - AWS_URL=http://localhost:8080/minio/aktiv-media
       - AWS_USE_PATH_STYLE_ENDPOINT=true
     command: php artisan schedule:work
     depends_on:

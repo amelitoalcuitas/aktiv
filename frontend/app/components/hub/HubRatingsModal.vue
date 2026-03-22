@@ -126,7 +126,7 @@ function relativeTime(iso: string): string {
 </script>
 
 <template>
-  <UModal v-model:open="isOpen" title="Ratings & Reviews" :ui="{ body: 'p-0' }">
+  <AppModal v-model:open="isOpen" title="Ratings & Reviews" :ui="{ body: 'p-0' }">
     <template #body>
       <div
         class="flex max-h-[75vh] flex-col overflow-y-auto"
@@ -291,5 +291,5 @@ function relativeTime(iso: string): string {
         </div>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

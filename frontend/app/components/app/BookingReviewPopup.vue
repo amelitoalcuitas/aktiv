@@ -60,7 +60,7 @@ async function handleSkip() {
 </script>
 
 <template>
-  <UModal v-model:open="isOpen" :dismissible="false" title="How was your experience?">
+  <AppModal v-model:open="isOpen" :dismissible="false" title="How was your experience?">
     <template #body>
       <div class="space-y-4">
         <!-- Hub info -->
@@ -132,5 +132,5 @@ async function handleSkip() {
         </UButton>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

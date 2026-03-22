@@ -210,7 +210,7 @@ async function handleConfirm() {
 </script>
 
 <template>
-  <UModal
+  <AppModal
     v-model:open="isOpen"
     :title="court?.name ?? 'Book a Court'"
     :ui="{ content: 'max-w-lg' }"
@@ -354,10 +354,10 @@ async function handleConfirm() {
         />
       </div>
 
-      <!-- Footer actions -->
-      <div
-        class="mt-6 flex justify-end gap-2 border-t border-[var(--aktiv-border)] pt-4"
-      >
+    </template>
+
+    <template #footer>
+      <div class="flex justify-end gap-2">
         <UButton color="neutral" variant="ghost" @click="isOpen = false">
           Cancel
         </UButton>
@@ -375,5 +375,5 @@ async function handleConfirm() {
         </UButton>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

@@ -281,7 +281,7 @@ function handleClose() {
 </script>
 
 <template>
-  <UModal
+  <AppModal
     :open="open"
     title="Book as Guest"
     :ui="{ content: 'max-w-lg' }"
@@ -451,7 +451,7 @@ function handleClose() {
         </template>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 
   <BookingQrCodeModal
     v-model:open="isQrModalOpen"

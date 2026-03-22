@@ -81,7 +81,7 @@ function formatDate(iso: string) {
 </script>
 
 <template>
-  <UModal
+  <AppModal
     :open="open"
     @update:open="emit('update:open', $event)"
     :ui="{ content: 'sm:max-w-sm' }"
@@ -170,7 +170,8 @@ function formatDate(iso: string) {
               Download
             </UButton>
             <UButton
-              class="flex-1 bg-[#004e89] hover:bg-[#003d6b]"
+              color="primary"
+              class="flex-1"
               block
               @click="emit('update:open', false)"
             >
@@ -180,5 +181,5 @@ function formatDate(iso: string) {
         </div>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

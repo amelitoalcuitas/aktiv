@@ -161,7 +161,7 @@ function formatRange(start: string, end: string): string {
 </script>
 
 <template>
-  <UModal v-model:open="isOpen" title="Upload Payment Receipt">
+  <AppModal v-model:open="isOpen" title="Upload Payment Receipt">
     <template #body>
       <div class="space-y-4">
         <!-- Booking summary -->
@@ -273,7 +273,7 @@ function formatRange(start: string, end: string): string {
         </UButton>
         <UButton
           v-if="!isExpired"
-          class="bg-[#004e89] hover:bg-[#003d6b]"
+          color="primary"
           :disabled="!selectedFile || !!fileError"
           :loading="uploading"
           icon="i-heroicons-arrow-up-tray"
@@ -283,5 +283,5 @@ function formatRange(start: string, end: string): string {
         </UButton>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

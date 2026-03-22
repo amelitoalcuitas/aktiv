@@ -211,7 +211,7 @@ const statusLabels: Record<string, string> = {
 </script>
 
 <template>
-  <UModal
+  <AppModal
     :open="open"
     @update:open="emit('update:open', $event)"
     :ui="{ width: 'sm:max-w-md' }"
@@ -346,7 +346,8 @@ const statusLabels: Record<string, string> = {
               Reject
             </UButton>
             <UButton
-              class="flex-1 bg-[#004e89] hover:bg-[#003d6b]"
+              color="primary"
+              class="flex-1"
               :loading="isActing"
               block
               :disabled="
@@ -440,7 +441,7 @@ const statusLabels: Record<string, string> = {
               @keyup.enter="submitManual"
             />
             <UButton
-              class="bg-[#004e89] hover:bg-[#003d6b]"
+              color="primary"
               :loading="isVerifying"
               :disabled="!manualCode.trim()"
               block
@@ -466,5 +467,5 @@ const statusLabels: Record<string, string> = {
         </div>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

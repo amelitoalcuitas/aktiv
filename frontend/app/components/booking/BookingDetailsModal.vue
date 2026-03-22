@@ -196,7 +196,7 @@ const calendarDate = computed({
 </script>
 
 <template>
-  <UModal v-model:open="isOpen" title="Booking Details & Edit">
+  <AppModal v-model:open="isOpen" title="Booking Details & Edit">
     <template #body>
       <div v-if="booking" class="space-y-4">
         <!-- Persistent Read-Only Status & Info -->
@@ -388,5 +388,5 @@ const calendarDate = computed({
         </div>
       </div>
     </template>
-  </UModal>
+  </AppModal>
 </template>

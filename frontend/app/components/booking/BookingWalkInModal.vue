@@ -294,10 +294,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 </script>
 
 <template>
-  <UModal
+  <AppModal
     v-model:open="isOpen"
     title="Add Walk-in Booking"
     :ui="{ content: 'sm:max-w-xl' }"
+    confirm="Confirm Walk-in"
+    :confirm-loading="walkInLoading"
+    @confirm="formRef?.submit()"
   >
     <template #body>
       <UForm
@@ -461,19 +464,5 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         <button type="submit" class="hidden" />
       </UForm>
     </template>
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton color="neutral" variant="outline" @click="isOpen = false">
-          Cancel
-        </UButton>
-        <UButton
-          class="bg-[#004e89] hover:bg-[#003d6b]"
-          :loading="walkInLoading"
-          @click="formRef?.submit()"
-        >
-          Confirm Walk-in
-        </UButton>
-      </div>
-    </template>
-  </UModal>
+  </AppModal>
 </template>

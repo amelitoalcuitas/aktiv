@@ -540,10 +540,14 @@ async function submitBooking() {
   />
 
   <!-- ── Confirmation dialog ──────────────────────────────────── -->
-  <UModal
+  <AppModal
     v-model:open="isConfirmOpen"
     title="Confirm Booking"
     :ui="{ content: 'max-w-lg' }"
+    confirm="Confirm Booking"
+    :confirm-loading="isSubmitting"
+    :confirm-disabled="multiplePaymentOptions && !selectedPaymentMethod"
+    @confirm="submitBooking"
   >
     <template #body>
       <!-- Per-group summary -->
@@ -643,25 +647,7 @@ async function submitBooking() {
         class="mt-3"
       />
 
-      <!-- Actions -->
-      <div class="mt-5 flex justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          :disabled="isSubmitting"
-          @click="isConfirmOpen = false"
-        >
-          Cancel
-        </UButton>
-        <UButton
-          color="primary"
-          :loading="isSubmitting"
-          :disabled="multiplePaymentOptions && !selectedPaymentMethod"
-          @click="submitBooking"
-        >
-          Confirm Booking
-        </UButton>
-      </div>
     </template>
-  </UModal>
+
+  </AppModal>
 </template>

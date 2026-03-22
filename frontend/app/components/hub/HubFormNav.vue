@@ -82,7 +82,7 @@ function scrollToSection(id: string) {
   </button>
 
   <!-- Mobile: Section modal -->
-  <UModal v-model:open="mobileNavOpen" title="Jump to Section">
+  <AppModal v-model:open="mobileNavOpen" title="Jump to Section">
     <template #body>
       <ul class="divide-y divide-[var(--aktiv-border)]">
         <li v-for="section in sections" :key="section.id">
@@ -109,5 +109,5 @@ function scrollToSection(id: string) {
         </li>
       </ul>
     </template>
-  </UModal>
+  </AppModal>
 </template>

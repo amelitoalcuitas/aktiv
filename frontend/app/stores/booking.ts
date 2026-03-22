@@ -33,7 +33,7 @@ export const useUserBookingStore = defineStore('userBooking', () => {
     const channel = echoInstance.private(`App.Models.User.${userId}`);
 
     channel.listen('.notification.new', (payload: AppNotification) => {
-      const bookingTypes = ['booking_confirmed', 'booking_rejected', 'booking_cancelled', 'booking_created', 'receipt_uploaded'];
+      const bookingTypes = ['booking_confirmed', 'booking_rejected', 'booking_cancelled', 'booking_cancelled_by_guest', 'booking_created', 'receipt_uploaded'];
       if (bookingTypes.includes(payload.activity_type)) {
         refresh();
         lastBookingEvent.value++;

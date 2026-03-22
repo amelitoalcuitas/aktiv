@@ -2,7 +2,6 @@
 import type { Hub, Court } from '~/types/hub';
 import type { BookingDetail, BookingStatus } from '~/types/booking';
 import { useHubStore } from '~/stores/hub';
-import { useNotificationStore } from '~/stores/notifications';
 import { useHubs } from '~/composables/useHubs';
 import { useOwnerBookings } from '~/composables/useOwnerBookings';
 
@@ -217,20 +216,31 @@ watch(viewMode, async () => {
 });
 
 // ── Auto-reload on real-time booking events ────────────────────
-const notificationStore = useNotificationStore();
+const { $echo } = useNuxtApp();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let hubChannel: any = null;
 
-watch(
-  () => notificationStore.items[0],
-  (latest) => {
-    if (!latest || !selectedHubId.value) return;
-    if (
-      latest.data.hub_id === selectedHubId.value &&
-      ['booking_created', 'receipt_uploaded'].includes(latest.data.activity_type)
-    ) {
-      loadBookings();
-    }
+function subscribeToHubChannel(hubId: number) {
+  if (hubChannel) {
+    ($echo as any).leaveChannel(`hub.${hubId}`);
+    hubChannel = null;
   }
-);
+  hubChannel = ($echo as any).channel(`hub.${hubId}`);
+  hubChannel.listen('.booking.slot.updated', () => {
+    loadBookings();
+  });
+}
+
+watch(selectedHubId, (id) => {
+  if (id) subscribeToHubChannel(id);
+});
+
+onUnmounted(() => {
+  if (selectedHubId.value) {
+    ($echo as any).leaveChannel(`hub.${selectedHubId.value}`);
+    hubChannel = null;
+  }
+});
 
 // ── Confirm ───────────────────────────────────────────────────
 

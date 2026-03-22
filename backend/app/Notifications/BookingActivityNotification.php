@@ -27,7 +27,7 @@ class BookingActivityNotification extends Notification
             $channels[] = 'database';
         }
 
-        $emailable = ['receipt_uploaded', 'booking_confirmed', 'booking_rejected', 'booking_cancelled'];
+        $emailable = ['receipt_uploaded', 'booking_confirmed', 'booking_rejected', 'booking_cancelled', 'booking_cancelled_by_guest'];
         if (in_array($this->activityType, $emailable) && ($notifiable->email_notifications_enabled ?? true)) {
             $channels[] = 'mail';
         }
@@ -43,16 +43,19 @@ class BookingActivityNotification extends Notification
         $frontendUrl = config('app.frontend_url');
 
         $subject = match ($this->activityType) {
-            'receipt_uploaded'  => "Receipt Uploaded – {$booking->booking_code}",
-            'booking_confirmed' => "Booking Confirmed – {$booking->booking_code}",
-            'booking_rejected'  => "Receipt Rejected – {$booking->booking_code}",
-            'booking_cancelled' => "Booking Cancelled – {$booking->booking_code}",
-            default             => "Booking Update – {$booking->booking_code}",
+            'receipt_uploaded'           => "Receipt Uploaded – {$booking->booking_code}",
+            'booking_confirmed'          => "Booking Confirmed – {$booking->booking_code}",
+            'booking_rejected'           => "Receipt Rejected – {$booking->booking_code}",
+            'booking_cancelled',
+            'booking_cancelled_by_guest' => "Booking Cancelled – {$booking->booking_code}",
+            default                      => "Booking Update – {$booking->booking_code}",
         };
 
-        $view = $this->activityType === 'receipt_uploaded'
-            ? 'emails.receipt-uploaded-notification'
-            : 'emails.booking-status-update';
+        $view = match ($this->activityType) {
+            'receipt_uploaded'           => 'emails.receipt-uploaded-notification',
+            'booking_cancelled_by_guest' => 'emails.guest-cancelled-booking-notification',
+            default                      => 'emails.booking-status-update',
+        };
 
         return (new MailMessage)
             ->subject($subject)
@@ -75,12 +78,13 @@ class BookingActivityNotification extends Notification
         $hubId = $booking->court->hub_id;
 
         $message = match ($this->activityType) {
-            'booking_created'    => "{$customerName} made a new booking on {$courtName}.",
-            'receipt_uploaded'   => "{$customerName} uploaded a payment receipt for their booking on {$courtName}.",
-            'booking_confirmed'  => "Your booking on {$courtName} at {$hubName} has been confirmed.",
-            'booking_rejected'   => "Your booking on {$courtName} at {$hubName} was rejected. Please re-upload your receipt.",
-            'booking_cancelled'  => "Your booking on {$courtName} at {$hubName} has been cancelled.",
-            default              => "Your booking on {$courtName} has been updated.",
+            'booking_created'             => "{$customerName} made a new booking on {$courtName}.",
+            'receipt_uploaded'            => "{$customerName} uploaded a payment receipt for their booking on {$courtName}.",
+            'booking_cancelled_by_guest'  => "{$customerName} cancelled their booking on {$courtName} at {$hubName}.",
+            'booking_confirmed'           => "Your booking on {$courtName} at {$hubName} has been confirmed.",
+            'booking_rejected'            => "Your booking on {$courtName} at {$hubName} was rejected. Please re-upload your receipt.",
+            'booking_cancelled'           => "Your booking on {$courtName} at {$hubName} has been cancelled.",
+            default                       => "Your booking on {$courtName} has been updated.",
         };
 
         return [

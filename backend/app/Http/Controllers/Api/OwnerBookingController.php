@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\RejectBookingRequest;
 use App\Http\Requests\Booking\WalkInBookingRequest;
 use App\Mail\BookingStatusUpdate;
+use App\Mail\OwnerCancelledBookingNotification;
 use App\Mail\WalkInBookingConfirmation;
 use App\Models\Booking;
 use App\Models\Court;
@@ -251,6 +252,10 @@ class OwnerBookingController extends Controller
                 status: $booking->status,
             ));
         }
+
+        // Always notify the hub owner so they have a record of the cancellation
+        Mail::to($request->user()->email)
+            ->send(new OwnerCancelledBookingNotification($booking, $hub));
 
         return response()->json([
             'message' => 'Booking cancelled.',

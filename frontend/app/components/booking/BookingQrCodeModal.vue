@@ -87,7 +87,7 @@ function formatDate(iso: string) {
     :ui="{ content: 'sm:max-w-sm' }"
   >
     <template #content>
-      <div class="p-6">
+      <div class="max-h-[90vh] overflow-y-auto p-6">
         <!-- Header -->
         <div class="mb-5 text-center">
           <div

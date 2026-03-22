@@ -141,7 +141,7 @@
         @else
             {{-- ── Cancelled ───────────────────────────────────────────── --}}
             <div class="header">
-                <div class="icon icon-cancelled">✕</div>
+                <div class="icon icon-cancelled">❌</div>
                 <h1>Booking Cancelled</h1>
                 <p class="subtitle">Your booking at <strong>{{ $hub->name }}</strong> has been cancelled.</p>
             </div>

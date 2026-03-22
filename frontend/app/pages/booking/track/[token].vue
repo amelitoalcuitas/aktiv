@@ -70,22 +70,77 @@ function startCountdown() {
 
 watch(booking, (b) => {
   clearInterval(countdownTimer);
-  if (b?.expires_at && b.status === 'pending_payment') startCountdown();
+  if (b?.expires_at && b.status === 'pending_payment' && !isEnded.value) startCountdown();
 });
 
 onUnmounted(() => clearInterval(countdownTimer));
 
-const countdownLabel = computed(() => {
-  if (secondsLeft.value === null || !canUpload.value) return null;
-  if (secondsLeft.value <= 0) return 'Expired';
-  const h = Math.floor(secondsLeft.value / 3600);
-  const m = Math.floor((secondsLeft.value % 3600) / 60);
-  const s = secondsLeft.value % 60;
-  const parts = [];
+// ── Real-time slot updates (public hub channel, no auth needed) ──
+const { $echo } = useNuxtApp();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let hubChannel: any = null;
+let subscribedHubId: string | null = null;
+
+watch(
+  booking,
+  (b) => {
+    if (!b || hubChannel) return;
+    subscribedHubId = b.hub.id;
+    hubChannel = ($echo as any).channel(`hub.${subscribedHubId}`);
+    hubChannel.listen('.booking.slot.updated', async (payload: { court_id: string }) => {
+      if (payload.court_id !== b.court.id) return;
+      try {
+        booking.value = await fetchGuestBooking(token);
+      } catch {
+        // ignore
+      }
+    });
+  },
+  { immediate: true }
+);
+
+onUnmounted(() => {
+  if (subscribedHubId) {
+    ($echo as any).leaveChannel(`hub.${subscribedHubId}`);
+    hubChannel = null;
+    subscribedHubId = null;
+  }
+});
+
+function formatSeconds(secs: number): string {
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  const parts: string[] = [];
   if (h > 0) parts.push(`${h}h`);
   if (m > 0 || h > 0) parts.push(`${m}m`);
   parts.push(`${s}s`);
-  return `${parts.join(' ')} remaining`;
+  return parts.join(' ');
+}
+
+const countdownLabel = computed(() => {
+  if (secondsLeft.value === null || !canUpload.value) return null;
+  if (secondsLeft.value <= 0) return 'Expired';
+  return `${formatSeconds(secondsLeft.value)} remaining`;
+});
+
+const payOnSiteCountdownClass = computed(() => {
+  const s = secondsLeft.value;
+  if (s === null) return 'bg-green-50 text-green-700';
+  if (s < 20 * 60) return 'bg-red-50 text-red-700';
+  if (s < 45 * 60) return 'bg-amber-50 text-amber-700';
+  return 'bg-green-50 text-green-700';
+});
+
+const payOnSiteCountdownLabel = computed(() => {
+  if (
+    booking.value?.payment_method !== 'pay_on_site' ||
+    booking.value?.status !== 'pending_payment' ||
+    secondsLeft.value === null
+  )
+    return null;
+  if (secondsLeft.value <= 0) return 'Booking time has passed';
+  return `${formatSeconds(secondsLeft.value)} until your booking starts`;
 });
 
 // ── Receipt upload ────────────────────────────────────────────
@@ -309,6 +364,75 @@ const statusConfig: Record<
               </table>
             </div>
 
+            <!-- pay_on_site pending: show venue instruction -->
+            <div
+              v-if="
+                booking.status === 'pending_payment' &&
+                booking.payment_method === 'pay_on_site'
+              "
+              class="space-y-3"
+            >
+              <!-- Countdown -->
+              <div
+                v-if="payOnSiteCountdownLabel"
+                :class="[
+                  'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium',
+                  payOnSiteCountdownClass
+                ]"
+              >
+                <UIcon
+                  name="i-heroicons-clock"
+                  class="h-4 w-4 flex-shrink-0"
+                />
+                <span>{{ payOnSiteCountdownLabel }}</span>
+              </div>
+
+              <!-- Pay at venue note -->
+              <div
+                class="rounded-lg border border-[#dbe4ef] bg-[#f9fdf2] px-3 py-2 text-sm text-[#64748b]"
+              >
+                <p class="font-medium text-[#0f1728]">Pay at the venue</p>
+                <p class="mt-0.5">
+                  Show your booking code at the venue to complete payment.
+                </p>
+              </div>
+
+              <!-- Running late notice -->
+              <div
+                class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
+              >
+                <p class="font-medium">Running late?</p>
+                <p class="mt-0.5">
+                  Please contact the hub directly so they can hold your slot.
+                </p>
+                <div
+                  v-if="booking.hub.phones.length || booking.hub.websites.length"
+                  class="mt-2 space-y-1"
+                >
+                  <a
+                    v-for="phone in booking.hub.phones"
+                    :key="phone"
+                    :href="`tel:${phone}`"
+                    class="flex items-center gap-1.5 font-medium underline"
+                  >
+                    <UIcon name="i-heroicons-phone" class="h-3.5 w-3.5" />
+                    {{ phone }}
+                  </a>
+                  <a
+                    v-for="site in booking.hub.websites"
+                    :key="site"
+                    :href="site"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="flex items-center gap-1.5 font-medium underline"
+                  >
+                    <UIcon name="i-heroicons-globe-alt" class="h-3.5 w-3.5" />
+                    {{ site }}
+                  </a>
+                </div>
+              </div>
+            </div>
+
             <!-- QR code -->
             <div class="flex flex-col items-center py-2">
               <p class="mb-2 text-xs text-[#64748b]">Scan at the venue</p>
@@ -475,20 +599,6 @@ const statusConfig: Record<
               >
                 Upload Receipt
               </UButton>
-            </div>
-
-            <!-- pay_on_site pending: show venue instruction -->
-            <div
-              v-if="
-                booking.status === 'pending_payment' &&
-                booking.payment_method === 'pay_on_site'
-              "
-              class="rounded-lg border border-[#dbe4ef] bg-[#f9fdf2] px-3 py-2 text-sm text-[#64748b]"
-            >
-              <p class="font-medium text-[#0f1728]">Pay at the venue</p>
-              <p class="mt-0.5">
-                Show your booking code at the venue to complete payment.
-              </p>
             </div>
 
             <!-- Expired upload state -->

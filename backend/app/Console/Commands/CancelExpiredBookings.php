@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Events\BookingSlotUpdated;
 use App\Models\Booking;
 use App\Models\GuestBookingPenalty;
 use App\Models\User;
@@ -18,6 +19,7 @@ class CancelExpiredBookings extends Command
         $expired = Booking::where('status', 'pending_payment')
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', now())
+            ->with('court')
             ->get();
 
         if ($expired->isEmpty()) {
@@ -29,6 +31,15 @@ class CancelExpiredBookings extends Command
         Booking::whereIn('id', $ids)->update(['status' => 'cancelled', 'cancelled_by' => 'system']);
 
         $this->info("Cancelled {$expired->count()} expired booking(s).");
+
+        // Broadcast slot updates so scheduler grids update in real time
+        foreach ($expired as $booking) {
+            broadcast(new BookingSlotUpdated(
+                hubId: $booking->court->hub_id,
+                courtId: $booking->court_id,
+                status: 'cancelled',
+            ));
+        }
 
         // Apply strikes to registered users
         $userIds = $expired->whereNotNull('booked_by')->pluck('booked_by')->unique();

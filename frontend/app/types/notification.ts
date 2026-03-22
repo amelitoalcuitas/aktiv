@@ -3,7 +3,8 @@ export type NotificationActivityType =
   | 'receipt_uploaded'
   | 'booking_confirmed'
   | 'booking_rejected'
-  | 'booking_cancelled';
+  | 'booking_cancelled'
+  | 'booking_cancelled_by_guest';
 
 export interface NotificationData {
   activity_type: NotificationActivityType;

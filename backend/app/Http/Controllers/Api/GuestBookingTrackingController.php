@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Concerns\SendsBookingNotification;
 use App\Http\Controllers\Controller;
+use App\Mail\BookingStatusUpdate;
 use App\Models\Booking;
 use App\Services\ImageUploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class GuestBookingTrackingController extends Controller
 {
@@ -19,7 +21,7 @@ class GuestBookingTrackingController extends Controller
     public function show(string $token): JsonResponse
     {
         $booking = Booking::where('guest_tracking_token', $token)
-            ->with(['court.hub', 'court.sports'])
+            ->with(['court.hub.contactNumbers', 'court.hub.websites', 'court.sports'])
             ->firstOrFail();
 
         return response()->json([
@@ -36,7 +38,7 @@ class GuestBookingTrackingController extends Controller
         ImageUploadService $imageUploadService
     ): JsonResponse {
         $booking = Booking::where('guest_tracking_token', $token)
-            ->with(['court.hub'])
+            ->with(['court.hub.contactNumbers', 'court.hub.websites'])
             ->firstOrFail();
 
         $request->validate([
@@ -65,7 +67,7 @@ class GuestBookingTrackingController extends Controller
 
         return response()->json([
             'message' => 'Receipt uploaded. The hub owner will review your payment.',
-            'data'    => $this->formatBooking($booking->fresh(['court.hub', 'court.sports'])),
+            'data'    => $this->formatBooking($booking->fresh(['court.hub.contactNumbers', 'court.hub.websites', 'court.sports'])),
         ]);
     }
 
@@ -75,7 +77,7 @@ class GuestBookingTrackingController extends Controller
     public function cancel(string $token): JsonResponse
     {
         $booking = Booking::where('guest_tracking_token', $token)
-            ->with(['court.hub'])
+            ->with(['court.hub.contactNumbers', 'court.hub.websites'])
             ->firstOrFail();
 
         if (in_array($booking->status, ['cancelled', 'completed'])) {
@@ -95,9 +97,22 @@ class GuestBookingTrackingController extends Controller
             'cancelled_by' => 'user',
         ]);
 
+        $hub = $booking->court->hub;
+
+        // Email the guest a cancellation confirmation
+        if ($booking->guest_email) {
+            Mail::to($booking->guest_email)->send(new BookingStatusUpdate($booking, $hub, 'booking_cancelled'));
+        }
+
+        // Notify the hub owner
+        $owner = $hub->owner()->first();
+        if ($owner) {
+            $this->notifyBookingActivity($owner, $booking, 'booking_cancelled_by_guest');
+        }
+
         return response()->json([
             'message' => 'Booking cancelled.',
-            'data'    => $this->formatBooking($booking->fresh(['court.hub', 'court.sports'])),
+            'data'    => $this->formatBooking($booking->fresh(['court.hub.contactNumbers', 'court.hub.websites', 'court.sports'])),
         ]);
     }
 
@@ -124,9 +139,11 @@ class GuestBookingTrackingController extends Controller
                 'name' => $court->name,
             ],
             'hub' => [
-                'id'   => $hub->id,
-                'name' => $hub->name,
-                'slug' => $hub->slug,
+                'id'      => $hub->id,
+                'name'    => $hub->name,
+                'slug'    => $hub->slug,
+                'phones'  => $hub->contactNumbers->pluck('number')->values(),
+                'websites' => $hub->websites->pluck('url')->values(),
             ],
         ];
     }

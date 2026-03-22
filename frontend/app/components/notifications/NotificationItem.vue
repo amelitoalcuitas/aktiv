@@ -16,7 +16,8 @@ const iconMap: Record<string, string> = {
   receipt_uploaded: 'i-heroicons-document-arrow-up',
   booking_confirmed: 'i-heroicons-check-circle',
   booking_rejected: 'i-heroicons-x-circle',
-  booking_cancelled: 'i-heroicons-no-symbol'
+  booking_cancelled: 'i-heroicons-no-symbol',
+  booking_cancelled_by_guest: 'i-heroicons-no-symbol'
 };
 
 const iconColorMap: Record<string, string> = {
@@ -24,7 +25,8 @@ const iconColorMap: Record<string, string> = {
   receipt_uploaded: 'text-amber-500',
   booking_confirmed: 'text-green-500',
   booking_rejected: 'text-red-500',
-  booking_cancelled: 'text-slate-400'
+  booking_cancelled: 'text-slate-400',
+  booking_cancelled_by_guest: 'text-slate-400'
 };
 
 const icon = computed(

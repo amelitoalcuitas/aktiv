@@ -479,7 +479,16 @@ function canUploadReceipt(booking: UserBooking): boolean {
   </div>
 
   <!-- Cancel confirm modal -->
-  <UModal v-model:open="cancelConfirmOpen" title="Cancel Booking">
+  <AppModal
+    v-model:open="cancelConfirmOpen"
+    title="Cancel Booking"
+    cancel="Keep Booking"
+    cancel-variant="outline"
+    confirm="Cancel Booking"
+    confirm-color="error"
+    :confirm-loading="cancelling"
+    @confirm="submitCancel"
+  >
     <template #body>
       <p class="text-sm text-[var(--aktiv-ink)]">
         Are you sure you want to cancel this booking?
@@ -499,21 +508,7 @@ function canUploadReceipt(booking: UserBooking): boolean {
         This action cannot be undone.
       </p>
     </template>
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="outline"
-          @click="cancelConfirmOpen = false"
-        >
-          Keep Booking
-        </UButton>
-        <UButton color="error" :loading="cancelling" @click="submitCancel">
-          Cancel Booking
-        </UButton>
-      </div>
-    </template>
-  </UModal>
+  </AppModal>
 
   <!-- Receipt upload modal (reused scheduler component) -->
   <SchedulerReceiptUploadModal

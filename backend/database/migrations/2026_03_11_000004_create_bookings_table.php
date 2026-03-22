@@ -9,23 +9,23 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('bookings', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('court_id')->constrained('courts')->cascadeOnDelete();
-            $table->foreignId('booked_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('court_id')->constrained('courts')->cascadeOnDelete();
+            $table->foreignUuid('booked_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('sport');
             $table->timestamp('start_time');
             $table->timestamp('end_time');
             $table->enum('session_type', ['private', 'open_play'])->default('private');
             $table->enum('status', ['pending_payment', 'payment_sent', 'confirmed', 'cancelled', 'completed'])->default('pending_payment');
             $table->enum('booking_source', ['self_booked', 'owner_added'])->default('self_booked');
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('guest_name')->nullable();
             $table->string('guest_phone')->nullable();
             $table->decimal('total_price', 10, 2)->nullable();
             $table->string('receipt_image_url')->nullable();
             $table->timestamp('receipt_uploaded_at')->nullable();
             $table->text('payment_note')->nullable();
-            $table->foreignId('payment_confirmed_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignUuid('payment_confirmed_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('payment_confirmed_at')->nullable();
             $table->timestamp('expires_at')->nullable();
             $table->enum('cancelled_by', ['user', 'owner', 'system'])->nullable();

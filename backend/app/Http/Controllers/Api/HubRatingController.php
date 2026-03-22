@@ -62,7 +62,7 @@ class HubRatingController extends Controller
         $validated = $request->validate([
             'rating'     => ['required', 'integer', 'min:1', 'max:5'],
             'comment'    => ['nullable', 'string', 'max:1000'],
-            'booking_id' => ['nullable', 'integer', 'exists:bookings,id'],
+            'booking_id' => ['nullable', 'uuid', 'exists:bookings,id'],
         ]);
 
         if (isset($validated['booking_id'])) {

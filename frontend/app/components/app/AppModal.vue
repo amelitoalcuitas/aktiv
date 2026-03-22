@@ -10,12 +10,23 @@ const props = withDefaults(
     ui?: Record<string, any>;
     confirm?: string;
     cancel?: string;
+    confirmColor?:
+      | 'primary'
+      | 'neutral'
+      | 'secondary'
+      | 'success'
+      | 'info'
+      | 'warning'
+      | 'error';
     confirmLoading?: boolean;
     confirmDisabled?: boolean;
+    cancelVariant?: 'ghost' | 'link' | 'solid' | 'outline' | 'soft' | 'subtle';
   }>(),
   {
     dismissible: true,
-    cancel: 'Cancel'
+    cancel: 'Cancel',
+    confirmColor: 'primary',
+    cancelVariant: 'ghost'
   }
 );
 
@@ -46,12 +57,12 @@ function onCancel() {
 
     <template v-if="slots.footer || confirm" #footer>
       <slot name="footer">
-        <div class="flex justify-end gap-2">
-          <UButton color="neutral" variant="ghost" @click="onCancel">
+        <div class="flex justify-end gap-2 w-full">
+          <UButton color="neutral" :variant="cancelVariant" @click="onCancel">
             {{ cancel }}
           </UButton>
           <UButton
-            color="primary"
+            :color="confirmColor"
             :loading="confirmLoading"
             :disabled="confirmDisabled"
             @click="emit('confirm')"

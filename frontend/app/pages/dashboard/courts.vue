@@ -60,6 +60,7 @@ async function loadCourts() {
 const isFormOpen = ref(false);
 const editingCourt = ref<Court | null>(null);
 const formLoading = ref(false);
+const courtFormEl = useTemplateRef<HTMLFormElement>('courtFormEl');
 
 const SPORT_OPTIONS = [
   { label: 'Pickleball', value: 'pickleball' },
@@ -575,13 +576,16 @@ function formatPrice(price: string) {
     </template>
 
     <!-- Court Form Modal -->
-    <UModal
+    <AppModal
       v-model:open="isFormOpen"
       :title="editingCourt ? 'Edit Court' : 'Add Court'"
       :ui="{ content: 'max-w-lg' }"
+      :confirm="editingCourt ? 'Save Changes' : 'Add Court'"
+      :confirm-loading="formLoading"
+      @confirm="courtFormEl?.requestSubmit()"
     >
       <template #body>
-        <form class="space-y-4" @submit.prevent="submitForm">
+        <form ref="courtFormEl" class="space-y-4" @submit.prevent="submitForm">
           <UFormField
             label="Court Name"
             required
@@ -717,23 +721,19 @@ function formatPrice(price: string) {
             </p>
           </UFormField>
 
-          <div class="flex justify-end gap-2 pt-2">
-            <UButton color="neutral" variant="ghost" @click="isFormOpen = false"
-              >Cancel</UButton
-            >
-            <UButton type="submit" :loading="formLoading">
-              {{ editingCourt ? 'Save Changes' : 'Add Court' }}
-            </UButton>
-          </div>
         </form>
       </template>
-    </UModal>
+    </AppModal>
 
     <!-- Delete Confirm Modal -->
-    <UModal
+    <AppModal
       v-model:open="isDeleteOpen"
       title="Delete Court"
       :ui="{ content: 'max-w-sm' }"
+      confirm="Delete"
+      confirm-color="error"
+      :confirm-loading="deleteLoading"
+      @confirm="confirmDelete"
     >
       <template #body>
         <p class="text-sm text-[#0f1728]">
@@ -741,15 +741,7 @@ function formatPrice(price: string) {
           <strong>{{ deletingCourt?.name }}</strong
           >? This cannot be undone.
         </p>
-        <div class="mt-5 flex justify-end gap-2">
-          <UButton color="neutral" variant="ghost" @click="isDeleteOpen = false"
-            >Cancel</UButton
-          >
-          <UButton color="error" :loading="deleteLoading" @click="confirmDelete"
-            >Delete</UButton
-          >
-        </div>
       </template>
-    </UModal>
+    </AppModal>
   </div>
 </template>

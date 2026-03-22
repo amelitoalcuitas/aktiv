@@ -10,8 +10,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('hub_settings', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('hub_id')->constrained()->cascadeOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('hub_id')->constrained()->cascadeOnDelete();
             $table->boolean('require_account_to_book')->default(true);
             $table->json('payment_methods')->default('["pay_on_site"]');
             $table->string('payment_qr_url')->nullable();

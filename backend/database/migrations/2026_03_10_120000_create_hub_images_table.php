@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('hub_images', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('hub_id')->constrained('hubs')->cascadeOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('hub_id')->constrained('hubs')->cascadeOnDelete();
             $table->string('storage_path');
             $table->string('url', 2048);
             $table->unsignedInteger('order')->default(0);

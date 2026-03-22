@@ -38,7 +38,7 @@ class UserBookingController extends Controller
      */
     public function pageOf(Request $request): JsonResponse
     {
-        $request->validate(['booking_id' => ['required', 'integer']]);
+        $request->validate(['booking_id' => ['required', 'uuid']]);
 
         $userId  = $request->user()->id;
         $perPage = 10;
@@ -78,7 +78,7 @@ class UserBookingController extends Controller
         // Dev shortcut: force a specific booking for testing
         if (app()->environment('local') && $request->filled('test_booking_id')) {
             $booking = Booking::query()
-                ->where('id', $request->integer('test_booking_id'))
+                ->where('id', $request->string('test_booking_id'))
                 ->where('booked_by', $userId)
                 ->whereIn('status', ['confirmed', 'completed'])
                 ->whereDoesntHave('court.hub.ratings', fn ($q) => $q->where('user_id', $userId))
@@ -109,7 +109,7 @@ class UserBookingController extends Controller
      */
     public function skipReview(Request $request): JsonResponse
     {
-        $request->validate(['booking_id' => ['required', 'integer', 'exists:bookings,id']]);
+        $request->validate(['booking_id' => ['required', 'uuid', 'exists:bookings,id']]);
 
         BookingReviewSkip::query()->firstOrCreate([
             'user_id'    => $request->user()->id,

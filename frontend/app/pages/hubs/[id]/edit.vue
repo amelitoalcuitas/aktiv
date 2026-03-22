@@ -152,10 +152,14 @@ if (!isAuthenticated.value) {
     <HubFormNav :sections="FORM_SECTIONS" />
 
     <!-- Delete Confirm Modal -->
-    <UModal
+    <AppModal
       v-model:open="isDeleteOpen"
       title="Delete Hub"
       :ui="{ content: 'max-w-sm' }"
+      confirm="Delete Hub"
+      confirm-color="error"
+      :confirm-loading="deleteLoading"
+      @confirm="confirmDelete"
     >
       <template #body>
         <p class="text-sm text-[var(--aktiv-ink)]">
@@ -163,23 +167,7 @@ if (!isAuthenticated.value) {
           <strong>{{ hubData?.name }}</strong
           >? This will permanently remove the hub and all its courts.
         </p>
-        <div class="mt-5 flex justify-end gap-2">
-          <UButton
-            color="neutral"
-            variant="ghost"
-            @click="isDeleteOpen = false"
-          >
-            Cancel
-          </UButton>
-          <UButton
-            color="error"
-            :loading="deleteLoading"
-            @click="confirmDelete"
-          >
-            Delete Hub
-          </UButton>
-        </div>
       </template>
-    </UModal>
+    </AppModal>
   </div>
 </template>

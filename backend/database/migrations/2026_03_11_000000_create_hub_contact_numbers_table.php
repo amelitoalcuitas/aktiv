@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('hub_contact_numbers', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('hub_id')->constrained('hubs')->cascadeOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('hub_id')->constrained('hubs')->cascadeOnDelete();
             $table->enum('type', ['mobile', 'landline']);
             $table->string('number', 20);
             $table->timestamps();

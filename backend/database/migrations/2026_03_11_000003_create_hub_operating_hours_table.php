@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('hub_operating_hours', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('hub_id')->constrained('hubs')->cascadeOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('hub_id')->constrained('hubs')->cascadeOnDelete();
             $table->tinyInteger('day_of_week'); // 0 = Sunday … 6 = Saturday
             $table->time('opens_at');
             $table->time('closes_at');

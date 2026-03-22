@@ -107,8 +107,8 @@ it('returns unreviewed confirmed booking from yesterday', function () {
         ->getJson('/api/user/pending-review')
         ->assertOk();
 
-    expect($response->json('booking.id'))->toBe($booking->id);
-    expect($response->json('booking.court.hub.name'))->not->toBeNull();
+    expect($response->json('bookings.0.id'))->toBe($booking->id);
+    expect($response->json('bookings.0.court.hub.name'))->not->toBeNull();
 });
 
 it('returns unreviewed completed booking from yesterday', function () {
@@ -120,7 +120,7 @@ it('returns unreviewed completed booking from yesterday', function () {
         ->getJson('/api/user/pending-review')
         ->assertOk();
 
-    expect($response->json('booking.id'))->toBe($booking->id);
+    expect($response->json('bookings.0.id'))->toBe($booking->id);
 });
 
 it('does not return another user\'s booking', function () {
@@ -156,7 +156,7 @@ it('test_booking_id shortcut returns booking bypassing time window', function ()
         ->getJson("/api/user/pending-review?test_booking_id={$booking->id}")
         ->assertOk();
 
-    expect($response->json('booking.id'))->toBe($booking->id);
+    expect($response->json('bookings.0.id'))->toBe($booking->id);
 });
 
 it('test_booking_id shortcut returns null when already rated', function () {

@@ -12,9 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('booking_review_skips', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('booking_id')->constrained()->cascadeOnDelete();
+            $table->uuid('id')->primary();
+            $table->foreignUuid('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('booking_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
             $table->unique(['user_id', 'booking_id']);
         });

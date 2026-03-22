@@ -15,12 +15,12 @@ class WalkInBookingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'court_id' => ['required', 'integer', 'exists:courts,id'],
+            'court_id' => ['required', 'uuid', 'exists:courts,id'],
 'start_time' => ['required', 'date'],
             'end_time' => ['required', 'date', 'after:start_time'],
             'session_type' => ['sometimes', Rule::in(['private', 'open_play'])],
             // Either a registered user or guest fields — not both
-            'booked_by' => ['nullable', 'integer', 'exists:users,id'],
+            'booked_by' => ['nullable', 'uuid', 'exists:users,id'],
             'guest_name' => ['required_without:booked_by', 'nullable', 'string', 'max:100'],
             'guest_phone' => ['nullable', 'string', 'max:30'],
             'guest_email' => ['nullable', 'email', 'max:255'],

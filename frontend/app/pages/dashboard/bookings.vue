@@ -792,7 +792,15 @@ function bookingDropdownItems(booking: BookingDetail) {
         </div>
     </template>
     <!-- ── Reject modal ──────────────────────────────────────────── -->
-    <UModal v-model:open="isRejectOpen" title="Reject Receipt">
+    <AppModal
+      v-model:open="isRejectOpen"
+      title="Reject Receipt"
+      cancel-variant="outline"
+      confirm="Reject Receipt"
+      confirm-color="error"
+      :confirm-loading="rejectingId !== null"
+      @confirm="submitReject"
+    >
       <template #body>
         <p class="mb-3 text-sm text-[#64748b]">
           Provide a reason so the customer knows what to re-upload.
@@ -808,28 +816,19 @@ function bookingDropdownItems(booking: BookingDetail) {
           {{ rejectError }}
         </p>
       </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            color="neutral"
-            variant="outline"
-            @click="isRejectOpen = false"
-          >
-            Cancel
-          </UButton>
-          <UButton
-            color="error"
-            :loading="rejectingId !== null"
-            @click="submitReject"
-          >
-            Reject Receipt
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+    </AppModal>
 
     <!-- ── Cancel confirmation modal ────────────────────────────────── -->
-    <UModal v-model:open="isCancelOpen" title="Cancel Booking">
+    <AppModal
+      v-model:open="isCancelOpen"
+      title="Cancel Booking"
+      cancel="Keep Booking"
+      cancel-variant="outline"
+      confirm="Yes, Cancel"
+      confirm-color="error"
+      :confirm-loading="cancellingId !== null"
+      @confirm="submitCancel"
+    >
       <template #body>
         <p class="text-sm text-[#64748b]">
           Are you sure you want to cancel this booking? The slot will be
@@ -853,25 +852,7 @@ function bookingDropdownItems(booking: BookingDetail) {
           </p>
         </div>
       </template>
-      <template #footer>
-        <div class="flex justify-end gap-2">
-          <UButton
-            color="neutral"
-            variant="outline"
-            @click="isCancelOpen = false"
-          >
-            Keep Booking
-          </UButton>
-          <UButton
-            color="error"
-            :loading="cancellingId !== null"
-            @click="submitCancel"
-          >
-            Yes, Cancel
-          </UButton>
-        </div>
-      </template>
-    </UModal>
+    </AppModal>
 
     <!-- ── Walk-in modal ─────────────────────────────────────────────── -->
     <BookingWalkInModal

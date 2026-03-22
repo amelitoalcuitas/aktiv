@@ -517,7 +517,13 @@ async function saveSettings() {
         </div>
 
         <!-- Apply to all hubs confirmation modal -->
-        <UModal v-model:open="showApplyAllModal" title="Apply to all Hubs">
+        <AppModal
+          v-model:open="showApplyAllModal"
+          title="Apply to all Hubs"
+          confirm="Apply to all Hubs"
+          :confirm-loading="isApplyingAll"
+          @confirm="applyToAllHubs"
+        >
           <template #body>
             <p class="text-sm">
               This will overwrite the booking and payment settings for all your
@@ -527,26 +533,7 @@ async function saveSettings() {
               Are you sure you want to continue?
             </p>
           </template>
-          <template #footer>
-            <div class="flex justify-end gap-3">
-              <UButton
-                variant="ghost"
-                color="neutral"
-                @click="showApplyAllModal = false"
-              >
-                Cancel
-              </UButton>
-              <UButton
-                :loading="isApplyingAll"
-                color="primary"
-                class="font-semibold"
-                @click="applyToAllHubs"
-              >
-                Apply to all Hubs
-              </UButton>
-            </div>
-          </template>
-        </UModal>
+        </AppModal>
       </div>
     </template>
   </div>

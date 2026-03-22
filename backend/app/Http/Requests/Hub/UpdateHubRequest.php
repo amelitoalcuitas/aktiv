@@ -32,7 +32,7 @@ class UpdateHubRequest extends FormRequest
             'gallery_images'  => ['sometimes', 'array', 'max:10'],
             'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp,gif', 'max:10240'],
             'remove_gallery_image_ids' => ['sometimes', 'array'],
-            'remove_gallery_image_ids.*' => ['integer', 'exists:hub_images,id'],
+            'remove_gallery_image_ids.*' => ['uuid', 'exists:hub_images,id'],
             'is_active'                 => ['sometimes', 'nullable', 'boolean'],
             'require_account_to_book'   => ['sometimes', 'nullable', 'boolean'],
             'guest_booking_limit'       => ['sometimes', 'integer', 'min:1', 'max:10'],

@@ -154,9 +154,16 @@ const grid = computed(() => {
 });
 
 // ── Booking display ────────────────────────────────────────────
+function abbreviateName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) return fullName;
+  const last = parts[parts.length - 1]!;
+  return `${parts[0]} ${last.charAt(0).toUpperCase()}.`;
+}
+
 function bookingLabel(booking: BookingDetail): string {
-  if (booking.booked_by_user) return booking.booked_by_user.name;
-  if (booking.guest_name) return booking.guest_name;
+  if (booking.booked_by_user) return abbreviateName(booking.booked_by_user.name);
+  if (booking.guest_name) return abbreviateName(booking.guest_name);
   return 'Booked';
 }
 

@@ -44,10 +44,10 @@ export function useBooking() {
     hubId: string | number,
     courtId: string | number,
     data: {
-      sport: string;
       start_time: string;
       end_time: string;
       session_type: SessionType;
+      payment_method: string;
     }
   ): Promise<Booking> {
     const response = await apiFetch<{ message: string; data: Booking }>(
@@ -110,10 +110,10 @@ export function useBooking() {
       otp: string;
       guest_name: string;
       guest_phone?: string;
-      sport: string;
       start_time: string;
       end_time: string;
       session_type: SessionType;
+      payment_method: string;
     }
   ): Promise<Booking> {
     const response = await apiFetch<{ message: string; data: Booking }>(

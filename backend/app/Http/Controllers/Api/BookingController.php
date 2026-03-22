@@ -134,7 +134,7 @@ class BookingController extends Controller
             'court_id' => $court->id,
             'booked_by' => $request->user()->id,
             'created_by' => $request->user()->id,
-            'sport' => $request->sport,
+            'sport' => $court->sports->first()?->sport,
             'start_time' => $startTime,
             'end_time' => $endTime,
             'session_type' => $request->session_type,

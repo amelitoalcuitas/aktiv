@@ -41,7 +41,12 @@ const schema = z
     customerMode: z.enum(['guest', 'registered']),
     bookedBy: z.number().optional(),
     guestName: z.string().optional(),
-    guestPhone: z.string().optional()
+    guestPhone: z.string().optional(),
+    guestEmail: z
+      .string()
+      .email('Enter a valid email.')
+      .optional()
+      .or(z.literal(''))
   })
   .superRefine((data, ctx) => {
     if (data.customerMode === 'registered' && !data.bookedBy) {
@@ -70,7 +75,8 @@ const walkInForm = reactive<Schema>({
   customerMode: 'guest',
   bookedBy: undefined,
   guestName: '',
-  guestPhone: ''
+  guestPhone: '',
+  guestEmail: ''
 });
 
 // User search
@@ -224,6 +230,7 @@ function resetForm() {
   walkInForm.bookedBy = undefined;
   walkInForm.guestName = '';
   walkInForm.guestPhone = '';
+  walkInForm.guestEmail = '';
   selectedUser.value = null;
   userSearchQuery.value = '';
   userSearchResults.value = [];
@@ -246,7 +253,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     customerMode,
     bookedBy,
     guestName,
-    guestPhone
+    guestPhone,
+    guestEmail
   } = event.data;
 
   const [y, mo, day] = date.split('-').map(Number);
@@ -264,7 +272,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       session_type: 'private',
       booked_by: customerMode === 'registered' ? bookedBy : null,
       guest_name: customerMode === 'guest' ? guestName?.trim() || null : null,
-      guest_phone: customerMode === 'guest' ? guestPhone?.trim() || null : null
+      guest_phone: customerMode === 'guest' ? guestPhone?.trim() || null : null,
+      guest_email: customerMode === 'guest' ? guestEmail?.trim() || null : null
     });
     emit('created', booking);
     isOpen.value = false;
@@ -369,6 +378,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               <UInput
                 v-model="walkInForm.guestName"
                 placeholder="Full name"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField name="guestEmail" class="mt-2">
+              <UInput
+                v-model="walkInForm.guestEmail"
+                type="email"
+                placeholder="Email address (optional)"
                 class="w-full"
               />
             </UFormField>

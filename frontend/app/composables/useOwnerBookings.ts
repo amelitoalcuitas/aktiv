@@ -25,6 +25,7 @@ interface WalkInPayload {
   booked_by?: number | null;
   guest_name?: string | null;
   guest_phone?: string | null;
+  guest_email?: string | null;
 }
 
 export function useOwnerBookings() {

@@ -33,7 +33,6 @@ const isOpen = computed({
 const schema = z
   .object({
     court_id: z.number().min(1, 'Court is required'),
-    sport: z.string().min(1, 'Sport is required'),
     date: z.date(),
     start_time: z.string().min(1, 'Start time is required'),
     end_time: z.string().min(1, 'End time is required')
@@ -52,7 +51,6 @@ const schema = z
 type Schema = z.infer<typeof schema>;
 const state = reactive<Schema>({
   court_id: 0,
-  sport: '',
   date: new Date(),
   start_time: '',
   end_time: ''
@@ -64,7 +62,6 @@ watch(
   (b) => {
     if (b) {
       state.court_id = b.court_id;
-      state.sport = b.sport;
       const start = new Date(b.start_time);
       state.date = start;
       state.start_time = `${String(start.getHours()).padStart(2, '0')}:00`;
@@ -79,14 +76,6 @@ watch(
 const courtOptions = computed(() =>
   props.courts.map((c) => ({ label: c.name, value: c.id }))
 );
-const sportOptions = computed(() => [
-  { label: 'Pickleball', value: 'pickleball' },
-  { label: 'Padel', value: 'padel' },
-  { label: 'Badminton', value: 'badminton' },
-  { label: 'Tennis', value: 'tennis' },
-  { label: 'Basketball', value: 'basketball' }
-]);
-
 const timeOptions = computed(() => {
   const opts = [];
   for (let h = 5; h <= 23; h++) {
@@ -103,7 +92,7 @@ const timeOptions = computed(() => {
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   if (!props.booking) return;
 
-  const { date, start_time, end_time, court_id, sport } = event.data;
+  const { date, start_time, end_time, court_id } = event.data;
 
   const y = date.getFullYear();
   const mo = date.getMonth();
@@ -121,7 +110,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     id: props.booking.id,
     data: {
       court_id,
-      sport,
       start_time: startDt.toISOString(),
       end_time: endDt.toISOString()
     }
@@ -273,25 +261,14 @@ const calendarDate = computed({
           @submit="onSubmit"
           class="space-y-4"
         >
-          <div class="grid grid-cols-2 gap-4">
-            <UFormField label="Court" name="court_id">
-              <USelectMenu
-                v-model="state.court_id"
-                :items="courtOptions"
-                value-key="value"
-                class="w-full"
-              />
-            </UFormField>
-
-            <UFormField label="Sport" name="sport">
-              <USelectMenu
-                v-model="state.sport"
-                :items="sportOptions"
-                value-key="value"
-                class="w-full"
-              />
-            </UFormField>
-          </div>
+          <UFormField label="Court" name="court_id">
+            <USelectMenu
+              v-model="state.court_id"
+              :items="courtOptions"
+              value-key="value"
+              class="w-full"
+            />
+          </UFormField>
 
           <UFormField label="Date" name="date">
             <UPopover :popper="{ placement: 'bottom-start' }" class="w-full">

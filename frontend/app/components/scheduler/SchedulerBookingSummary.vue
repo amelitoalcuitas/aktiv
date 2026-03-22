@@ -244,15 +244,13 @@ async function submitBooking() {
   const tasks: (() => Promise<unknown>)[] = [];
 
   for (const group of summaryGroups.value) {
-    const sport = sportSelections.value[group.key] ?? group.court.sports[0];
-    if (!sport) continue;
     for (const range of group.ranges) {
       tasks.push(() =>
         createBooking(props.hubId, group.court.id, {
-          sport,
           start_time: range.start.toISOString(),
           end_time: range.end.toISOString(),
-          session_type: 'private'
+          session_type: 'private',
+          payment_method: selectedPaymentMethod.value!
         })
       );
     }

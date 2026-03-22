@@ -126,7 +126,7 @@ class GuestBookingController extends Controller
             'court_id'       => $court->id,
             'booked_by'      => null,
             'created_by'     => null,
-            'sport'          => $request->sport,
+            'sport'          => $court->sports->first()?->sport,
             'start_time'     => $startTime,
             'end_time'       => $endTime,
             'session_type'   => $request->session_type,

@@ -35,7 +35,37 @@
 <body>
     <div class="container">
 
-        @if ($booking->status === 'confirmed')
+        @if (($activityType ?? null) === 'booking_updated')
+        {{-- ── Updated (time/court changed by owner) ──────────────── --}}
+        <div class="header">
+            <div class="icon icon-confirmed">✎</div>
+            <h1>Booking Updated</h1>
+            <p class="subtitle">Your booking at <strong>{{ $hub->name }}</strong> has been updated by the hub.</p>
+        </div>
+
+        <div class="details">
+            <table>
+                <tr><td>Court</td><td>{{ $courtName }}</td></tr>
+                <tr>
+                    <td>Date</td>
+                    <td>{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+                </tr>
+                <tr>
+                    <td>Time</td>
+                    <td>
+                        {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }}
+                        –
+                        {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    </td>
+                </tr>
+                <tr><td>Booking Code</td><td style="font-family:monospace;">{{ $booking->booking_code }}</td></tr>
+                @if ($booking->total_price)
+                <tr class="price"><td>Amount</td><td>₱{{ number_format($booking->total_price, 2) }}</td></tr>
+                @endif
+            </table>
+        </div>
+
+    @elseif ($booking->status === 'confirmed')
             {{-- ── Confirmed ──────────────────────────────────────────── --}}
             <div class="header">
                 <div class="icon icon-confirmed">✓</div>
@@ -145,9 +175,11 @@
             @endif
         @endif
 
+        @if (!$booking->guest_email)
         <div class="cta">
             <a href="{{ $frontendUrl }}/bookings">View My Bookings</a>
         </div>
+        @endif
 
         <p class="footer">
             This is an automated message from Aktiv. If you have questions, please contact {{ $hub->name }} directly.

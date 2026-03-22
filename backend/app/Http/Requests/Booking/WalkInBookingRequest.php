@@ -23,6 +23,7 @@ class WalkInBookingRequest extends FormRequest
             'booked_by' => ['nullable', 'integer', 'exists:users,id'],
             'guest_name' => ['required_without:booked_by', 'nullable', 'string', 'max:100'],
             'guest_phone' => ['nullable', 'string', 'max:30'],
+            'guest_email' => ['nullable', 'email', 'max:255'],
         ];
     }
 

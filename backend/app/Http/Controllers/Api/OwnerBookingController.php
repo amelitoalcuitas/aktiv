@@ -7,6 +7,8 @@ use App\Http\Controllers\Concerns\SendsBookingNotification;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\RejectBookingRequest;
 use App\Http\Requests\Booking\WalkInBookingRequest;
+use App\Mail\BookingStatusUpdate;
+use App\Mail\WalkInBookingConfirmation;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
@@ -14,6 +16,7 @@ use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 
 class OwnerBookingController extends Controller
 {
@@ -122,9 +125,15 @@ class OwnerBookingController extends Controller
             status: $booking->status,
         ));
 
+        $fresh = $booking->fresh(['court', 'bookedBy']);
+
+        if ($fresh->guest_email) {
+            Mail::to($fresh->guest_email)->send(new BookingStatusUpdate($fresh, $hub, 'booking_updated'));
+        }
+
         return response()->json([
             'message' => 'Booking updated successfully.',
-            'data' => $this->formatBooking($booking->fresh(['court', 'bookedBy'])),
+            'data' => $this->formatBooking($fresh),
         ]);
     }
 
@@ -149,10 +158,13 @@ class OwnerBookingController extends Controller
             'payment_confirmed_at' => now(),
         ]);
 
-        // Notify the booker (registered users only)
+        $booking->load('court.hub');
+
+        // Notify the booker
         if ($booking->bookedBy) {
-            $booking->load('court.hub');
             $this->notifyBookingActivity($booking->bookedBy, $booking, 'booking_confirmed');
+        } elseif ($booking->guest_email) {
+            Mail::to($booking->guest_email)->send(new BookingStatusUpdate($booking, $hub, 'booking_confirmed'));
         }
 
         return response()->json([
@@ -185,10 +197,13 @@ class OwnerBookingController extends Controller
             'expires_at' => $this->resolveExpiresAt($booking->payment_method ?? 'digital_bank', $booking->start_time),
         ]);
 
-        // Notify the booker (registered users only)
+        $booking->load('court.hub');
+
+        // Notify the booker
         if ($booking->bookedBy) {
-            $booking->load('court.hub');
             $this->notifyBookingActivity($booking->bookedBy, $booking, 'booking_rejected');
+        } elseif ($booking->guest_email) {
+            Mail::to($booking->guest_email)->send(new BookingStatusUpdate($booking, $hub, 'booking_rejected'));
         }
 
         return response()->json([
@@ -216,12 +231,19 @@ class OwnerBookingController extends Controller
             'cancelled_by' => 'owner',
         ]);
 
-        // Notify the booker (registered users only)
         $booking->load('court.hub');
+
         if ($booking->bookedBy) {
             $this->notifyBookingActivity($booking->bookedBy, $booking, 'booking_cancelled');
+        } elseif ($booking->guest_email) {
+            Mail::to($booking->guest_email)->send(new BookingStatusUpdate($booking, $hub, 'booking_cancelled'));
+            broadcast(new BookingSlotUpdated(
+                hubId: $hub->id,
+                courtId: $booking->court_id,
+                status: $booking->status,
+            ));
         } else {
-            // No registered user to notify — still broadcast the slot change
+            // No user or guest email — still broadcast the slot change
             broadcast(new BookingSlotUpdated(
                 hubId: $hub->id,
                 courtId: $booking->court_id,
@@ -277,6 +299,7 @@ class OwnerBookingController extends Controller
             'booking_source' => 'owner_added',
             'guest_name' => $request->guest_name ?? null,
             'guest_phone' => $request->guest_phone ?? null,
+            'guest_email' => $request->guest_email ?? null,
             'total_price' => $totalPrice,
             'expires_at' => null,
         ]);
@@ -286,6 +309,11 @@ class OwnerBookingController extends Controller
             courtId: $booking->court_id,
             status: $booking->status,
         ));
+
+        if ($request->filled('guest_email')) {
+            Mail::to($request->guest_email)
+                ->send(new WalkInBookingConfirmation($booking, $hub, $court->name));
+        }
 
         return response()->json([
             'message' => 'Walk-in booking created.',

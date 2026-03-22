@@ -192,8 +192,6 @@ async function handleVerifyAndBook() {
   const tasks: (() => Promise<unknown>)[] = [];
 
   for (const group of groups.value) {
-    const sport = group.sport ?? group.court.sports[0];
-    if (!sport) continue;
     for (const range of group.ranges) {
       tasks.push(() =>
         createGuestBooking(props.hubId, group.court.id, {
@@ -201,10 +199,10 @@ async function handleVerifyAndBook() {
           otp: otp.value,
           guest_name: guestName.value,
           guest_phone: guestPhone.value,
-          sport,
           start_time: range.start.toISOString(),
           end_time: range.end.toISOString(),
-          session_type: 'private' as SessionType
+          session_type: 'private' as SessionType,
+          payment_method: selectedPaymentMethod.value!
         })
       );
     }

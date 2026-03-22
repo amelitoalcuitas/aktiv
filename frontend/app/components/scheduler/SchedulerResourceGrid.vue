@@ -512,9 +512,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
       </div>
       <div class="flex items-center gap-1.5">
         <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#fef9c3]" />
-        <span class="text-sm text-[var(--aktiv-muted)]"
-          >Pending (tap to upload receipt)</span
-        >
+        <span class="text-sm text-[var(--aktiv-muted)]">Pending</span>
       </div>
       <div class="flex items-center gap-1.5">
         <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#fee2e2]" />

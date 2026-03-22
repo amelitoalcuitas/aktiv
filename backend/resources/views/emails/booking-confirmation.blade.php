@@ -51,12 +51,6 @@
                         {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
                     </td>
                 </tr>
-                @if ($booking->sport)
-                <tr>
-                    <td>Sport</td>
-                    <td class="capitalize">{{ $booking->sport }}</td>
-                </tr>
-                @endif
                 @if ($booking->total_price)
                 <tr class="price">
                     <td>Amount</td>

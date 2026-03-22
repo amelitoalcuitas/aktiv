@@ -158,6 +158,16 @@ function formatDate(iso: string) {
             scan it to confirm your payment on arrival.
           </p>
 
+          <!-- Track link for guest bookings -->
+          <NuxtLink
+            v-if="booking?.guest_tracking_token"
+            :to="`/booking/track/${booking.guest_tracking_token}`"
+            class="w-full rounded-md bg-[#004e89] px-4 py-2.5 text-center text-sm font-semibold text-white"
+            @click="emit('update:open', false)"
+          >
+            Track Your Booking
+          </NuxtLink>
+
           <!-- Actions -->
           <div class="flex w-full gap-2">
             <UButton

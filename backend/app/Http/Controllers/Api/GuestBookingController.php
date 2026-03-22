@@ -173,8 +173,9 @@ class GuestBookingController extends Controller
                 'status'         => $booking->status,
                 'booking_source' => $booking->booking_source,
                 'total_price'    => $booking->total_price,
-                'expires_at'     => $booking->expires_at->toIso8601String(),
-                'created_at'     => $booking->created_at->toIso8601String(),
+                'expires_at'          => $booking->expires_at->toIso8601String(),
+                'created_at'          => $booking->created_at->toIso8601String(),
+                'guest_tracking_token' => $trackingToken,
             ],
         ], 201);
     }

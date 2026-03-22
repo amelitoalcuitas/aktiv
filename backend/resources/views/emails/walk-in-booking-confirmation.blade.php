@@ -78,6 +78,12 @@
             This booking has been confirmed by the hub owner. No payment receipt is required — just show up and enjoy your session!
         </div>
 
+        @if(isset($guestTrackingToken) && $guestTrackingToken)
+        <div style="text-align:center;margin:28px 0 8px;">
+            <a href="{{ $frontendUrl }}/booking/track/{{ $guestTrackingToken }}" style="display:inline-block;background:#004e89;color:#fff;text-decoration:none;padding:12px 28px;border-radius:6px;font-size:0.9375rem;font-weight:600;">Track Your Booking</a>
+        </div>
+        @endif
+
         <p class="footer">
             If you have questions, contact <strong>{{ $hub->name }}</strong> directly.<br>
             This is an automated message from Aktiv.

@@ -33,6 +33,7 @@ export interface Booking {
   expires_at: string | null;
   cancelled_by: CancelledBy | null;
   created_at: string;
+  guest_tracking_token?: string | null;
 }
 
 /** Full booking shape returned by owner dashboard endpoints (includes eager-loaded relations). */

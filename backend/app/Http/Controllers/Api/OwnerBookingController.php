@@ -17,6 +17,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 class OwnerBookingController extends Controller
 {
@@ -311,8 +312,10 @@ class OwnerBookingController extends Controller
         ));
 
         if ($request->filled('guest_email')) {
+            $trackingToken = (string) Str::uuid();
+            $booking->update(['guest_tracking_token' => $trackingToken]);
             Mail::to($request->guest_email)
-                ->send(new WalkInBookingConfirmation($booking, $hub, $court->name));
+                ->send(new WalkInBookingConfirmation($booking, $hub, $court->name, $trackingToken));
         }
 
         return response()->json([

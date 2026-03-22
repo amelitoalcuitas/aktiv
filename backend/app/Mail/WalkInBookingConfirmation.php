@@ -20,6 +20,7 @@ class WalkInBookingConfirmation extends Mailable
         public readonly Booking $booking,
         public readonly Hub $hub,
         public readonly string $courtName,
+        public readonly ?string $guestTrackingToken = null,
     ) {
         $this->frontendUrl = config('app.frontend_url');
     }
@@ -35,6 +36,7 @@ class WalkInBookingConfirmation extends Mailable
     {
         return new Content(
             view: 'emails.walk-in-booking-confirmation',
+            with: ['guestTrackingToken' => $this->guestTrackingToken],
         );
     }
 }

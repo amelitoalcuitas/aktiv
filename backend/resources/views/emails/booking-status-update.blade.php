@@ -88,9 +88,6 @@
                             {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
                         </td>
                     </tr>
-                    @if ($booking->sport)
-                    <tr><td>Sport</td><td class="capitalize">{{ $booking->sport }}</td></tr>
-                    @endif
                     @if ($booking->total_price)
                     <tr class="price"><td>Amount</td><td>₱{{ number_format($booking->total_price, 2) }}</td></tr>
                     @endif
@@ -175,9 +172,13 @@
             @endif
         @endif
 
-        @if (!$booking->guest_email)
+        @if($booking->guest_email && $booking->guest_tracking_token)
         <div class="cta">
-            <a href="{{ $frontendUrl }}/bookings">View My Bookings</a>
+            <a href="{{ $frontendUrl }}/booking/track/{{ $booking->guest_tracking_token }}">Track Your Booking</a>
+        </div>
+        @elseif(!$booking->guest_email)
+        <div class="cta">
+            <a href="{{ $frontendUrl }}/bookings?bookingId={{ $booking->id }}">View My Booking</a>
         </div>
         @endif
 

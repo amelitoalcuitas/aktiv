@@ -2,27 +2,23 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\SendsBookingNotification;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\SendGuestVerificationRequest;
 use App\Http\Requests\Booking\StoreGuestBookingRequest;
-use App\Mail\AdminBookingNotification;
-use App\Mail\BookingConfirmation;
-use App\Mail\GuestBookingVerification;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
+use App\Services\BookingNotificationService;
 use App\Services\ImageUploadService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class GuestBookingController extends Controller
 {
-    use SendsBookingNotification;
+    public function __construct(private BookingNotificationService $notifications) {}
     /**
      * Send a 6-digit OTP to the guest's email for booking verification.
      */
@@ -54,7 +50,7 @@ class GuestBookingController extends Controller
 
         Cache::put("guest_otp:{$hub->id}:{$request->email}", $code, now()->addMinutes(10));
 
-        Mail::to($request->email)->send(new GuestBookingVerification($code, $hub->name));
+        $this->notifications->notifyGuestVerification($request->email, $code, $hub->name);
 
         return response()->json([
             'message' => 'Verification code sent. Check your email.',
@@ -150,15 +146,8 @@ class GuestBookingController extends Controller
         $trackingToken = (string) Str::uuid();
         $booking->update(['guest_tracking_token' => $trackingToken]);
 
-        Mail::to($booking->guest_email)->send(new BookingConfirmation($booking, $hub, $court->name, $trackingToken));
-
-        // Notify hub owner (in-app + email)
-        $owner = $hub->owner()->first();
-        if ($owner) {
-            $booking->load('court.hub');
-            $this->notifyBookingActivity($owner, $booking, 'booking_created');
-            Mail::to($owner->email)->send(new AdminBookingNotification($booking, $hub, $court->name));
-        }
+        $booking->load('court.hub.owner');
+        $this->notifications->notifyNewBooking($booking);
 
         return response()->json([
             'message' => 'Booking created successfully.',
@@ -216,12 +205,8 @@ class GuestBookingController extends Controller
             'status'               => 'payment_sent',
         ]);
 
-        // Notify hub owner about the uploaded receipt
-        $owner = $hub->owner()->first();
-        if ($owner) {
-            $booking->load('court.hub');
-            $this->notifyBookingActivity($owner, $booking, 'receipt_uploaded');
-        }
+        $booking->load('court.hub.owner');
+        $this->notifications->notifyReceiptUploaded($booking);
 
         return response()->json([
             'message' => 'Receipt uploaded. The hub owner will review your payment.',

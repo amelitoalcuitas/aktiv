@@ -50,7 +50,7 @@ it('emails the guest a cancellation confirmation when they cancel', function () 
     $this->postJson("/api/guest-bookings/{$booking->guest_tracking_token}/cancel")
         ->assertOk();
 
-    Mail::assertSent(BookingStatusUpdate::class, function ($mail) use ($booking) {
+    Mail::assertQueued(BookingStatusUpdate::class, function ($mail) use ($booking) {
         return $mail->hasTo($booking->guest_email);
     });
 });

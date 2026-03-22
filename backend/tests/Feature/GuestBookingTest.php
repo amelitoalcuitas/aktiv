@@ -73,7 +73,7 @@ class GuestBookingTest extends TestCase
         ]);
 
         $response->assertOk()->assertJsonFragment(['message' => 'Verification code sent. Check your email.']);
-        Mail::assertSent(GuestBookingVerification::class);
+        Mail::assertQueued(GuestBookingVerification::class);
         $this->assertNotNull(Cache::get("guest_otp:{$hub->id}:guest@example.com"));
     }
 

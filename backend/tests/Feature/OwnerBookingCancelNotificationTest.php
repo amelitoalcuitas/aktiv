@@ -41,7 +41,7 @@ it('cancels booking and emails owner when they cancel a registered user booking'
         ->and($booking->fresh()->cancelled_by)->toBe('owner');
 
     // Owner receives their own confirmation email
-    Mail::assertSent(OwnerCancelledBookingNotification::class, function ($mail) use ($owner, $booking) {
+    Mail::assertQueued(OwnerCancelledBookingNotification::class, function ($mail) use ($owner, $booking) {
         return $mail->hasTo($owner->email)
             && $mail->booking->id === $booking->id;
     });
@@ -63,12 +63,12 @@ it('cancels booking and emails owner when they cancel a guest booking', function
         ->assertOk();
 
     // Guest gets the customer-facing cancellation email
-    Mail::assertSent(BookingStatusUpdate::class, function ($mail) use ($booking) {
+    Mail::assertQueued(BookingStatusUpdate::class, function ($mail) use ($booking) {
         return $mail->hasTo('walkin@example.com');
     });
 
     // Owner also gets their own confirmation email
-    Mail::assertSent(OwnerCancelledBookingNotification::class, function ($mail) use ($owner, $booking) {
+    Mail::assertQueued(OwnerCancelledBookingNotification::class, function ($mail) use ($owner, $booking) {
         return $mail->hasTo($owner->email)
             && $mail->booking->id === $booking->id;
     });
@@ -88,7 +88,7 @@ it('cancels booking and emails owner even when there is no customer to notify', 
         ->postJson("/api/dashboard/hubs/{$hub->id}/bookings/{$booking->id}/cancel")
         ->assertOk();
 
-    Mail::assertSent(OwnerCancelledBookingNotification::class, function ($mail) use ($owner) {
+    Mail::assertQueued(OwnerCancelledBookingNotification::class, function ($mail) use ($owner) {
         return $mail->hasTo($owner->email);
     });
 });
@@ -106,7 +106,7 @@ it('returns 422 when trying to cancel an already cancelled booking', function ()
         ->postJson("/api/dashboard/hubs/{$hub->id}/bookings/{$booking->id}/cancel")
         ->assertStatus(422);
 
-    Mail::assertNotSent(OwnerCancelledBookingNotification::class);
+    Mail::assertNotQueued(OwnerCancelledBookingNotification::class);
 });
 
 it('returns 403 when a non-owner tries to cancel', function () {
@@ -123,5 +123,5 @@ it('returns 403 when a non-owner tries to cancel', function () {
         ->postJson("/api/dashboard/hubs/{$hub->id}/bookings/{$booking->id}/cancel")
         ->assertStatus(403);
 
-    Mail::assertNotSent(OwnerCancelledBookingNotification::class);
+    Mail::assertNotQueued(OwnerCancelledBookingNotification::class);
 });

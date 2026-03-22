@@ -3,26 +3,22 @@
 namespace App\Http\Controllers\Api;
 
 use App\Events\BookingSlotUpdated;
-use App\Http\Controllers\Concerns\SendsBookingNotification;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\RejectBookingRequest;
 use App\Http\Requests\Booking\WalkInBookingRequest;
-use App\Mail\BookingStatusUpdate;
-use App\Mail\OwnerCancelledBookingNotification;
-use App\Mail\WalkInBookingConfirmation;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
 use App\Models\User;
+use App\Services\BookingNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 class OwnerBookingController extends Controller
 {
-    use SendsBookingNotification;
+    public function __construct(private BookingNotificationService $notifications) {}
     /**
      * List all bookings for a hub the authenticated user owns.
      * Supports optional filters: ?status, ?court_id, ?date_from, ?date_to
@@ -127,11 +123,8 @@ class OwnerBookingController extends Controller
             status: $booking->status,
         ));
 
-        $fresh = $booking->fresh(['court', 'bookedBy']);
-
-        if ($fresh->guest_email) {
-            Mail::to($fresh->guest_email)->send(new BookingStatusUpdate($fresh, $hub, 'booking_updated'));
-        }
+        $fresh = $booking->fresh(['court.hub', 'bookedBy']);
+        $this->notifications->notifyBookingUpdated($fresh);
 
         return response()->json([
             'message' => 'Booking updated successfully.',
@@ -161,13 +154,7 @@ class OwnerBookingController extends Controller
         ]);
 
         $booking->load('court.hub');
-
-        // Notify the booker
-        if ($booking->bookedBy) {
-            $this->notifyBookingActivity($booking->bookedBy, $booking, 'booking_confirmed');
-        } elseif ($booking->guest_email) {
-            Mail::to($booking->guest_email)->send(new BookingStatusUpdate($booking, $hub, 'booking_confirmed'));
-        }
+        $this->notifications->notifyBookingConfirmed($booking);
 
         return response()->json([
             'message' => 'Booking confirmed.',
@@ -200,13 +187,7 @@ class OwnerBookingController extends Controller
         ]);
 
         $booking->load('court.hub');
-
-        // Notify the booker
-        if ($booking->bookedBy) {
-            $this->notifyBookingActivity($booking->bookedBy, $booking, 'booking_rejected');
-        } elseif ($booking->guest_email) {
-            Mail::to($booking->guest_email)->send(new BookingStatusUpdate($booking, $hub, 'booking_rejected'));
-        }
+        $this->notifications->notifyBookingRejected($booking);
 
         return response()->json([
             'message' => 'Booking rejected. User can re-upload their receipt.',
@@ -233,29 +214,8 @@ class OwnerBookingController extends Controller
             'cancelled_by' => 'owner',
         ]);
 
-        $booking->load('court.hub');
-
-        if ($booking->bookedBy) {
-            $this->notifyBookingActivity($booking->bookedBy, $booking, 'booking_cancelled');
-        } elseif ($booking->guest_email) {
-            Mail::to($booking->guest_email)->send(new BookingStatusUpdate($booking, $hub, 'booking_cancelled'));
-            broadcast(new BookingSlotUpdated(
-                hubId: $hub->id,
-                courtId: $booking->court_id,
-                status: $booking->status,
-            ));
-        } else {
-            // No user or guest email — still broadcast the slot change
-            broadcast(new BookingSlotUpdated(
-                hubId: $hub->id,
-                courtId: $booking->court_id,
-                status: $booking->status,
-            ));
-        }
-
-        // Always notify the hub owner so they have a record of the cancellation
-        Mail::to($request->user()->email)
-            ->send(new OwnerCancelledBookingNotification($booking, $hub));
+        $booking->load('court.hub.owner');
+        $this->notifications->notifyBookingCancelled($booking, cancelledBy: 'owner');
 
         return response()->json([
             'message' => 'Booking cancelled.',
@@ -319,8 +279,9 @@ class OwnerBookingController extends Controller
         if ($request->filled('guest_email')) {
             $trackingToken = (string) Str::uuid();
             $booking->update(['guest_tracking_token' => $trackingToken]);
-            Mail::to($request->guest_email)
-                ->send(new WalkInBookingConfirmation($booking, $hub, $court->name, $trackingToken));
+            $booking->guest_tracking_token = $trackingToken;
+            $booking->load('court.hub');
+            $this->notifications->notifyWalkInBooking($booking);
         }
 
         return response()->json([

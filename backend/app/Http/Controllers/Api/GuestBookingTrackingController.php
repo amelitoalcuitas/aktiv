@@ -2,18 +2,16 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Concerns\SendsBookingNotification;
 use App\Http\Controllers\Controller;
-use App\Mail\BookingStatusUpdate;
 use App\Models\Booking;
+use App\Services\BookingNotificationService;
 use App\Services\ImageUploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 
 class GuestBookingTrackingController extends Controller
 {
-    use SendsBookingNotification;
+    public function __construct(private BookingNotificationService $notifications) {}
 
     /**
      * Return booking details for the guest tracking page.
@@ -59,11 +57,8 @@ class GuestBookingTrackingController extends Controller
             'status'              => 'payment_sent',
         ]);
 
-        $hub = $booking->court->hub;
-        $owner = $hub->owner()->first();
-        if ($owner) {
-            $this->notifyBookingActivity($owner, $booking, 'receipt_uploaded');
-        }
+        $booking->load('court.hub.owner');
+        $this->notifications->notifyReceiptUploaded($booking);
 
         return response()->json([
             'message' => 'Receipt uploaded. The hub owner will review your payment.',
@@ -97,18 +92,8 @@ class GuestBookingTrackingController extends Controller
             'cancelled_by' => 'user',
         ]);
 
-        $hub = $booking->court->hub;
-
-        // Email the guest a cancellation confirmation
-        if ($booking->guest_email) {
-            Mail::to($booking->guest_email)->send(new BookingStatusUpdate($booking, $hub, 'booking_cancelled'));
-        }
-
-        // Notify the hub owner
-        $owner = $hub->owner()->first();
-        if ($owner) {
-            $this->notifyBookingActivity($owner, $booking, 'booking_cancelled_by_guest');
-        }
+        $booking->load('court.hub.owner');
+        $this->notifications->notifyBookingCancelled($booking, cancelledBy: 'guest');
 
         return response()->json([
             'message' => 'Booking cancelled.',

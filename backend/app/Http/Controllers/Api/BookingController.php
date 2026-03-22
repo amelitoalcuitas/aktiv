@@ -96,8 +96,13 @@ class BookingController extends Controller
     {
         abort_if($court->hub_id !== $hub->id, 404);
 
-        // Check if the user is booking-banned
         $user = $request->user();
+
+        if (! $user->hasVerifiedEmail()) {
+            return response()->json(['message' => 'Your email address is not verified.'], 403);
+        }
+
+        // Check if the user is booking-banned
         if ($user->isBookingBanned()) {
             return response()->json([
                 'message' => 'Your account is temporarily restricted from making new bookings.',

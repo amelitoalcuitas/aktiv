@@ -5,6 +5,20 @@ export function useNotificationBooking() {
     const destination = USER_FACING_TYPES.includes(activityType)
       ? `/bookings?bookingId=${bookingId}`
       : `/dashboard/bookings?hubId=${hubId}&bookingId=${bookingId}`;
+
+    const route = useRoute();
+    const isSameUrl =
+      route.path === (USER_FACING_TYPES.includes(activityType) ? '/bookings' : '/dashboard/bookings') &&
+      route.query.bookingId === bookingId;
+
+    if (isSameUrl) {
+      // Already on the same URL — clear bookingId then re-set it to re-trigger the watcher
+      const base = USER_FACING_TYPES.includes(activityType)
+        ? '/bookings'
+        : `/dashboard/bookings?hubId=${hubId}`;
+      await navigateTo(base, { replace: true });
+    }
+
     await navigateTo(destination);
   }
 

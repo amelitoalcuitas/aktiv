@@ -204,6 +204,10 @@ function handleBookNow() {
     goToLogin();
     return;
   }
+  if (!authStore.user?.email_verified_at) {
+    navigateTo('/auth/verify-email');
+    return;
+  }
   // Reset payment selection when opening
   selectedPaymentMethod.value =
     hubPaymentMethods.value.length === 1

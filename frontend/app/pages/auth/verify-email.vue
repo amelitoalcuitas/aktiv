@@ -16,12 +16,23 @@ async function handleResend() {
       description: 'A new verification link has been sent to your inbox.',
       color: 'success'
     });
-  } catch {
-    toast.add({
-      title: 'Error',
-      description: 'Could not resend the verification email. Please try again.',
-      color: 'error'
-    });
+  } catch (err: any) {
+    const is429 = err?.response?.status === 429 || err?.status === 429;
+    if (is429) {
+      const retryAfter = Number(err?.response?.headers?.get('Retry-After') ?? err?.response?.headers?.['retry-after'] ?? 0);
+      const mins = retryAfter > 0 ? Math.ceil(retryAfter / 60) : 5;
+      toast.add({
+        title: 'Please wait',
+        description: `You can resend again in ${mins} minute${mins !== 1 ? 's' : ''}. Please check your inbox.`,
+        color: 'error'
+      });
+    } else {
+      toast.add({
+        title: 'Error',
+        description: 'Could not resend the verification email. Please try again.',
+        color: 'error'
+      });
+    }
   } finally {
     resending.value = false;
   }

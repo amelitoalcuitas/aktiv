@@ -34,7 +34,7 @@ Route::prefix('auth')->group(function (): void {
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/me', [AuthController::class, 'me'])->name('api.auth.me');
         Route::post('/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
-        Route::post('/email/resend-verification', [AuthController::class, 'resendVerification'])->name('api.auth.email.resend');
+        Route::post('/email/resend-verification', [AuthController::class, 'resendVerification'])->middleware('throttle:1,5')->name('api.auth.email.resend');
     });
 });
 

@@ -299,52 +299,58 @@ onUnmounted(() => {
             </p>
           </div>
 
-          <!-- Contact Numbers -->
+          <!-- Contact + Websites (2-column row) -->
           <div
-            v-if="hub.contact_numbers && hub.contact_numbers.length > 0"
-            class="p-4 md:p-6"
+            v-if="(hub.contact_numbers && hub.contact_numbers.length > 0) || (hub.websites && hub.websites.length > 0)"
+            class="grid grid-cols-1 divide-y divide-[var(--aktiv-border)] sm:grid-cols-2 sm:divide-x sm:divide-y-0"
           >
-            <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">Contact</h2>
-            <ul class="mt-2 space-y-1">
-              <li
-                v-for="(contact, i) in hub.contact_numbers"
-                :key="i"
-                class="flex items-center gap-2 text-sm text-[var(--aktiv-ink)]"
-              >
-                <UIcon
-                  :name="
-                    contact.type === 'mobile'
-                      ? 'i-heroicons-device-phone-mobile'
-                      : 'i-heroicons-phone'
-                  "
-                  class="h-4 w-4 shrink-0"
-                />
-                <ULink :href="`tel:${contact.number}`">{{
-                  contact.number
-                }}</ULink>
-              </li>
-            </ul>
-          </div>
-
-          <!-- Websites -->
-          <div
-            v-if="hub.websites && hub.websites.length > 0"
-            class="p-4 md:p-6"
-          >
-            <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">
-              Websites
-            </h2>
-            <ul class="mt-2 space-y-1">
-              <li v-for="(site, i) in hub.websites" :key="i">
-                <a
-                  :href="site.url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="break-all text-sm text-[var(--aktiv-primary)] hover:underline"
-                  >{{ site.url }}</a
+            <!-- Contact Numbers -->
+            <div
+              v-if="hub.contact_numbers && hub.contact_numbers.length > 0"
+              class="p-4 md:p-6"
+            >
+              <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">Contact</h2>
+              <ul class="mt-2 space-y-1">
+                <li
+                  v-for="(contact, i) in hub.contact_numbers"
+                  :key="i"
+                  class="flex items-center gap-2 text-sm text-[var(--aktiv-ink)]"
                 >
-              </li>
-            </ul>
+                  <UIcon
+                    :name="
+                      contact.type === 'mobile'
+                        ? 'i-heroicons-device-phone-mobile'
+                        : 'i-heroicons-phone'
+                    "
+                    class="h-4 w-4 shrink-0"
+                  />
+                  <ULink :href="`tel:${contact.number}`">{{
+                    contact.number
+                  }}</ULink>
+                </li>
+              </ul>
+            </div>
+
+            <!-- Websites -->
+            <div
+              v-if="hub.websites && hub.websites.length > 0"
+              class="p-4 md:p-6"
+            >
+              <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">
+                Websites
+              </h2>
+              <ul class="mt-2 space-y-1">
+                <li v-for="(site, i) in hub.websites" :key="i">
+                  <a
+                    :href="site.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="break-all text-sm text-[var(--aktiv-primary)] hover:underline"
+                    >{{ site.url }}</a
+                  >
+                </li>
+              </ul>
+            </div>
           </div>
 
           <!-- 3. Courts -->

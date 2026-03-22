@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Court, Hub, SportType } from '~/types/hub';
+import type { Court, Hub } from '~/types/hub';
 import type { Booking, SelectedSlot, SessionType } from '~/types/booking';
 
 const props = defineProps<{
@@ -36,7 +36,7 @@ const selectedPaymentMethod = ref<'pay_on_site' | 'digital_bank' | null>(null);
 
 watch(hubPaymentMethods, (methods) => {
   if (methods.length === 1) {
-    selectedPaymentMethod.value = methods[0]!;
+    selectedPaymentMethod.value = methods[0]! as 'pay_on_site' | 'digital_bank';
   } else {
     selectedPaymentMethod.value = null;
   }
@@ -58,7 +58,6 @@ interface GuestGroup {
   dateLabel: string;
   dateKey: string;
   ranges: TimeRange[];
-  sport: SportType | null;
   totalHours: number;
   pricePerHour: number | null;
   subtotal: number | null;
@@ -91,8 +90,6 @@ function mergeContiguousSlots(sortedSlots: SelectedSlot[]): TimeRange[] {
   return ranges;
 }
 
-const sportSelections = ref<Record<string, SportType>>({});
-
 const groups = computed<GuestGroup[]>(() => {
   const map: Record<string, { slots: SelectedSlot[]; court: Court; dateKey: string; dateLabel: string }> = {};
 
@@ -115,7 +112,7 @@ const groups = computed<GuestGroup[]>(() => {
     map[key]!.slots.push(slot);
   }
 
-  return Object.entries(map).map(([key, { court, dateKey, dateLabel, slots }]) => {
+  return Object.entries(map).map(([, { court, dateKey, dateLabel, slots }]) => {
     const sorted = [...slots].sort((a, b) => a.slotStart.getTime() - b.slotStart.getTime());
     const ranges = mergeContiguousSlots(sorted);
     const priceNum = parseFloat(court.price_per_hour);
@@ -123,16 +120,11 @@ const groups = computed<GuestGroup[]>(() => {
     const totalHours = sorted.length;
     const subtotal = pricePerHour !== null ? pricePerHour * totalHours : null;
 
-    if (!sportSelections.value[key] && court.sports.length > 0) {
-      sportSelections.value[key] = court.sports[0] as SportType;
-    }
-
     return {
       court,
       dateKey,
       dateLabel,
       ranges,
-      sport: (sportSelections.value[key] ?? court.sports[0] ?? null) as SportType | null,
       totalHours,
       pricePerHour,
       subtotal
@@ -271,7 +263,7 @@ function resetForm() {
   otp.value = '';
   sendError.value = null;
   bookingError.value = null;
-  selectedPaymentMethod.value = hubPaymentMethods.value.length === 1 ? hubPaymentMethods.value[0]! : null;
+  selectedPaymentMethod.value = hubPaymentMethods.value.length === 1 ? hubPaymentMethods.value[0]! as 'pay_on_site' | 'digital_bank' : null;
 }
 
 function handleClose() {

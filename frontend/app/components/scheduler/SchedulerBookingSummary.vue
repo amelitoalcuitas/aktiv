@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Court, Hub, SportType } from '~/types/hub';
+import type { Court, Hub } from '~/types/hub';
 import type { Booking, SelectedSlot } from '~/types/booking';
 import { useAuthStore } from '~/stores/auth';
 
@@ -59,9 +59,6 @@ watch(
 const isPayOnSite = computed(
   () => selectedPaymentMethod.value === 'pay_on_site'
 );
-
-// ── Sport selections (per court+day group) ─────────────────────
-const sportSelections = ref<Record<string, SportType>>({});
 
 // ── Summary groups ─────────────────────────────────────────────
 interface TimeRange {
@@ -170,23 +167,6 @@ const summaryGroups = computed<SummaryGroup[]>(() => {
     );
 });
 
-// Keep sportSelections in sync with groups
-watch(
-  summaryGroups,
-  (groups) => {
-    for (const group of groups) {
-      if (!sportSelections.value[group.key] && group.court.sports.length > 0) {
-        sportSelections.value[group.key] = group.court.sports[0] as SportType;
-      }
-    }
-    const activeKeys = new Set(groups.map((g) => g.key));
-    for (const key of Object.keys(sportSelections.value)) {
-      if (!activeKeys.has(key)) delete sportSelections.value[key];
-    }
-  },
-  { immediate: true }
-);
-
 const totalSlots = computed(() => props.selectedSlots.length);
 
 const grandTotal = computed(() =>
@@ -206,13 +186,6 @@ function formatPrice(n: number): string {
 
 function formatPriceInt(n: number): string {
   return n.toLocaleString('en-PH', { maximumFractionDigits: 0 });
-}
-
-function sportOptions(court: Court) {
-  return court.sports.map((s) => ({
-    label: s.charAt(0).toUpperCase() + s.slice(1),
-    value: s
-  }));
 }
 
 // ── Actions ────────────────────────────────────────────────────
@@ -388,27 +361,6 @@ function scrollToSchedule() {
               />
               {{ range.label }}
             </span>
-          </div>
-
-          <!-- Sport selector — only shown for multi-sport courts -->
-          <div v-if="group.court.sports.length > 1" class="mb-3">
-            <div class="flex items-center gap-2">
-              <span class="text-sm text-[var(--aktiv-muted)]">Sport</span>
-              <USelect
-                v-model="sportSelections[group.key]"
-                :items="sportOptions(group.court)"
-                value-key="value"
-                label-key="label"
-                size="sm"
-                class="w-40"
-              />
-            </div>
-          </div>
-          <!-- Single sport: just a pill -->
-          <div v-else-if="group.court.sports.length === 1" class="mb-3">
-            <UBadge color="primary" variant="soft" size="sm" class="capitalize">
-              {{ group.court.sports[0] }}
-            </UBadge>
           </div>
 
           <!-- Price breakdown row -->
@@ -597,11 +549,8 @@ function scrollToSchedule() {
               {{ range.label }}
             </span>
           </div>
-          <!-- Sport + price row -->
-          <div class="flex items-center justify-between text-sm">
-            <UBadge color="primary" variant="soft" size="sm" class="capitalize">
-              {{ sportSelections[group.key] ?? group.court.sports[0] }}
-            </UBadge>
+          <!-- Price row -->
+          <div class="flex items-center justify-end text-sm">
             <span class="text-[var(--aktiv-muted)]">
               {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }}
               <template v-if="group.pricePerHour !== null">

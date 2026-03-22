@@ -30,8 +30,6 @@ const pinchStartDistance = ref(0);
 const pinchStartZoom = ref(1);
 const imageRef = ref<HTMLImageElement | null>(null);
 const isDesktopView = ref(false);
-const BODY_LOCK_COUNT_ATTR = 'data-image-viewer-lock-count';
-const BODY_PREV_OVERFLOW_ATTR = 'data-image-viewer-prev-overflow';
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -237,73 +235,24 @@ function onTouchEnd(event: TouchEvent) {
   }
 }
 
-function lockBodyScroll() {
-  const body = document.body;
-  const currentCount = Number(body.getAttribute(BODY_LOCK_COUNT_ATTR) ?? '0');
-
-  if (currentCount === 0) {
-    body.setAttribute(BODY_PREV_OVERFLOW_ATTR, body.style.overflow);
-    body.style.overflow = 'hidden';
-  }
-
-  body.setAttribute(BODY_LOCK_COUNT_ATTR, String(currentCount + 1));
-}
-
-function unlockBodyScroll() {
-  const body = document.body;
-  const currentCount = Number(body.getAttribute(BODY_LOCK_COUNT_ATTR) ?? '0');
-
-  if (currentCount <= 1) {
-    const previousOverflow = body.getAttribute(BODY_PREV_OVERFLOW_ATTR) ?? '';
-    body.style.overflow = previousOverflow;
-    body.removeAttribute(BODY_LOCK_COUNT_ATTR);
-    body.removeAttribute(BODY_PREV_OVERFLOW_ATTR);
-    return;
-  }
-
-  body.setAttribute(BODY_LOCK_COUNT_ATTR, String(currentCount - 1));
-}
-
 function openViewer() {
   isOpen.value = true;
   resetView();
 }
 
-function closeViewer() {
-  isOpen.value = false;
-  resetView();
-}
-
-function onKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && isOpen.value) {
-    closeViewer();
+function onModalUpdate(open: boolean) {
+  if (!open) {
+    resetView();
   }
 }
 
 onMounted(() => {
   updateDeviceMode();
-  window.addEventListener('keydown', onKeydown);
   window.addEventListener('resize', updateDeviceMode);
 });
 
 onBeforeUnmount(() => {
-  if (isOpen.value) {
-    unlockBodyScroll();
-  }
-
-  window.removeEventListener('keydown', onKeydown);
   window.removeEventListener('resize', updateDeviceMode);
-});
-
-watch(isOpen, (open, wasOpen) => {
-  if (open) {
-    lockBodyScroll();
-    return;
-  }
-
-  if (wasOpen) {
-    unlockBodyScroll();
-  }
 });
 </script>
 
@@ -312,87 +261,87 @@ watch(isOpen, (open, wasOpen) => {
     <img :src="props.src" :alt="props.alt" :class="props.imageClass" />
   </div>
 
-  <Teleport to="body">
-    <div
-      v-if="isOpen"
-      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4"
-      role="dialog"
-      aria-modal="true"
-      @mousemove="onDragMove"
-      @mouseup="onDragEnd"
-      @mouseleave="onDragEnd"
-      @click.self="closeViewer"
-    >
-      <button
-        type="button"
-        class="absolute right-4 top-4 z-30 rounded-full bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
-        aria-label="Close image viewer"
-        @click="closeViewer"
-      >
-        Close
-      </button>
-
+  <UModal
+    v-model:open="isOpen"
+    fullscreen
+    :ui="{
+      body: 'p-0 sm:p-0 flex flex-col h-full border-none',
+      content: 'bg-black/95 border-none',
+      header: 'border-none',
+      footer: 'border-none justify-center'
+    }"
+    @update:open="onModalUpdate"
+  >
+    <template #body>
       <div
-        class="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-2"
+        class="relative flex h-full w-full flex-col"
+        @mousemove="onDragMove"
+        @mouseup="onDragEnd"
+        @mouseleave="onDragEnd"
       >
-        <button
-          type="button"
-          class="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-40"
+        <div
+          class="flex h-full w-full items-center justify-center overflow-hidden"
+        >
+          <img
+            ref="imageRef"
+            :src="props.src"
+            :alt="props.alt"
+            class="max-h-full max-w-full select-none rounded-md object-contain"
+            :class="
+              zoom > 1
+                ? isDragging
+                  ? 'cursor-grabbing'
+                  : 'cursor-grab'
+                : isDesktopView
+                  ? 'cursor-zoom-in'
+                  : ''
+            "
+            :style="{
+              transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`,
+              willChange: 'transform'
+            }"
+            draggable="false"
+            @mousedown.prevent="onDragStart"
+            @click="onDesktopImageClick"
+            @touchstart="onTouchStart"
+            @touchmove.prevent="onTouchMove"
+            @touchend="onTouchEnd"
+            @touchcancel="onTouchEnd"
+          />
+        </div>
+      </div>
+    </template>
+
+    <template #footer>
+      <div class="flex items-center gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-zoom-out"
           aria-label="Zoom out"
           :disabled="zoom <= minZoom"
+          class="text-white hover:bg-white/20 disabled:opacity-40"
           @click="zoomOut"
-        >
-          -
-        </button>
-        <button
-          type="button"
-          class="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20"
+        />
+        <UButton
+          color="neutral"
+          variant="ghost"
           aria-label="Reset zoom"
+          class="text-white hover:bg-white/20"
           @click="resetView"
         >
           {{ Math.round(zoom * 100) }}%
-        </button>
-        <button
-          type="button"
-          class="rounded-full bg-white/10 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/20 disabled:opacity-40"
+        </UButton>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-zoom-in"
           aria-label="Zoom in"
           :disabled="zoom >= maxZoom"
+          class="text-white hover:bg-white/20 disabled:opacity-40"
           @click="zoomIn"
-        >
-          +
-        </button>
-      </div>
-
-      <div
-        class="flex h-full w-full items-center justify-center overflow-hidden"
-      >
-        <img
-          ref="imageRef"
-          :src="props.src"
-          :alt="props.alt"
-          class="max-h-full max-w-full select-none object-contain rounded-md"
-          :class="
-            zoom > 1
-              ? isDragging
-                ? 'cursor-grabbing'
-                : 'cursor-grab'
-              : isDesktopView
-                ? 'cursor-zoom-in'
-                : ''
-          "
-          :style="{
-            transform: `translate3d(${panX}px, ${panY}px, 0) scale(${zoom})`,
-            willChange: 'transform'
-          }"
-          draggable="false"
-          @mousedown.prevent="onDragStart"
-          @click="onDesktopImageClick"
-          @touchstart="onTouchStart"
-          @touchmove.prevent="onTouchMove"
-          @touchend="onTouchEnd"
-          @touchcancel="onTouchEnd"
         />
       </div>
-    </div>
-  </Teleport>
+    </template>
+  </UModal>
 </template>

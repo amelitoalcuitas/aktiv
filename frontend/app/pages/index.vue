@@ -117,10 +117,10 @@ const scrollToExploreSection = () => {
         :ui="{ root: 'ring-0 divide-y-0' }"
       >
         <p class="m-0 text-[var(--aktiv-muted)]">
-          No hubs match your search yet.
+          Hubs are on their way!
         </p>
         <small class="mt-1 inline-block text-[var(--aktiv-muted)]"
-          >Try a different city, sport, or hub name.</small
+          >We're just getting started — check back soon for courts near you.</small
         >
       </UCard>
 

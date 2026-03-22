@@ -6,28 +6,29 @@ const props = defineProps<{
 const activeSection = ref(props.sections[0]?.id ?? '');
 const mobileNavOpen = ref(false);
 
-let observer: IntersectionObserver | null = null;
-
-onMounted(() => {
-  observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          activeSection.value = entry.target.id;
-        }
-      }
-    },
-    { rootMargin: '-15% 0px -75% 0px', threshold: 0 }
-  );
-
+function updateActiveSection() {
+  const threshold = window.innerHeight * 0.35;
+  let best: string | null = null;
+  let bestTop = -Infinity;
   for (const section of props.sections) {
     const el = document.getElementById(section.id);
-    if (el) observer.observe(el);
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.top <= threshold && rect.top > bestTop) {
+      best = section.id;
+      bestTop = rect.top;
+    }
   }
+  if (best) activeSection.value = best;
+}
+
+onMounted(() => {
+  updateActiveSection();
+  window.addEventListener('scroll', updateActiveSection, { passive: true });
 });
 
 onUnmounted(() => {
-  observer?.disconnect();
+  window.removeEventListener('scroll', updateActiveSection);
 });
 
 function scrollToSection(id: string) {

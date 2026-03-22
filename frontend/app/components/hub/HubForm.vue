@@ -422,7 +422,6 @@ function handleSubmit() {
     landmark: parsed.data.landmark ?? null,
     lat: parsed.data.lat as number,
     lng: parsed.data.lng as number,
-    sports: parsed.data.sports,
     contact_numbers: parsed.data.contact_numbers ?? [],
     websites: parsed.data.websites ?? [],
     coverImage: coverImage.value,
@@ -485,7 +484,7 @@ onUnmounted(() => {
           />
         </UFormField>
 
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div class="grid grid-cols-1 gap-6">
           <!-- Contact Numbers -->
           <div class="space-y-2">
             <p class="text-sm font-medium text-[var(--aktiv-ink)]">
@@ -506,7 +505,7 @@ onUnmounted(() => {
                   { label: 'Mobile', value: 'mobile' },
                   { label: 'Landline', value: 'landline' }
                 ]"
-                class="w-32 shrink-0"
+                class="w-25 shrink-0"
               />
               <div class="min-w-0 flex-1">
                 <UInput

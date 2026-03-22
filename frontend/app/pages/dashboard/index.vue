@@ -24,6 +24,25 @@ function formatPrice(price: string | null) {
   if (!price) return '—';
   return `₱${parseFloat(price).toFixed(0)}/hr`;
 }
+
+const { updateHub } = useHubs();
+const togglingHubs = ref(new Set<number>());
+
+async function toggleActive(
+  hub: { id: number; is_active: boolean },
+  value: boolean
+) {
+  togglingHubs.value = new Set(togglingHubs.value).add(hub.id);
+  try {
+    await updateHub(hub.id, { is_active: value });
+    hub.is_active = value;
+  } catch {
+    toast.add({ title: 'Failed to update hub status', color: 'error' });
+  } finally {
+    togglingHubs.value.delete(hub.id);
+    togglingHubs.value = new Set(togglingHubs.value);
+  }
+}
 </script>
 
 <template>
@@ -122,13 +141,27 @@ function formatPrice(price: string | null) {
               </p>
             </div>
 
-            <div>
-              <UBadge
-                :label="hub.is_active ? 'Active' : 'Inactive'"
-                :color="hub.is_active ? 'success' : 'error'"
-                variant="subtle"
-                class="shrink-0"
-              />
+            <div class="flex items-center gap-2" @click.stop>
+              <span
+                class="text-xs font-medium"
+                :class="
+                  hub.is_active
+                    ? 'text-[var(--aktiv-primary)]'
+                    : 'text-[var(--aktiv-muted)]'
+                "
+              >
+                {{ hub.is_active ? 'Active' : 'Inactive' }}
+              </span>
+              <UTooltip
+                text="Show or hide this hub from public."
+                :delay-duration="200"
+              >
+                <USwitch
+                  :model-value="hub.is_active"
+                  :loading="togglingHubs.has(hub.id)"
+                  @update:model-value="toggleActive(hub, $event)"
+                />
+              </UTooltip>
             </div>
           </div>
 

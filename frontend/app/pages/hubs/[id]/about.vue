@@ -282,10 +282,10 @@ onUnmounted(() => {
 
           <!-- 2. About -->
           <div v-if="hub.description || isOwner" class="p-4 md:p-6">
-            <h2 class="text-base font-bold text-[var(--aktiv-ink)]">About</h2>
+            <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">About this hub</h2>
             <p
               v-if="hub.description"
-              class="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-[var(--aktiv-muted)]"
+              class="mt-1 whitespace-pre-wrap text-base leading-relaxed text-[var(--aktiv-muted)]"
             >
               {{ hub.description }}
             </p>
@@ -304,7 +304,7 @@ onUnmounted(() => {
             v-if="hub.contact_numbers && hub.contact_numbers.length > 0"
             class="p-4 md:p-6"
           >
-            <h2 class="text-base font-bold text-[var(--aktiv-ink)]">Contact</h2>
+            <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">Contact</h2>
             <ul class="mt-2 space-y-1">
               <li
                 v-for="(contact, i) in hub.contact_numbers"
@@ -327,8 +327,11 @@ onUnmounted(() => {
           </div>
 
           <!-- Websites -->
-          <div v-if="hub.websites && hub.websites.length > 0" class="p-4 md:p-6">
-            <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
+          <div
+            v-if="hub.websites && hub.websites.length > 0"
+            class="p-4 md:p-6"
+          >
+            <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">
               Websites
             </h2>
             <ul class="mt-2 space-y-1">
@@ -346,7 +349,7 @@ onUnmounted(() => {
 
           <!-- 3. Courts -->
           <div class="p-4 md:p-6">
-            <h2 class="text-base font-bold text-[var(--aktiv-ink)]">Courts</h2>
+            <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">Courts</h2>
             <div
               v-if="courts && courts.length > 0"
               class="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2"
@@ -364,7 +367,7 @@ onUnmounted(() => {
                   </p>
                   <UBadge
                     :label="court.indoor ? 'Indoor' : 'Outdoor'"
-                    :color="court.indoor ? 'primary' : 'success'"
+                    color="secondary"
                     variant="subtle"
                     class="shrink-0"
                   />
@@ -377,18 +380,6 @@ onUnmounted(() => {
                     >/ hr</span
                   >
                 </span>
-                <UBadge
-                  v-if="court.open_play_price_per_head"
-                  variant="subtle"
-                  color="secondary"
-                  class="self-start text-xs"
-                >
-                  Open Play · ₱{{
-                    parseFloat(court.open_play_price_per_head).toLocaleString(
-                      'en-PH'
-                    )
-                  }}/head
-                </UBadge>
                 <div
                   class="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[var(--aktiv-muted)]"
                 >
@@ -428,7 +419,11 @@ onUnmounted(() => {
           </div>
 
           <!-- 4. Schedule (resource grid) -->
-          <div v-if="courts && courts.length > 0" id="schedule" class="p-4 md:p-6">
+          <div
+            v-if="courts && courts.length > 0"
+            id="schedule"
+            class="p-4 md:p-6"
+          >
             <h2 class="mb-4 text-base font-bold text-[var(--aktiv-ink)]">
               Schedule
             </h2>

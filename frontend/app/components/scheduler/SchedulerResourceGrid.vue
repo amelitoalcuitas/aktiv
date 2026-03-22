@@ -377,9 +377,6 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                 >
                   {{ court.name }}
                 </span>
-                <UBadge color="neutral" variant="soft" size="sm">
-                  {{ court.indoor ? 'Indoor' : 'Outdoor' }}
-                </UBadge>
               </div>
             </th>
           </tr>

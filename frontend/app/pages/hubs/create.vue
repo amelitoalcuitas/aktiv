@@ -3,6 +3,14 @@ import { useAuth } from '~/composables/useAuth';
 import { useHubs } from '~/composables/useHubs';
 import type { HubFormPayload } from '~/components/hub/HubForm.vue';
 
+const FORM_SECTIONS = [
+  { id: 'section-basic', label: 'Basic Info' },
+  { id: 'section-location', label: 'Location' },
+  { id: 'section-hours', label: 'Operating Hours' },
+  { id: 'section-media', label: 'Media' },
+  { id: 'section-status', label: 'Visibility' }
+];
+
 definePageMeta({ middleware: 'auth', layout: 'page' });
 
 const { isAuthenticated } = useAuth();
@@ -11,6 +19,12 @@ const toast = useToast();
 
 const loading = ref(false);
 const hubFormRef = ref();
+const formReady = ref(false);
+onMounted(() => {
+  setTimeout(() => {
+    formReady.value = true;
+  }, 100);
+});
 
 async function handleSubmit(payload: HubFormPayload) {
   loading.value = true;
@@ -29,7 +43,6 @@ async function handleSubmit(payload: HubFormPayload) {
       lng: payload.lng,
       cover_image: payload.coverImage,
       gallery_images: payload.galleryImages,
-      sports: payload.sports,
       contact_numbers: payload.contact_numbers,
       websites: payload.websites,
       is_active: payload.is_active,
@@ -67,7 +80,7 @@ if (!isAuthenticated.value) {
       Back to Dashboard
     </NuxtLink>
 
-    <div class="mx-auto max-w-2xl">
+    <div class="mx-auto max-w-lg lg:max-w-lg xl:max-w-full">
       <h1 class="mb-1 text-2xl font-bold text-[var(--aktiv-ink)]">
         Create a Hub
       </h1>
@@ -76,7 +89,16 @@ if (!isAuthenticated.value) {
       </p>
 
       <UCard :ui="{ root: 'ring-1 ring-[var(--aktiv-border)] ' }">
+        <div
+          v-if="!formReady"
+          class="flex items-center gap-2 py-2 text-sm text-[var(--aktiv-muted)]"
+        >
+          <UIcon name="i-heroicons-arrow-path" class="h-4 w-4 animate-spin" />
+          Preparing form...
+        </div>
+
         <HubForm
+          v-else
           ref="hubFormRef"
           :loading="loading"
           submit-label="Create Hub"
@@ -84,5 +106,7 @@ if (!isAuthenticated.value) {
         />
       </UCard>
     </div>
+
+    <HubFormNav :sections="FORM_SECTIONS" />
   </div>
 </template>

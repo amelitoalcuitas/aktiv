@@ -47,7 +47,6 @@ export function useHubs() {
       lat: number | null;
       lng: number | null;
       is_active: boolean;
-      sports: string[];
       contact_numbers: HubContactNumber[];
       websites: HubWebsite[];
       cover_image: File | null;
@@ -93,9 +92,6 @@ export function useHubs() {
       formData.append('cover_image', payload.cover_image);
     }
 
-    (payload.sports ?? []).forEach((sport) =>
-      formData.append('sports[]', sport)
-    );
     (payload.contact_numbers ?? []).forEach((entry, i) => {
       formData.append(`contact_numbers[${i}][type]`, entry.type);
       formData.append(`contact_numbers[${i}][number]`, entry.number);
@@ -229,7 +225,6 @@ export function useHubs() {
       remove_gallery_image_ids: number[];
       is_active: boolean;
       require_account_to_book: boolean;
-      sports: string[];
       contact_numbers: HubContactNumber[];
       websites: HubWebsite[];
       operating_hours: OperatingHoursEntry[];

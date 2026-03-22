@@ -4,6 +4,14 @@ import { useHubs } from '~/composables/useHubs';
 import type { Hub } from '~/types/hub';
 import type { HubFormPayload } from '~/components/hub/HubForm.vue';
 
+const FORM_SECTIONS = [
+  { id: 'section-basic', label: 'Basic Info' },
+  { id: 'section-location', label: 'Location' },
+  { id: 'section-hours', label: 'Operating Hours' },
+  { id: 'section-media', label: 'Media' },
+  { id: 'section-status', label: 'Visibility' }
+];
+
 definePageMeta({ middleware: 'auth', layout: 'page' });
 
 const route = useRoute();
@@ -50,7 +58,6 @@ async function handleSubmit(payload: HubFormPayload) {
       cover_image: payload.coverImage,
       gallery_images: payload.galleryImages,
       remove_gallery_image_ids: payload.removeGalleryImageIds,
-      sports: payload.sports,
       contact_numbers: payload.contact_numbers,
       websites: payload.websites,
       is_active: payload.is_active,
@@ -88,7 +95,7 @@ async function confirmDelete() {
 if (!isAuthenticated.value) {
   await navigateTo('/auth/login');
 } else {
-  await loadHub();
+  loadHub();
 }
 </script>
 
@@ -102,7 +109,7 @@ if (!isAuthenticated.value) {
       Back to Dashboard
     </NuxtLink>
 
-    <div class="mx-auto max-w-2xl">
+    <div class="mx-auto max-w-lg lg:max-w-lg xl:max-w-full">
       <h1 class="mb-1 text-2xl font-bold text-[var(--aktiv-ink)]">Edit Hub</h1>
       <p class="mb-6 text-sm text-[var(--aktiv-muted)]">
         Update your sports hub details.
@@ -141,6 +148,8 @@ if (!isAuthenticated.value) {
         </HubForm>
       </UCard>
     </div>
+
+    <HubFormNav :sections="FORM_SECTIONS" />
 
     <!-- Delete Confirm Modal -->
     <UModal

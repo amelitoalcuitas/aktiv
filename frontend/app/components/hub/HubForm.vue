@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { z } from 'zod';
-import type { HubContactNumber, HubWebsite, OperatingHoursEntry } from '~/types/hub';
+import type {
+  HubContactNumber,
+  HubWebsite,
+  OperatingHoursEntry
+} from '~/types/hub';
 import {
   HUB_IMAGE_MAX_BYTES,
   HUB_IMAGE_MAX_SIZE_MB
@@ -18,7 +22,6 @@ export interface HubFormPayload {
   landmark?: string | null;
   lat: number;
   lng: number;
-  sports: string[];
   contact_numbers: HubContactNumber[];
   websites: HubWebsite[];
   coverImage: File | null;
@@ -46,7 +49,6 @@ interface InitialData {
   landmark: string | null;
   lat: string | null;
   lng: string | null;
-  sports: string[];
   contact_numbers: HubContactNumber[];
   websites: HubWebsite[];
   is_active?: boolean;
@@ -86,13 +88,20 @@ const form = reactive({
   landmark: '',
   lat: null as number | null,
   lng: null as number | null,
-  sports: [] as string[],
   contact_numbers: [] as HubContactNumber[],
   websites: [] as HubWebsite[],
   is_active: true
 });
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday'
+];
 
 function defaultOperatingHours(): OperatingHoursEntry[] {
   return Array.from({ length: 7 }, (_, i) => ({
@@ -106,7 +115,14 @@ function defaultOperatingHours(): OperatingHoursEntry[] {
 const operatingHours = ref<OperatingHoursEntry[]>(defaultOperatingHours());
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => {
-  const label = h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
+  const label =
+    h === 0
+      ? '12 AM'
+      : h < 12
+        ? `${h} AM`
+        : h === 12
+          ? '12 PM'
+          : `${h - 12} PM`;
   const value = `${String(h).padStart(2, '0')}:00`;
   return { label, value };
 });
@@ -133,7 +149,6 @@ watch(
     form.landmark = data.landmark ?? '';
     form.lat = data.lat ? parseFloat(data.lat) : null;
     form.lng = data.lng ? parseFloat(data.lng) : null;
-    form.sports = [...data.sports];
     form.contact_numbers = data.contact_numbers.map((c) => ({ ...c }));
     form.websites = (data.websites ?? []).map((w) => ({ url: w.url }));
     form.is_active = data.is_active ?? true;
@@ -159,14 +174,6 @@ watch(
     currentCoverUrl.value = url ?? '';
   }
 );
-
-const SPORT_OPTIONS = [
-  { label: 'Pickleball', value: 'pickleball' },
-  { label: 'Badminton', value: 'badminton' },
-  { label: 'Basketball', value: 'basketball' },
-  { label: 'Tennis', value: 'tennis' },
-  { label: 'Volleyball', value: 'volleyball' }
-];
 
 const optionalTrimmedStringSchema = z.preprocess((value) => {
   if (value === null || value === undefined) return undefined;
@@ -198,7 +205,6 @@ const hubFormSchema = z.object({
       (value) => value !== null,
       'Please pin your hub location on the map.'
     ),
-  sports: z.array(z.string()),
   is_active: z.boolean(),
   contact_numbers: z
     .array(
@@ -390,7 +396,6 @@ function handleSubmit() {
     landmark: form.landmark,
     lat: form.lat,
     lng: form.lng,
-    sports: form.sports,
     is_active: form.is_active,
     contact_numbers: form.contact_numbers,
     websites: form.websites
@@ -428,7 +433,23 @@ function handleSubmit() {
   });
 }
 
+const footerRef = ref<HTMLElement | null>(null);
+const footerVisible = ref(true);
+
+let footerObserver: IntersectionObserver | null = null;
+
+onMounted(() => {
+  footerObserver = new IntersectionObserver(
+    ([entry]) => {
+      footerVisible.value = entry!.isIntersecting;
+    },
+    { threshold: 0 }
+  );
+  if (footerRef.value) footerObserver.observe(footerRef.value);
+});
+
 onUnmounted(() => {
+  footerObserver?.disconnect();
   if (coverPreview.value) {
     URL.revokeObjectURL(coverPreview.value);
   }
@@ -437,40 +458,297 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <form class="space-y-5" @submit.prevent="handleSubmit">
-    <UFormField label="Hub Name" required :error="fieldError('name')">
-      <UInput
-        v-model="form.name"
-        placeholder="e.g. Sunnyvale Tennis Club"
-        required
-        class="w-full"
+  <form class="space-y-0" @submit.prevent="handleSubmit">
+    <!-- ── Basic Info ─────────────────────────────────────────── -->
+    <section id="section-basic" class="pb-8">
+      <USeparator
+        label="Basic Info"
+        :ui="{ label: 'text-base font-semibold text-[var(--aktiv-ink)] px-3' }"
+        class="mb-6"
       />
-    </UFormField>
+      <div class="space-y-5">
+        <UFormField label="Hub Name" required :error="fieldError('name')">
+          <UInput
+            v-model="form.name"
+            placeholder="e.g. Sunnyvale Tennis Club"
+            required
+            class="w-full"
+          />
+        </UFormField>
 
-    <UFormField label="Description" :error="fieldError('description')">
-      <UTextarea
-        v-model="form.description"
-        placeholder="Brief description of your hub (optional)"
-        :rows="3"
-        class="w-full"
+        <UFormField label="Description" :error="fieldError('description')">
+          <UTextarea
+            v-model="form.description"
+            placeholder="Brief description of your hub (optional)"
+            :rows="3"
+            class="w-full"
+          />
+        </UFormField>
+
+        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+          <!-- Contact Numbers -->
+          <div class="space-y-2">
+            <p class="text-sm font-medium text-[var(--aktiv-ink)]">
+              Contact Numbers
+              <span class="ml-1 text-xs font-normal text-[var(--aktiv-muted)]"
+                >(optional, up to 5)</span
+              >
+            </p>
+
+            <div
+              v-for="(entry, index) in form.contact_numbers"
+              :key="index"
+              class="flex items-start gap-2"
+            >
+              <USelect
+                v-model="entry.type"
+                :items="[
+                  { label: 'Mobile', value: 'mobile' },
+                  { label: 'Landline', value: 'landline' }
+                ]"
+                class="w-32 shrink-0"
+              />
+              <div class="min-w-0 flex-1">
+                <UInput
+                  v-model="entry.number"
+                  :placeholder="
+                    entry.type === 'mobile' ? '09XXXXXXXXX' : '02XXXXXXXX'
+                  "
+                  :maxlength="contactNumberMaxLength(entry.type)"
+                  class="w-full"
+                  :ui="{
+                    base: contactNumberError(index)
+                      ? 'ring-1 ring-[var(--aktiv-danger-fg)]'
+                      : ''
+                  }"
+                />
+                <p
+                  v-if="contactNumberError(index)"
+                  class="mt-0.5 text-xs text-[var(--aktiv-danger-fg)]"
+                >
+                  {{ contactNumberError(index) }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="mt-1.5 shrink-0 text-[var(--aktiv-muted)] hover:text-[var(--aktiv-danger-fg)]"
+                aria-label="Remove contact number"
+                @click="removeContactNumber(index)"
+              >
+                <UIcon name="i-heroicons-x-mark" class="h-4 w-4" />
+              </button>
+            </div>
+
+            <UButton
+              v-if="form.contact_numbers.length < 5"
+              type="button"
+              variant="ghost"
+              color="neutral"
+              size="xs"
+              icon="i-heroicons-plus"
+              @click="addContactNumber"
+            >
+              Add
+            </UButton>
+          </div>
+
+          <!-- Websites -->
+          <div class="space-y-2">
+            <p class="text-sm font-medium text-[var(--aktiv-ink)]">
+              Websites
+              <span class="ml-1 text-xs font-normal text-[var(--aktiv-muted)]"
+                >(optional, up to 5)</span
+              >
+            </p>
+
+            <div
+              v-for="(entry, index) in form.websites"
+              :key="index"
+              class="flex items-start gap-2"
+            >
+              <div class="min-w-0 flex-1">
+                <UInput
+                  v-model="entry.url"
+                  placeholder="https://example.com"
+                  class="w-full"
+                  :ui="{
+                    base: websiteError(index)
+                      ? 'ring-1 ring-[var(--aktiv-danger-fg)]'
+                      : ''
+                  }"
+                />
+                <p
+                  v-if="websiteError(index)"
+                  class="mt-0.5 text-xs text-[var(--aktiv-danger-fg)]"
+                >
+                  {{ websiteError(index) }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="mt-1.5 shrink-0 text-[var(--aktiv-muted)] hover:text-[var(--aktiv-danger-fg)]"
+                aria-label="Remove website"
+                @click="removeWebsite(index)"
+              >
+                <UIcon name="i-heroicons-x-mark" class="h-4 w-4" />
+              </button>
+            </div>
+
+            <UButton
+              v-if="form.websites.length < 5"
+              type="button"
+              variant="ghost"
+              color="neutral"
+              size="xs"
+              icon="i-heroicons-plus"
+              @click="addWebsite"
+            >
+              Add another
+            </UButton>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Location ───────────────────────────────────────────── -->
+    <section id="section-location" class="pb-8">
+      <USeparator
+        label="Location"
+        :ui="{ label: 'text-base font-semibold text-[var(--aktiv-ink)] px-3' }"
+        class="mb-6"
       />
-    </UFormField>
+      <div class="space-y-4">
+        <HubLocationPicker
+          :model-value="{ lat: form.lat, lng: form.lng }"
+          @update:model-value="onPinUpdate"
+        />
 
-    <!-- Operating Hours -->
-    <div class="space-y-2">
-      <p class="text-sm font-medium text-[var(--aktiv-ink)]">Operating Hours</p>
-      <p class="text-xs text-[var(--aktiv-muted)]">
-        Set the opening and closing times for each day. These define the booking grid range.
+        <p
+          v-if="fieldError('lat') || fieldError('lng')"
+          class="text-xs text-[var(--aktiv-danger-fg)]"
+        >
+          {{ fieldError('lat') ?? fieldError('lng') }}
+        </p>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <UFormField
+            label="Address 1"
+            required
+            :error="fieldError('address')"
+            class="sm:col-span-2"
+          >
+            <UInput
+              v-model="form.address"
+              placeholder="e.g. 45 Katipunan Ave, Loyola Heights"
+              required
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField
+            label="Address 2 (optional)"
+            :error="fieldError('address_line2')"
+            class="sm:col-span-2"
+          >
+            <UInput
+              v-model="form.address_line2"
+              placeholder="Unit, floor, building, suite…"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField label="City" required :error="fieldError('city')">
+            <UInput
+              v-model="form.city"
+              placeholder="e.g. Quezon City"
+              required
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField label="Zip Code" required :error="fieldError('zip_code')">
+            <UInput
+              v-model="form.zip_code"
+              placeholder="e.g. 1108"
+              required
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField label="Province" required :error="fieldError('province')">
+            <UInput
+              v-model="form.province"
+              placeholder="e.g. Metro Manila"
+              required
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField label="Country" required :error="fieldError('country')">
+            <UInput
+              v-model="form.country"
+              placeholder="e.g. Philippines"
+              required
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField
+            label="Landmark (optional)"
+            :error="fieldError('landmark')"
+            class="sm:col-span-2"
+          >
+            <UInput
+              v-model="form.landmark"
+              placeholder="e.g. near Petron station, behind SM Mall"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Operating Hours ────────────────────────────────────── -->
+    <section id="section-hours" class="pb-8">
+      <USeparator
+        label="Operating Hours"
+        :ui="{ label: 'text-base font-semibold text-[var(--aktiv-ink)] px-3' }"
+        class="mb-6"
+      />
+      <p class="mb-3 text-xs text-[var(--aktiv-muted)]">
+        Set the opening and closing times for each day. These define the booking
+        grid range.
       </p>
+
       <!-- Desktop table -->
-      <div class="hidden overflow-hidden rounded-lg border border-[var(--aktiv-border)] sm:block">
+      <div
+        class="hidden overflow-hidden rounded-lg border border-[var(--aktiv-border)] sm:block"
+      >
         <table class="w-full text-sm">
           <thead>
-            <tr class="border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]">
-              <th class="py-2 pl-3 pr-2 text-left font-medium text-[var(--aktiv-muted)]">Day</th>
-              <th class="px-2 py-2 text-left font-medium text-[var(--aktiv-muted)]">Opens</th>
-              <th class="px-2 py-2 text-left font-medium text-[var(--aktiv-muted)]">Closes</th>
-              <th class="py-2 pl-2 pr-3 text-center font-medium text-[var(--aktiv-muted)]">Closed</th>
+            <tr
+              class="border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
+            >
+              <th
+                class="py-2 pl-3 pr-2 text-left font-medium text-[var(--aktiv-muted)]"
+              >
+                Day
+              </th>
+              <th
+                class="px-2 py-2 text-left font-medium text-[var(--aktiv-muted)]"
+              >
+                Opens
+              </th>
+              <th
+                class="px-2 py-2 text-left font-medium text-[var(--aktiv-muted)]"
+              >
+                Closes
+              </th>
+              <th
+                class="py-2 pl-2 pr-3 text-left font-medium text-[var(--aktiv-muted)]"
+              >
+                Closed
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -508,7 +786,9 @@ onUnmounted(() => {
       </div>
 
       <!-- Mobile cards -->
-      <div class="divide-y divide-[var(--aktiv-border)] rounded-lg border border-[var(--aktiv-border)] sm:hidden">
+      <div
+        class="divide-y divide-[var(--aktiv-border)] rounded-lg border border-[var(--aktiv-border)] sm:hidden"
+      >
         <div
           v-for="oh in operatingHours"
           :key="oh.day_of_week"
@@ -516,8 +796,12 @@ onUnmounted(() => {
           :class="oh.is_closed ? 'opacity-50' : ''"
         >
           <div class="mb-2 flex items-center justify-between">
-            <span class="text-sm font-medium text-[var(--aktiv-ink)]">{{ DAY_NAMES[oh.day_of_week] }}</span>
-            <label class="flex items-center gap-1.5 text-xs text-[var(--aktiv-muted)]">
+            <span class="text-sm font-medium text-[var(--aktiv-ink)]">{{
+              DAY_NAMES[oh.day_of_week]
+            }}</span>
+            <label
+              class="flex items-center gap-1.5 text-xs text-[var(--aktiv-muted)]"
+            >
               <UCheckbox v-model="oh.is_closed" />
               Closed
             </label>
@@ -544,350 +828,136 @@ onUnmounted(() => {
           </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Contact Numbers -->
-    <div class="space-y-2">
-      <p class="text-sm font-medium text-[var(--aktiv-ink)]">
-        Contact Numbers
-        <span class="ml-1 text-xs font-normal text-[var(--aktiv-muted)]"
-          >(optional, up to 5)</span
-        >
-      </p>
-
-      <div
-        v-for="(entry, index) in form.contact_numbers"
-        :key="index"
-        class="flex items-start gap-2"
-      >
-        <USelect
-          v-model="entry.type"
-          :items="[
-            { label: 'Mobile', value: 'mobile' },
-            { label: 'Landline', value: 'landline' }
-          ]"
-          class="w-32 shrink-0"
-        />
-        <div class="min-w-0 flex-1">
-          <UInput
-            v-model="entry.number"
-            :placeholder="
-              entry.type === 'mobile' ? '09XXXXXXXXX' : '02XXXXXXXX'
-            "
-            :maxlength="contactNumberMaxLength(entry.type)"
-            class="w-full"
-            :ui="{
-              base: contactNumberError(index)
-                ? 'ring-1 ring-[var(--aktiv-danger-fg)]'
-                : ''
-            }"
-          />
-          <p
-            v-if="contactNumberError(index)"
-            class="mt-0.5 text-xs text-[var(--aktiv-danger-fg)]"
-          >
-            {{ contactNumberError(index) }}
-          </p>
-        </div>
-        <button
-          type="button"
-          class="mt-1.5 shrink-0 text-[var(--aktiv-muted)] hover:text-[var(--aktiv-danger-fg)]"
-          aria-label="Remove contact number"
-          @click="removeContactNumber(index)"
-        >
-          <UIcon name="i-heroicons-x-mark" class="h-4 w-4" />
-        </button>
-      </div>
-
-      <UButton
-        v-if="form.contact_numbers.length < 5"
-        type="button"
-        variant="ghost"
-        color="neutral"
-        size="xs"
-        icon="i-heroicons-plus"
-        @click="addContactNumber"
-      >
-        Add
-      </UButton>
-    </div>
-
-    <!-- Websites -->
-    <div class="space-y-2">
-      <p class="text-sm font-medium text-[var(--aktiv-ink)]">
-        Websites
-        <span class="ml-1 text-xs font-normal text-[var(--aktiv-muted)]"
-          >(optional, up to 5)</span
-        >
-      </p>
-
-      <div
-        v-for="(entry, index) in form.websites"
-        :key="index"
-        class="flex items-start gap-2"
-      >
-        <div class="min-w-0 flex-1">
-          <UInput
-            v-model="entry.url"
-            placeholder="https://example.com"
-            class="w-full"
-            :ui="{
-              base: websiteError(index)
-                ? 'ring-1 ring-[var(--aktiv-danger-fg)]'
-                : ''
-            }"
-          />
-          <p
-            v-if="websiteError(index)"
-            class="mt-0.5 text-xs text-[var(--aktiv-danger-fg)]"
-          >
-            {{ websiteError(index) }}
-          </p>
-        </div>
-        <button
-          type="button"
-          class="mt-1.5 shrink-0 text-[var(--aktiv-muted)] hover:text-[var(--aktiv-danger-fg)]"
-          aria-label="Remove website"
-          @click="removeWebsite(index)"
-        >
-          <UIcon name="i-heroicons-x-mark" class="h-4 w-4" />
-        </button>
-      </div>
-
-      <UButton
-        v-if="form.websites.length < 5"
-        type="button"
-        variant="ghost"
-        color="neutral"
-        size="xs"
-        icon="i-heroicons-plus"
-        @click="addWebsite"
-      >
-        Add another
-      </UButton>
-    </div>
-
-    <!-- Location -->
-    <div class="space-y-3">
-      <p class="text-sm font-medium text-[var(--aktiv-ink)]">
-        Location <span class="text-[var(--aktiv-danger-fg)]">*</span>
-      </p>
-
-      <HubLocationPicker
-        :model-value="{ lat: form.lat, lng: form.lng }"
-        @update:model-value="onPinUpdate"
+    <!-- ── Media ──────────────────────────────────────────────── -->
+    <section id="section-media" class="pb-8">
+      <USeparator
+        label="Media"
+        :ui="{ label: 'text-base font-semibold text-[var(--aktiv-ink)] px-3' }"
+        class="mb-6"
       />
 
-      <p
-        v-if="fieldError('lat') || fieldError('lng')"
-        class="text-xs text-[var(--aktiv-danger-fg)]"
-      >
-        {{ fieldError('lat') ?? fieldError('lng') }}
-      </p>
-
-      <UFormField label="Address 1" required :error="fieldError('address')">
-        <UInput
-          v-model="form.address"
-          placeholder="e.g. 45 Katipunan Ave, Loyola Heights"
-          required
-          class="w-full"
-        />
-      </UFormField>
-
+      <!-- Cover Image -->
       <UFormField
-        label="Address 2 (optional)"
-        :error="fieldError('address_line2')"
+        label="Cover Image (optional)"
+        :error="fieldError('cover_image')"
+        class="mb-5"
       >
-        <UInput
-          v-model="form.address_line2"
-          placeholder="Unit, floor, building, suite…"
-          class="w-full"
+        <img
+          v-if="coverPreview || currentCoverUrl"
+          :src="coverPreview || currentCoverUrl"
+          alt="Cover preview"
+          class="mb-3 h-40 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
+        />
+        <input
+          type="file"
+          accept="image/*"
+          class="block w-full text-sm text-[var(--aktiv-muted)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--aktiv-primary)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[var(--aktiv-primary-hover)]"
+          @change="onCoverImageChange"
         />
       </UFormField>
 
-      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <UFormField label="City" required :error="fieldError('city')">
-          <UInput
-            v-model="form.city"
-            placeholder="e.g. Quezon City"
-            required
-            class="w-full"
-          />
-        </UFormField>
-        <UFormField label="Zip Code" required :error="fieldError('zip_code')">
-          <UInput
-            v-model="form.zip_code"
-            placeholder="e.g. 1108"
-            required
-            class="w-full"
-          />
-        </UFormField>
-      </div>
+      <!-- Gallery Images -->
+      <UFormField label="Gallery Images" :error="fieldError('gallery_images')">
+        <p class="text-xs text-[var(--aktiv-muted)]">
+          Up to 10 images total, max {{ HUB_IMAGE_MAX_SIZE_MB }}MB each.
+          <template v-if="existingGallery.length">
+            Mark existing images for removal or add new ones.
+          </template>
+        </p>
 
-      <UFormField label="Province" required :error="fieldError('province')">
-        <UInput
-          v-model="form.province"
-          placeholder="e.g. Metro Manila"
-          required
-          class="w-full"
-        />
-      </UFormField>
-
-      <UFormField label="Country" required :error="fieldError('country')">
-        <UInput
-          v-model="form.country"
-          placeholder="e.g. Philippines"
-          required
-          class="w-full"
-        />
-      </UFormField>
-
-      <UFormField label="Landmark (optional)" :error="fieldError('landmark')">
-        <UInput
-          v-model="form.landmark"
-          placeholder="e.g. near Petron station, behind SM Mall"
-          class="w-full"
-        />
-      </UFormField>
-    </div>
-
-    <!-- Cover Image -->
-    <UFormField
-      label="Cover Image (optional)"
-      :error="fieldError('cover_image')"
-    >
-      <img
-        v-if="coverPreview || currentCoverUrl"
-        :src="coverPreview || currentCoverUrl"
-        alt="Cover preview"
-        class="mb-3 h-40 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
-      />
-      <input
-        type="file"
-        accept="image/*"
-        class="block w-full text-sm text-[var(--aktiv-muted)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--aktiv-primary)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[var(--aktiv-primary-hover)]"
-        @change="onCoverImageChange"
-      />
-    </UFormField>
-
-    <!-- Gallery Images -->
-    <UFormField label="Gallery Images" :error="fieldError('gallery_images')">
-      <p class="text-xs text-[var(--aktiv-muted)]">
-        Up to 10 images total, max {{ HUB_IMAGE_MAX_SIZE_MB }}MB each.
-        <template v-if="existingGallery.length">
-          Mark existing images for removal or add new ones.
-        </template>
-      </p>
-
-      <div
-        v-if="existingGallery.length"
-        class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3"
-      >
-        <div v-for="image in existingGallery" :key="image.id" class="relative">
-          <img
-            :src="image.url"
-            :alt="`Gallery image ${image.id}`"
-            class="h-28 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
-            :class="
-              removeGalleryImageIds.includes(image.id) ? 'opacity-40' : ''
-            "
-          />
-          <button
-            type="button"
-            class="absolute right-1 top-1 rounded px-2 py-0.5 text-xs text-white"
-            :class="
-              removeGalleryImageIds.includes(image.id)
-                ? 'bg-emerald-600'
-                : 'bg-black/70'
-            "
-            @click="toggleExistingGalleryRemoval(image.id)"
-          >
-            {{ removeGalleryImageIds.includes(image.id) ? 'Undo' : 'Remove' }}
-          </button>
-        </div>
-      </div>
-
-      <input
-        type="file"
-        multiple
-        accept="image/*"
-        class="mt-3 block w-full text-sm text-[var(--aktiv-muted)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--aktiv-primary)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[var(--aktiv-primary-hover)]"
-        @change="onGalleryImagesChange"
-      />
-
-      <div
-        v-if="newGalleryPreviews.length"
-        class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3"
-      >
         <div
-          v-for="(preview, index) in newGalleryPreviews"
-          :key="`${preview}-${index}`"
-          class="relative"
+          v-if="existingGallery.length"
+          class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3"
         >
-          <img
-            :src="preview"
-            :alt="`New gallery image ${index + 1}`"
-            class="h-28 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
-          />
-          <button
-            type="button"
-            class="absolute right-1 top-1 rounded bg-black/70 px-2 py-0.5 text-xs text-white"
-            @click="removeNewGalleryImage(index)"
+          <div
+            v-for="image in existingGallery"
+            :key="image.id"
+            class="relative"
           >
-            Remove
-          </button>
+            <img
+              :src="image.url"
+              :alt="`Gallery image ${image.id}`"
+              class="h-28 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
+              :class="
+                removeGalleryImageIds.includes(image.id) ? 'opacity-40' : ''
+              "
+            />
+            <button
+              type="button"
+              class="absolute right-1 top-1 rounded px-2 py-0.5 text-xs text-white"
+              :class="
+                removeGalleryImageIds.includes(image.id)
+                  ? 'bg-emerald-600'
+                  : 'bg-black/70'
+              "
+              @click="toggleExistingGalleryRemoval(image.id)"
+            >
+              {{ removeGalleryImageIds.includes(image.id) ? 'Undo' : 'Remove' }}
+            </button>
+          </div>
         </div>
-      </div>
-    </UFormField>
 
-    <!-- Sports -->
-    <UFormField label="Sports">
-      <div class="flex flex-wrap gap-2 pt-1">
-        <label
-          v-for="opt in SPORT_OPTIONS"
-          :key="opt.value"
-          class="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition"
-          :class="
-            form.sports.includes(opt.value)
-              ? 'border-[var(--aktiv-primary)] bg-[#e8f0f8] text-[var(--aktiv-primary)]'
-              : 'border-[var(--aktiv-border)] text-[var(--aktiv-muted)] hover:border-[var(--aktiv-primary)]'
-          "
+        <input
+          type="file"
+          multiple
+          accept="image/*"
+          class="mt-3 block w-full text-sm text-[var(--aktiv-muted)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--aktiv-primary)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[var(--aktiv-primary-hover)]"
+          @change="onGalleryImagesChange"
+        />
+
+        <div
+          v-if="newGalleryPreviews.length"
+          class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3"
         >
-          <input
-            type="checkbox"
-            class="sr-only"
-            :value="opt.value"
-            :checked="form.sports.includes(opt.value)"
-            @change="
-              form.sports.includes(opt.value)
-                ? (form.sports = form.sports.filter((s) => s !== opt.value))
-                : form.sports.push(opt.value)
-            "
-          />
-          {{ opt.label }}
-        </label>
-      </div>
-      <p class="mt-1.5 text-xs text-[var(--aktiv-muted)]">
-        You can also manage sports by adding courts with specific sports later.
-      </p>
-    </UFormField>
+          <div
+            v-for="(preview, index) in newGalleryPreviews"
+            :key="`${preview}-${index}`"
+            class="relative"
+          >
+            <img
+              :src="preview"
+              :alt="`New gallery image ${index + 1}`"
+              class="h-28 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
+            />
+            <button
+              type="button"
+              class="absolute right-1 top-1 rounded bg-black/70 px-2 py-0.5 text-xs text-white"
+              @click="removeNewGalleryImage(index)"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      </UFormField>
+    </section>
 
-    <!-- Visibility -->
-    <div class="space-y-1.5">
-      <div class="flex items-center gap-3">
-        <USwitch v-model="form.is_active" />
-        <p class="text-sm font-medium text-[var(--aktiv-ink)]">
-          {{ form.is_active ? 'Active' : 'Inactive' }}
+    <!-- ── Visibility ─────────────────────────────────────────── -->
+    <section id="section-status" class="pb-8">
+      <USeparator
+        label="Visibility"
+        :ui="{ label: 'text-base font-semibold text-[var(--aktiv-ink)] px-3' }"
+        class="mb-6"
+      />
+      <div class="space-y-1.5">
+        <div class="flex items-center gap-3">
+          <USwitch v-model="form.is_active" />
+          <p class="text-sm font-medium text-[var(--aktiv-ink)]">
+            {{ form.is_active ? 'Active' : 'Inactive' }}
+          </p>
+        </div>
+        <p class="text-xs text-[var(--aktiv-muted)]">
+          When active, this hub will appear in the public hub list. Deactivate
+          it to hide it from visitors while you set things up.
         </p>
       </div>
-      <p class="text-xs text-[var(--aktiv-muted)]">
-        When active, this hub will appear in the public hub list. Deactivate it
-        to hide it from visitors while you set things up.
-      </p>
-    </div>
+    </section>
 
-    <!-- Footer -->
+    <!-- ── Floating Footer ────────────────────────────────────── -->
+    <!-- ── Footer (natural position — acts as sentinel) ──────── -->
     <div
+      ref="footerRef"
       class="flex items-center justify-between gap-3 border-t border-[var(--aktiv-border)] pt-4"
     >
       <div>
@@ -906,5 +976,36 @@ onUnmounted(() => {
         </UButton>
       </div>
     </div>
+
+    <!-- ── Floating footer (shown when natural footer is off-screen) ── -->
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="translate-y-full opacity-0"
+      enter-to-class="translate-y-0 opacity-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="translate-y-0 opacity-100"
+      leave-to-class="translate-y-full opacity-0"
+    >
+      <div
+        v-if="!footerVisible"
+        class="fixed bottom-0 left-0 right-0 z-20 flex items-center justify-between gap-3 border-t border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]/95 px-4 py-3 backdrop-blur-sm sm:px-6"
+      >
+        <div>
+          <slot name="actions-left" />
+        </div>
+        <div class="flex gap-3">
+          <UButton to="/dashboard" color="neutral" variant="ghost">
+            Cancel
+          </UButton>
+          <UButton
+            type="submit"
+            :loading="loading"
+            class="bg-[var(--aktiv-primary)] font-semibold hover:bg-[var(--aktiv-primary-hover)]"
+          >
+            {{ submitLabel }}
+          </UButton>
+        </div>
+      </div>
+    </Transition>
   </form>
 </template>

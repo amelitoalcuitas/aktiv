@@ -225,17 +225,6 @@ onMounted(() => {
               </template>
             </span>
 
-            <!-- Sport badges -->
-            <UBadge
-              v-for="sport in activeHub?.sports ?? []"
-              :key="sport"
-              variant="outline"
-              color="neutral"
-              class="border-white/35 bg-transparent text-white uppercase tracking-wide"
-            >
-              {{ sport }}
-            </UBadge>
-
             <!-- Rating -->
             <button
               v-if="

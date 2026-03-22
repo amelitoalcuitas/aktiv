@@ -20,10 +20,6 @@ function onImgError(id: number) {
   failedImages.value = new Set(failedImages.value).add(id);
 }
 
-function sportLabel(sport: string) {
-  return sport.charAt(0).toUpperCase() + sport.slice(1);
-}
-
 function formatPrice(price: string | null) {
   if (!price) return '—';
   return `₱${parseFloat(price).toFixed(0)}/hr`;
@@ -146,17 +142,6 @@ function formatPrice(price: string | null) {
             <span class="flex items-center gap-1">
               <UIcon name="i-heroicons-currency-dollar" class="h-3.5 w-3.5" />
               from {{ formatPrice(hub.lowest_price_per_hour) }}
-            </span>
-          </div>
-
-          <!-- Sports -->
-          <div v-if="hub.sports.length" class="mt-3 flex flex-wrap gap-1.5">
-            <span
-              v-for="sport in hub.sports"
-              :key="sport"
-              class="rounded-full bg-[#e8f0f8] px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[#004e89]"
-            >
-              {{ sportLabel(sport) }}
             </span>
           </div>
 

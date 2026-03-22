@@ -36,6 +36,8 @@ async function checkPendingReview(testBookingId?: number) {
   }
 }
 
+useFaviconBadge(() => notificationStore.unreadCount);
+
 // Subscribe to WebSocket notifications when authenticated
 watch(
   () => authStore.user,

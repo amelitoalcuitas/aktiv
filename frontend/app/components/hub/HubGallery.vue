@@ -53,8 +53,7 @@ watch(
         :ui="{
           root: 'h-full',
           viewport: 'h-full',
-          container: 'h-full',
-          item: 'h-full basis-full ps-0'
+          container: 'h-full'
         }"
         @select="onSelect"
       >

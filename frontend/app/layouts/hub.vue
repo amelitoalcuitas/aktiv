@@ -8,7 +8,7 @@
   >
     <AppHeader />
     <HubProfileHeader />
-    <main class="mx-auto w-full max-w-[1160px] grow px-3 py-4 md:px-6 md:py-10">
+    <main class="mx-auto w-full max-w-[1400px] grow px-3 py-4 md:px-6 md:py-10">
       <slot />
     </main>
     <AppFooter />

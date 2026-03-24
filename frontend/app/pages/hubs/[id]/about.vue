@@ -54,9 +54,6 @@ const todayCloseLabel = computed(() => {
 const mapContainer = ref<HTMLElement | null>(null);
 let map: maplibregl.Map | null = null;
 
-const hasCoords = computed(
-  () => hub.value?.lat != null && hub.value?.lng != null
-);
 
 // ── Mobile drawer ─────────────────────────────────────────────────────────
 const drawerOpen = ref(false);
@@ -198,7 +195,7 @@ const gridMaxTime = computed(() => {
 // ── Receipt upload ──────────────────────────────────────────────────────────
 const receiptModalOpen = ref(false);
 const pendingReceiptBooking = ref<CalendarBooking | null>(null);
-const pendingReceiptCourtId = ref<number | null>(null);
+const pendingReceiptCourtId = ref<string | null>(null);
 const pendingReceiptCourtName = ref('');
 
 function onOwnBookingClick({
@@ -229,9 +226,7 @@ onMounted(() => {
       center: [lng, lat],
       zoom: 15
     });
-    new maplibregl.Marker({ color: '#004e89' })
-      .setLngLat([lng, lat])
-      .addTo(map);
+    new maplibregl.Marker({ color: '#004e89' }).setLngLat([lng, lat]).addTo(map);
   }
 
   // WebSocket
@@ -270,7 +265,9 @@ onUnmounted(() => {
     </div>
 
     <template v-else-if="hub">
-      <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[1fr_320px]">
+      <div
+        class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[2fr_2fr_minmax(320px,1.2fr)]"
+      >
         <!-- Left: single card -->
         <div
           class="overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] divide-y divide-[var(--aktiv-border)]"
@@ -282,7 +279,9 @@ onUnmounted(() => {
 
           <!-- 2. About -->
           <div v-if="hub.description || isOwner" class="p-4 md:p-6">
-            <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">About this hub</h2>
+            <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">
+              About this hub
+            </h2>
             <p
               v-if="hub.description"
               class="mt-1 whitespace-pre-wrap text-base leading-relaxed text-[var(--aktiv-muted)]"
@@ -301,7 +300,10 @@ onUnmounted(() => {
 
           <!-- Contact + Websites (2-column row) -->
           <div
-            v-if="(hub.contact_numbers && hub.contact_numbers.length > 0) || (hub.websites && hub.websites.length > 0)"
+            v-if="
+              (hub.contact_numbers && hub.contact_numbers.length > 0) ||
+              (hub.websites && hub.websites.length > 0)
+            "
             class="grid grid-cols-1 divide-y divide-[var(--aktiv-border)] sm:grid-cols-2 sm:divide-x sm:divide-y-0"
           >
             <!-- Contact Numbers -->
@@ -424,38 +426,38 @@ onUnmounted(() => {
             </p>
           </div>
 
-          <!-- 4. Schedule (resource grid) -->
-          <div
-            v-if="courts && courts.length > 0"
-            id="schedule"
-            class="p-4 md:p-6"
-          >
-            <h2 class="mb-4 text-base font-bold text-[var(--aktiv-ink)]">
-              Schedule
-            </h2>
-            <div class="space-y-4">
-              <SchedulerContactNotice
-                :contact-numbers="hub?.contact_numbers ?? []"
-                :websites="hub?.websites ?? []"
-              />
-              <SchedulerResourceGrid
-                :courts="courts ?? []"
-                :bookings-map="bookingsMap"
-                :selected-date="selectedDate"
-                :selected-slots="selectedSlots"
-                :min-time="gridMinTime"
-                :max-time="gridMaxTime"
-                :operating-hours="hub?.operating_hours ?? []"
-                @slot-click="onSlotClick"
-                @update:selected-date="selectedDate = $event"
-                @own-booking-click="onOwnBookingClick"
-              />
-            </div>
+        </div>
+
+        <!-- Middle: Schedule -->
+        <div
+          v-if="courts && courts.length > 0"
+          id="schedule"
+          class="overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4 md:p-6"
+        >
+          <h2 class="mb-4 text-base font-bold text-[var(--aktiv-ink)]">
+            Schedule
+          </h2>
+          <div class="space-y-4">
+            <SchedulerResourceGrid
+              :courts="courts ?? []"
+              :bookings-map="bookingsMap"
+              :selected-date="selectedDate"
+              :selected-slots="selectedSlots"
+              :min-time="gridMinTime"
+              :max-time="gridMaxTime"
+              :operating-hours="hub?.operating_hours ?? []"
+              @slot-click="onSlotClick"
+              @update:selected-date="selectedDate = $event"
+              @own-booking-click="onOwnBookingClick"
+            />
           </div>
 
-          <!-- 5. Map -->
-          <div v-if="hasCoords" class="overflow-hidden">
-            <div ref="mapContainer" class="h-[320px] w-full" />
+          <!-- Map -->
+          <div
+            v-if="hub.lat != null && hub.lng != null"
+            class="mt-4 overflow-hidden rounded-xl border border-[var(--aktiv-border)]"
+          >
+            <div ref="mapContainer" class="h-[220px] w-full" />
           </div>
         </div>
 
@@ -486,6 +488,7 @@ onUnmounted(() => {
             @clear="onClearSlots"
             @remove-slots="onRemoveSlots"
           />
+
         </div>
       </div>
 

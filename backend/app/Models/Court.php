@@ -21,8 +21,6 @@ class Court extends Model
         'surface',
         'indoor',
         'price_per_hour',
-        'open_play_price_per_head',
-        'max_players',
         'is_active',
         'image_path',
         'image_url',
@@ -36,7 +34,6 @@ class Court extends Model
         return [
             'indoor' => 'boolean',
             'price_per_hour' => 'decimal:2',
-            'open_play_price_per_head' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }

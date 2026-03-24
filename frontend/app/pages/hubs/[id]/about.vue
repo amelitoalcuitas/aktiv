@@ -438,13 +438,7 @@ onUnmounted(() => {
                     />
                     {{ court.surface }}
                   </span>
-                  <span
-                    v-if="court.max_players"
-                    class="inline-flex items-center gap-1"
-                  >
-                    <UIcon name="i-heroicons-users" class="h-4 w-4 shrink-0" />
-                    Max {{ court.max_players }}
-                  </span>
+
                 </div>
 
                 <!-- Sports -->

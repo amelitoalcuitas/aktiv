@@ -133,8 +133,6 @@ class CourtController extends Controller
             'surface'                  => $court->surface,
             'indoor'                   => $court->indoor,
             'price_per_hour'           => $court->price_per_hour,
-            'open_play_price_per_head' => $court->open_play_price_per_head,
-            'max_players'              => $court->max_players,
             'is_active'                => $court->is_active,
             'sports'                   => $court->sports ? $court->sports->pluck('sport')->values() : [],
             'image_url'                => $court->image_url,

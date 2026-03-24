@@ -94,8 +94,6 @@ export interface Court {
   surface: SurfaceType | null;
   indoor: boolean;
   price_per_hour: string;
-  open_play_price_per_head: string | null;
-  max_players: number | null;
   is_active: boolean;
   sports: SportType[];
   image_url: string | null;

@@ -87,8 +87,6 @@ const courtForm = reactive({
   surface: 'concrete' as string,
   indoor: true,
   price_per_hour: '',
-  open_play_price_per_head: '',
-  max_players: '',
   is_active: true,
   sports: [] as string[]
 });
@@ -106,7 +104,6 @@ const formErrors = reactive({
   name: '',
   surface: '',
   price_per_hour: '',
-  max_players: '',
   sports: ''
 });
 
@@ -114,14 +111,12 @@ function clearFormErrors() {
   formErrors.name = '';
   formErrors.surface = '';
   formErrors.price_per_hour = '';
-  formErrors.max_players = '';
   formErrors.sports = '';
 }
 
 function clearConditionalFormErrors() {
   formErrors.surface = '';
   formErrors.price_per_hour = '';
-  formErrors.max_players = '';
   formErrors.sports = '';
 }
 
@@ -154,10 +149,6 @@ const courtFormSchema = z
       (value) => normalizeUnknownText(value),
       z.string()
     ),
-    max_players: z.preprocess(
-      (value) => normalizeUnknownText(value),
-      z.string()
-    ),
     sports: z.array(z.string()),
     is_active: z.boolean()
   })
@@ -186,23 +177,6 @@ const courtFormSchema = z
       });
     }
 
-    if (!data.max_players) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['max_players'],
-        message: 'Max players is required when court is Active.'
-      });
-    } else {
-      const parsedMaxPlayers = parseInt(data.max_players, 10);
-      if (Number.isNaN(parsedMaxPlayers) || parsedMaxPlayers < 1) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['max_players'],
-          message: 'Max players must be at least 1.'
-        });
-      }
-    }
-
     if (!data.sports.length) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -225,9 +199,6 @@ function setFormErrorsFromZod(error: z.ZodError) {
     if (key === 'price_per_hour' && !formErrors.price_per_hour) {
       formErrors.price_per_hour = issue.message;
     }
-    if (key === 'max_players' && !formErrors.max_players) {
-      formErrors.max_players = issue.message;
-    }
     if (key === 'sports' && !formErrors.sports)
       formErrors.sports = issue.message;
   }
@@ -238,7 +209,6 @@ function validateCourtForm() {
     name: courtForm.name,
     surface: courtForm.surface,
     price_per_hour: courtForm.price_per_hour,
-    max_players: courtForm.max_players,
     sports: courtForm.sports,
     is_active: courtForm.is_active
   });
@@ -264,8 +234,6 @@ function openAdd() {
     surface: 'concrete',
     indoor: true,
     price_per_hour: '',
-    open_play_price_per_head: '',
-    max_players: '',
     is_active: true,
     sports: []
   });
@@ -286,10 +254,6 @@ function openEdit(court: Court) {
     price_per_hour: court.price_per_hour
       ? String(parseFloat(court.price_per_hour))
       : '',
-    open_play_price_per_head: court.open_play_price_per_head
-      ? String(parseFloat(court.open_play_price_per_head))
-      : '',
-    max_players: court.max_players != null ? String(court.max_players) : '',
     is_active: court.is_active,
     sports: [...court.sports]
   });
@@ -312,20 +276,12 @@ async function submitForm() {
   formLoading.value = true;
   try {
     const pricePerHour = normalizeTextValue(courtForm.price_per_hour);
-    const openPlayPrice = normalizeTextValue(
-      courtForm.open_play_price_per_head
-    );
-    const maxPlayers = normalizeTextValue(courtForm.max_players);
 
     const payload = {
       name: courtForm.name,
       surface: courtForm.surface || undefined,
       indoor: courtForm.indoor,
       price_per_hour: pricePerHour ? parseFloat(pricePerHour) : 0,
-      open_play_price_per_head: openPlayPrice
-        ? parseFloat(openPlayPrice)
-        : null,
-      max_players: maxPlayers ? parseInt(maxPlayers, 10) : null,
       is_active: courtForm.is_active,
       sports: courtForm.sports,
       court_image: courtImageFile.value ?? undefined
@@ -490,9 +446,6 @@ function formatPrice(price: string) {
                 Indoor
               </th>
               <th class="px-4 py-3 text-left font-medium">Price/hr</th>
-              <th class="hidden px-4 py-3 text-left font-medium md:table-cell">
-                Open Play
-              </th>
               <th class="hidden px-4 py-3 text-left font-medium lg:table-cell">
                 Sports
               </th>
@@ -528,13 +481,6 @@ function formatPrice(price: string) {
               </td>
               <td class="px-4 py-3 text-[#0f1728]">
                 {{ formatPrice(court.price_per_hour) }}
-              </td>
-              <td class="hidden px-4 py-3 text-[#0f1728] md:table-cell">
-                {{
-                  court.open_play_price_per_head
-                    ? `₱${parseFloat(court.open_play_price_per_head).toFixed(0)}/head`
-                    : '—'
-                }}
               </td>
               <td class="hidden px-4 py-3 lg:table-cell">
                 <div class="flex flex-wrap gap-1">
@@ -613,74 +559,40 @@ function formatPrice(price: string) {
             />
           </UFormField>
 
-          <div class="grid grid-cols-2 gap-4">
-            <UFormField
-              label="Surface"
-              :required="courtForm.is_active"
-              :error="
-                formSubmitted && formErrors.surface
-                  ? formErrors.surface
-                  : undefined
-              "
-            >
-              <USelect
-                v-model="courtForm.surface"
-                :items="[SURFACE_OPTIONS]"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField
-              label="Max Players"
-              :required="courtForm.is_active"
-              :error="
-                formSubmitted && formErrors.max_players
-                  ? formErrors.max_players
-                  : undefined
-              "
-            >
-              <UInput
-                v-model="courtForm.max_players"
-                type="number"
-                min="1"
-                placeholder="4"
-                class="w-full"
-              />
-            </UFormField>
-          </div>
+          <UFormField
+            label="Surface"
+            :required="courtForm.is_active"
+            :error="
+              formSubmitted && formErrors.surface
+                ? formErrors.surface
+                : undefined
+            "
+          >
+            <USelect
+              v-model="courtForm.surface"
+              :items="[SURFACE_OPTIONS]"
+              class="w-full"
+            />
+          </UFormField>
 
-          <div>
-            <p class="mb-2.5 text-sm font-semibold text-[#0f1728]">Prices</p>
-            <div class="grid grid-cols-2 gap-4">
-              <UFormField
-                label="Private Court (₱/hr)"
-                :required="courtForm.is_active"
-                :error="
-                  formSubmitted && formErrors.price_per_hour
-                    ? formErrors.price_per_hour
-                    : undefined
-                "
-              >
-                <UInput
-                  v-model="courtForm.price_per_hour"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="500"
-                  class="w-full"
-                />
-              </UFormField>
-              <UFormField label="Open Play (₱/head)">
-                <UInput
-                  v-model="courtForm.open_play_price_per_head"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="150"
-                  class="w-full"
-                />
-              </UFormField>
-            </div>
-          </div>
+          <UFormField
+            label="Price per Hour (₱)"
+            :required="courtForm.is_active"
+            :error="
+              formSubmitted && formErrors.price_per_hour
+                ? formErrors.price_per_hour
+                : undefined
+            "
+          >
+            <UInput
+              v-model="courtForm.price_per_hour"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="500"
+              class="w-full"
+            />
+          </UFormField>
 
           <div class="flex items-center gap-6">
             <label class="flex cursor-pointer items-center gap-2 text-sm">

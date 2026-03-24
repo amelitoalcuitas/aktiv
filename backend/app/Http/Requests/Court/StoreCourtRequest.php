@@ -21,8 +21,6 @@ class StoreCourtRequest extends FormRequest
             'surface'                  => ['nullable', 'string', 'in:hardcourt,clay,synthetic,grass,concrete,wood'],
             'indoor'                   => ['nullable', 'boolean'],
             'price_per_hour'           => ['nullable', 'numeric', 'min:0'],
-            'open_play_price_per_head' => ['nullable', 'numeric', 'min:0'],
-            'max_players'              => ['nullable', 'integer', 'min:1'],
             'is_active'                => ['nullable', 'boolean'],
             'sports'                   => ['nullable', 'array'],
             'sports.*'                 => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],

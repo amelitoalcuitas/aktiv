@@ -54,20 +54,9 @@ watch(selectedHub, (hub) => {
   }
 });
 
-function onPaymentQrChange(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
+function onPaymentQrPicked(file: File | null) {
   if (!file) return;
-  if (file.size > 10 * 1024 * 1024) {
-    toast.add({
-      title: 'File too large',
-      description: 'Max file size is 10MB.',
-      color: 'error'
-    });
-    return;
-  }
   paymentQrFile.value = file;
-  paymentQrPreview.value = URL.createObjectURL(file);
   removePaymentQr.value = false;
 }
 
@@ -421,58 +410,16 @@ async function saveSettings() {
                   </div>
 
                   <!-- QR uploader — only shown when digital bank is enabled -->
-                  <div v-if="digitalBank" class="mt-3 space-y-3">
+                  <div v-if="digitalBank" class="mt-3 space-y-2">
                     <p class="text-xs font-medium text-[#0f1728]">
                       Payment QR Code <span class="text-red-500">*</span>
                     </p>
-
-                    <!-- Existing QR preview -->
-                    <div v-if="paymentQrPreview" class="flex items-start gap-3">
-                      <AppImageViewer
-                        :src="paymentQrPreview"
-                        alt="Payment QR code"
-                        image-class="h-28 w-28 rounded-lg border border-[#dbe4ef] object-contain bg-white"
-                      />
-                      <div class="text-xs text-[#64748b] space-y-1.5">
-                        <p>
-                          {{
-                            paymentQrFile
-                              ? 'New image selected.'
-                              : 'Current QR code.'
-                          }}
-                        </p>
-                        <p>Upload a new image to replace it.</p>
-                        <button
-                          type="button"
-                          class="flex items-center gap-1 text-red-500 hover:text-red-600 font-medium"
-                          @click="clearPaymentQr"
-                        >
-                          <UIcon name="i-heroicons-trash" class="h-3.5 w-3.5" />
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-
-                    <label
-                      class="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-[#dbe4ef] bg-[#f9fdf2] px-4 py-3 text-sm text-[#64748b] hover:border-[#004e89]/40 transition-colors"
-                    >
-                      <UIcon
-                        name="i-heroicons-arrow-up-tray"
-                        class="h-4 w-4 shrink-0"
-                      />
-                      <span>{{
-                        paymentQrFile
-                          ? paymentQrFile.name
-                          : 'Upload QR image (JPG, PNG, WebP · max 10MB)'
-                      }}</span>
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        class="hidden"
-                        @change="onPaymentQrChange"
-                      />
-                    </label>
-
+                    <AppImageUploader
+                      :model-value="paymentQrFile"
+                      :preview-url="paymentQrPreview"
+                      @update:model-value="onPaymentQrPicked"
+                      @clear="clearPaymentQr"
+                    />
                     <p
                       v-if="!paymentQrPreview && !paymentQrFile"
                       class="text-xs text-amber-600"

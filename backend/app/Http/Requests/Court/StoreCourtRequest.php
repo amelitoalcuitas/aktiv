@@ -26,6 +26,7 @@ class StoreCourtRequest extends FormRequest
             'is_active'                => ['nullable', 'boolean'],
             'sports'                   => ['nullable', 'array'],
             'sports.*'                 => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],
+            'court_image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ];
     }
 }

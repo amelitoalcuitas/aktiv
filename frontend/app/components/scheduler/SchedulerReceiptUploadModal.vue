@@ -24,42 +24,10 @@ const isOpen = computed({
 });
 
 // ── File selection ─────────────────────────────────────────────
-const fileInput = useTemplateRef<HTMLInputElement>('fileInput');
 const selectedFile = ref<File | null>(null);
-const previewUrl = ref<string | null>(null);
-const fileError = ref('');
-
-const MAX_SIZE_MB = 10;
-const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-
-function onFileChange(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0] ?? null;
-  fileError.value = '';
-  selectedFile.value = null;
-  previewUrl.value = null;
-
-  if (!file) return;
-
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    fileError.value = 'Please upload a JPG, PNG, or WebP image.';
-    return;
-  }
-  if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-    fileError.value = `Image must be under ${MAX_SIZE_MB} MB.`;
-    return;
-  }
-
-  selectedFile.value = file;
-  previewUrl.value = URL.createObjectURL(file);
-}
 
 function clearFile() {
   selectedFile.value = null;
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
-  previewUrl.value = null;
-  fileError.value = '';
-  if (fileInput.value) fileInput.value.value = '';
 }
 
 // ── Expiry countdown ─────────────────────────────────────────
@@ -203,62 +171,10 @@ function formatRange(start: string, end: string): string {
 
         <!-- File upload area -->
         <div v-if="!isExpired">
-          <p class="mb-2 text-sm font-medium text-[var(--aktiv-ink)]">
-            Receipt image
-          </p>
-          <p class="mb-3 text-xs text-[var(--aktiv-muted)]">
-            Upload your GCash, bank transfer, or payment screenshot. JPG, PNG or
-            WebP, max 10 MB.
-          </p>
-
-          <!-- Preview -->
-          <div v-if="previewUrl" class="mb-3">
-            <div class="relative inline-block">
-              <img
-                :src="previewUrl"
-                alt="Receipt preview"
-                class="max-h-48 rounded-lg border border-[var(--aktiv-border)] object-contain"
-              />
-              <button
-                type="button"
-                class="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-white border border-[var(--aktiv-border)] hover:bg-red-50 transition-colors"
-                @click="clearFile"
-              >
-                <UIcon
-                  name="i-heroicons-x-mark"
-                  class="h-3.5 w-3.5 text-[var(--aktiv-ink)]"
-                />
-              </button>
-            </div>
-          </div>
-
-          <!-- Drop zone / pick file -->
-          <div
-            class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--aktiv-border)] bg-[var(--aktiv-bg)] px-6 py-8 text-center transition-colors hover:border-[#004e89] hover:bg-[#e8f0f8]"
-            @click="fileInput?.click()"
-          >
-            <UIcon
-              name="i-heroicons-photo"
-              class="mx-auto h-8 w-8 text-[var(--aktiv-muted)]"
-            />
-            <p class="mt-2 text-sm font-medium text-[var(--aktiv-ink)]">
-              {{ selectedFile ? selectedFile.name : 'Click to select receipt' }}
-            </p>
-            <p class="mt-0.5 text-xs text-[var(--aktiv-muted)]">
-              JPG, PNG, WebP · max 10 MB
-            </p>
-          </div>
-          <input
-            ref="fileInput"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            class="sr-only"
-            @change="onFileChange"
+          <AppImageUploader
+            v-model="selectedFile"
+            hint="Upload your GCash, bank transfer, or payment screenshot. JPG, PNG or WebP, max 10 MB."
           />
-
-          <p v-if="fileError" class="mt-1.5 text-xs text-red-600">
-            {{ fileError }}
-          </p>
           <p v-if="uploadError" class="mt-1.5 text-xs text-red-600">
             {{ uploadError }}
           </p>

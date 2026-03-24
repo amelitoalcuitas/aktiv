@@ -843,17 +843,12 @@ onUnmounted(() => {
         :error="fieldError('cover_image')"
         class="mb-5"
       >
-        <img
-          v-if="coverPreview || currentCoverUrl"
-          :src="coverPreview || currentCoverUrl"
-          alt="Cover preview"
-          class="mb-3 h-40 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
-        />
-        <input
-          type="file"
-          accept="image/*"
-          class="block w-full text-sm text-[var(--aktiv-muted)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--aktiv-primary)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[var(--aktiv-primary-hover)]"
-          @change="onCoverImageChange"
+        <AppImageUploader
+          v-model="coverImage"
+          :preview-url="currentCoverUrl || null"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          :max-mb="HUB_IMAGE_MAX_SIZE_MB"
+          @clear="coverImage = null; currentCoverUrl = ''"
         />
       </UFormField>
 

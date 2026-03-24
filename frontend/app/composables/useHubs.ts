@@ -274,11 +274,31 @@ export function useHubs() {
       max_players?: number | null;
       is_active?: boolean;
       sports?: string[];
+      court_image?: File | null;
     }
   ): Promise<Court> {
+    const { court_image, ...rest } = payload;
+    let body: FormData | typeof rest = rest;
+
+    if (court_image) {
+      const fd = new FormData();
+      Object.entries(rest).forEach(([k, v]) => {
+        if (v === null || v === undefined) return;
+        if (Array.isArray(v)) {
+          v.forEach((item) => fd.append(`${k}[]`, String(item)));
+        } else if (typeof v === 'boolean') {
+          fd.append(k, v ? '1' : '0');
+        } else {
+          fd.append(k, String(v));
+        }
+      });
+      fd.append('court_image', court_image);
+      body = fd;
+    }
+
     const res = await apiFetch<{ data: Court }>(`/hubs/${hubId}/courts`, {
       method: 'POST',
-      body: payload
+      body
     });
     return res.data;
   }
@@ -295,14 +315,42 @@ export function useHubs() {
       max_players: number | null;
       is_active: boolean;
       sports: string[];
+      court_image: File | null;
+      remove_court_image: boolean;
     }>
   ): Promise<Court> {
+    const { court_image, remove_court_image, ...rest } = payload;
+    const needsFormData = !!court_image || !!remove_court_image;
+
+    let body: FormData | (typeof rest & { _method?: string });
+
+    if (needsFormData) {
+      const fd = new FormData();
+      fd.append('_method', 'PUT');
+      Object.entries(rest).forEach(([k, v]) => {
+        if (v === null || v === undefined) return;
+        if (Array.isArray(v)) {
+          v.forEach((item) => fd.append(`${k}[]`, String(item)));
+        } else if (typeof v === 'boolean') {
+          fd.append(k, v ? '1' : '0');
+        } else {
+          fd.append(k, String(v));
+        }
+      });
+      if (court_image) fd.append('court_image', court_image);
+      if (remove_court_image) fd.append('remove_court_image', '1');
+      body = fd;
+
+      const res = await apiFetch<{ data: Court }>(
+        `/hubs/${hubId}/courts/${courtId}`,
+        { method: 'POST', body }
+      );
+      return res.data;
+    }
+
     const res = await apiFetch<{ data: Court }>(
       `/hubs/${hubId}/courts/${courtId}`,
-      {
-        method: 'PUT',
-        body: payload
-      }
+      { method: 'PUT', body: rest }
     );
     return res.data;
   }

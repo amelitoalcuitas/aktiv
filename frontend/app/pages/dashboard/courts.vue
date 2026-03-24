@@ -61,6 +61,9 @@ const isFormOpen = ref(false);
 const editingCourt = ref<Court | null>(null);
 const formLoading = ref(false);
 const courtFormEl = useTemplateRef<HTMLFormElement>('courtFormEl');
+const courtImageFile = ref<File | null>(null);
+const courtImagePreview = ref<string | null>(null);
+const removeCourtImage = ref(false);
 
 const SPORT_OPTIONS = [
   { label: 'Pickleball', value: 'pickleball' },
@@ -253,6 +256,9 @@ function openAdd() {
   editingCourt.value = null;
   formSubmitted.value = false;
   clearFormErrors();
+  courtImageFile.value = null;
+  courtImagePreview.value = null;
+  removeCourtImage.value = false;
   Object.assign(courtForm, {
     name: '',
     surface: 'concrete',
@@ -270,6 +276,9 @@ function openEdit(court: Court) {
   editingCourt.value = court;
   formSubmitted.value = false;
   clearFormErrors();
+  courtImageFile.value = null;
+  courtImagePreview.value = court.image_url ?? null;
+  removeCourtImage.value = false;
   Object.assign(courtForm, {
     name: court.name,
     surface: court.surface ?? '',
@@ -318,11 +327,15 @@ async function submitForm() {
         : null,
       max_players: maxPlayers ? parseInt(maxPlayers, 10) : null,
       is_active: courtForm.is_active,
-      sports: courtForm.sports
+      sports: courtForm.sports,
+      court_image: courtImageFile.value ?? undefined
     };
 
     if (editingCourt.value) {
-      await updateCourt(selectedHubId.value, editingCourt.value.id, payload);
+      await updateCourt(selectedHubId.value, editingCourt.value.id, {
+        ...payload,
+        remove_court_image: removeCourtImage.value || undefined
+      });
       toast.add({ title: 'Court updated', color: 'success' });
     } else {
       await createCourt(selectedHubId.value, payload);
@@ -684,6 +697,14 @@ function formatPrice(price: string) {
             Note: When <strong>Active</strong> is enabled, all fields are
             required before saving.
           </p>
+
+          <AppImageUploader
+            v-model="courtImageFile"
+            :preview-url="courtImagePreview"
+            label="Court Image (optional)"
+            hint="Add a photo of the court. JPG, PNG or WebP, max 10 MB."
+            @clear="removeCourtImage = true; courtImagePreview = null"
+          />
 
           <UFormField label="Sports" :required="courtForm.is_active">
             <div class="flex flex-wrap gap-2 pt-1">

@@ -24,6 +24,8 @@ class Court extends Model
         'open_play_price_per_head',
         'max_players',
         'is_active',
+        'image_path',
+        'image_url',
     ];
 
     /**

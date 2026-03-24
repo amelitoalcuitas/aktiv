@@ -8,10 +8,14 @@ use App\Http\Requests\Court\UpdateCourtRequest;
 use App\Models\Court;
 use App\Models\CourtSport;
 use App\Models\Hub;
+use App\Services\ImageUploadService;
 use Illuminate\Http\JsonResponse;
 
 class CourtController extends Controller
 {
+    public function __construct(private readonly ImageUploadService $imageUploadService)
+    {
+    }
     /**
      * List all courts for a hub (public).
      */
@@ -36,6 +40,13 @@ class CourtController extends Controller
         $validated = $request->validated();
         $sports = $validated['sports'] ?? [];
         unset($validated['sports']);
+        unset($validated['court_image']);
+
+        if ($request->hasFile('court_image')) {
+            $uploaded = $this->imageUploadService->upload($request->file('court_image'), 'courts');
+            $validated['image_path'] = $uploaded['path'];
+            $validated['image_url']  = $uploaded['url'];
+        }
 
         $court = $hub->courts()->create($validated);
 
@@ -57,6 +68,18 @@ class CourtController extends Controller
         $validated = $request->validated();
         $sports = isset($validated['sports']) ? $validated['sports'] : null;
         unset($validated['sports']);
+        $removeCourteImage = (bool) ($validated['remove_court_image'] ?? false);
+        unset($validated['remove_court_image']);
+        unset($validated['court_image']);
+
+        if ($request->hasFile('court_image')) {
+            $uploaded = $this->imageUploadService->upload($request->file('court_image'), 'courts');
+            $validated['image_path'] = $uploaded['path'];
+            $validated['image_url']  = $uploaded['url'];
+        } elseif ($removeCourteImage) {
+            $validated['image_path'] = null;
+            $validated['image_url']  = null;
+        }
 
         $court->update($validated);
 
@@ -114,6 +137,7 @@ class CourtController extends Controller
             'max_players'              => $court->max_players,
             'is_active'                => $court->is_active,
             'sports'                   => $court->sports ? $court->sports->pluck('sport')->values() : [],
+            'image_url'                => $court->image_url,
             'created_at'               => $court->created_at,
         ];
     }

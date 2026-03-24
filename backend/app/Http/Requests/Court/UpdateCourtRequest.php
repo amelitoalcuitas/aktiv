@@ -26,6 +26,8 @@ class UpdateCourtRequest extends FormRequest
             'is_active'                => ['sometimes', 'nullable', 'boolean'],
             'sports'                   => ['sometimes', 'array'],
             'sports.*'                 => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],
+            'court_image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
+            'remove_court_image'       => ['nullable', 'boolean'],
         ];
     }
 }

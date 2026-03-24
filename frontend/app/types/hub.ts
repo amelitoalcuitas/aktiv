@@ -98,6 +98,7 @@ export interface Court {
   max_players: number | null;
   is_active: boolean;
   sports: SportType[];
+  image_url: string | null;
   created_at: string;
 }
 

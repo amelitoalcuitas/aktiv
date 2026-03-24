@@ -144,43 +144,12 @@ const payOnSiteCountdownLabel = computed(() => {
 });
 
 // ── Receipt upload ────────────────────────────────────────────
-const fileInput = useTemplateRef<HTMLInputElement>('fileInput');
 const selectedFile = ref<File | null>(null);
-const previewUrl = ref<string | null>(null);
-const fileError = ref('');
 const uploading = ref(false);
 const uploadError = ref('');
 
-const MAX_SIZE_MB = 10;
-const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-
-function onFileChange(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0] ?? null;
-  fileError.value = '';
-  selectedFile.value = null;
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
-  previewUrl.value = null;
-
-  if (!file) return;
-  if (!ALLOWED_TYPES.includes(file.type)) {
-    fileError.value = 'Please upload a JPG, PNG, or WebP image.';
-    return;
-  }
-  if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-    fileError.value = `Image must be under ${MAX_SIZE_MB} MB.`;
-    return;
-  }
-  selectedFile.value = file;
-  previewUrl.value = URL.createObjectURL(file);
-}
-
 function clearFile() {
   selectedFile.value = null;
-  if (previewUrl.value) URL.revokeObjectURL(previewUrl.value);
-  previewUrl.value = null;
-  fileError.value = '';
-  if (fileInput.value) fileInput.value.value = '';
 }
 
 async function submitReceipt() {
@@ -526,72 +495,18 @@ const statusConfig: Record<
                 <span>Upload before expiry — {{ countdownLabel }}</span>
               </div>
 
-              <p class="mb-2 text-sm font-medium text-[#0f1728]">
-                Upload payment receipt
-              </p>
-              <p class="mb-3 text-xs text-[#64748b]">
-                Upload your GCash, bank transfer, or payment screenshot. JPG,
-                PNG or WebP, max 10 MB.
-              </p>
-
-              <!-- Preview -->
-              <div v-if="previewUrl" class="mb-3">
-                <div class="relative inline-block">
-                  <img
-                    :src="previewUrl"
-                    alt="Receipt preview"
-                    class="max-h-48 rounded-lg border border-[#dbe4ef] object-contain"
-                  />
-                  <button
-                    type="button"
-                    class="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-[#dbe4ef] bg-white transition-colors hover:bg-red-50"
-                    @click="clearFile"
-                  >
-                    <UIcon
-                      name="i-heroicons-x-mark"
-                      class="h-3.5 w-3.5 text-[#0f1728]"
-                    />
-                  </button>
-                </div>
-              </div>
-
-              <!-- Drop zone -->
-              <div
-                v-if="!selectedFile"
-                class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#dbe4ef] bg-[#f9fdf2] px-6 py-8 text-center transition-colors hover:border-[#004e89] hover:bg-[#e8f0f8]"
-                @click="fileInput?.click()"
-              >
-                <UIcon
-                  name="i-heroicons-photo"
-                  class="mx-auto h-8 w-8 text-[#94a3b8]"
-                />
-                <p class="mt-2 text-sm font-medium text-[#0f1728]">
-                  {{
-                    selectedFile ? selectedFile.name : 'Click to select receipt'
-                  }}
-                </p>
-                <p class="mt-0.5 text-xs text-[#64748b]">
-                  JPG, PNG, WebP · max 10 MB
-                </p>
-              </div>
-              <input
-                ref="fileInput"
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                class="sr-only"
-                @change="onFileChange"
+              <AppImageUploader
+                v-model="selectedFile"
+                hint="Upload your GCash, bank transfer, or payment screenshot. JPG, PNG or WebP, max 10 MB."
               />
 
-              <p v-if="fileError" class="mt-1.5 text-xs text-red-600">
-                {{ fileError }}
-              </p>
               <p v-if="uploadError" class="mt-1.5 text-xs text-red-600">
                 {{ uploadError }}
               </p>
 
               <UButton
                 class="mt-3 w-full bg-[#004e89] hover:bg-[#003d6b]"
-                :disabled="!selectedFile || !!fileError"
+                :disabled="!selectedFile"
                 :loading="uploading"
                 icon="i-heroicons-arrow-up-tray"
                 block

@@ -257,7 +257,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div :class="['cursor-zoom-in', props.wrapperClass]" @click="openViewer">
+  <div :class="['cursor-pointer', props.wrapperClass]" @click="openViewer">
     <img :src="props.src" :alt="props.alt" :class="props.imageClass" />
   </div>
 

@@ -86,7 +86,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function (): void {
     Route::match(['put', 'post'], '/hubs/{hub}', [HubController::class, 'update'])->name('api.hubs.update');
     Route::delete('/hubs/{hub}', [HubController::class, 'destroy'])->name('api.hubs.destroy');
     Route::post('/hubs/{hub}/courts', [CourtController::class, 'store'])->name('api.hubs.courts.store');
-    Route::put('/hubs/{hub}/courts/{court}', [CourtController::class, 'update'])->name('api.hubs.courts.update');
+    Route::match(['put', 'post'], '/hubs/{hub}/courts/{court}', [CourtController::class, 'update'])->name('api.hubs.courts.update');
     Route::delete('/hubs/{hub}/courts/{court}', [CourtController::class, 'destroy'])->name('api.hubs.courts.destroy');
 
     // Owner booking management

@@ -38,7 +38,7 @@ jobs:
 
             # Build and start the containers
             # --pull ensures we check for the latest PHP/Composer base images
-            docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build --pull
+            docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build
 
             # Laravel post-deployment commands
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan migrate --force

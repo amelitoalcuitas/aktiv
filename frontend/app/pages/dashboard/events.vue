@@ -6,7 +6,9 @@ import type { Hub, HubEvent, EventType, DiscountType } from '~/types/hub';
 definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] });
 
 const hubStore = useHubStore();
-const { fetchEvents, createEvent, updateEvent, deleteEvent, toggleEvent } = useHubEvents();
+const { fetchEvents, createEvent, updateEvent, deleteEvent, toggleEvent } =
+  useHubEvents();
+const { fetchCourts } = useHubs();
 const toast = useToast();
 
 // ── Hub selector ──────────────────────────────────────────────────────────────
@@ -23,13 +25,14 @@ onMounted(async () => {
   await hubStore.fetchMyHubs();
   if (hubStore.myHubs.length) {
     selectedHubId.value = hubStore.myHubs[0]?.id;
-    await loadEvents();
+    await Promise.all([loadEvents(), loadCourts()]);
   }
 });
 
 watch(selectedHubId, async () => {
   events.value = [];
-  if (selectedHubId.value) await loadEvents();
+  hubCourts.value = [];
+  if (selectedHubId.value) await Promise.all([loadEvents(), loadCourts()]);
 });
 
 async function loadEvents() {
@@ -44,18 +47,26 @@ async function loadEvents() {
 
 // ── Courts for the selected hub (for affected_courts picker) ──────────────────
 
-const selectedHub = computed<Hub | undefined>(() =>
-  hubStore.myHubs.find((h: Hub) => h.id === selectedHubId.value)
-);
+const hubCourts = ref<
+  Array<{ id: string; name: string; price_per_hour: string }>
+>([]);
 
-const hubCourts = computed<Array<{ id: string; name: string; price_per_hour: string }>>(
-  () => (selectedHub.value as any)?.courts ?? []
-);
+async function loadCourts() {
+  if (!selectedHubId.value) {
+    hubCourts.value = [];
+    return;
+  }
+  try {
+    hubCourts.value = await fetchCourts(selectedHubId.value);
+  } catch {
+    hubCourts.value = [];
+  }
+}
 
 const courtOptions = computed(() =>
   hubCourts.value.map((c) => ({
-    label: `${c.name} (₱${parseFloat(c.price_per_hour).toLocaleString('en-PH', { maximumFractionDigits: 0 })}/hr)`,
-    value: c.id,
+    label: c.name,
+    value: c.id
   }))
 );
 
@@ -68,12 +79,12 @@ const formLoading = ref(false);
 const EVENT_TYPE_OPTIONS = [
   { label: 'Closure', value: 'closure' },
   { label: 'Promo', value: 'promo' },
-  { label: 'Announcement', value: 'announcement' },
+  { label: 'Announcement', value: 'announcement' }
 ] as const;
 
 const DISCOUNT_TYPE_OPTIONS = [
-  { label: 'Percent (%)', value: 'percent' },
-  { label: 'Flat amount (₱)', value: 'flat' },
+  { label: '% Percent', value: 'percent' },
+  { label: '₱ Flat', value: 'flat' }
 ] as const;
 
 function toDateObj(str: string): Date {
@@ -104,7 +115,7 @@ const form = reactive({
   discount_value: '' as string,
   affected_courts: null as string[] | null,
   court_discounts: [] as CourtDiscountRow[],
-  is_active: true,
+  is_active: true
 });
 
 function addCourtDiscountRow() {
@@ -114,12 +125,49 @@ function addCourtDiscountRow() {
   form.court_discounts.push({
     court_id: firstUnused?.id ?? '',
     discount_type: 'percent',
-    discount_value: '',
+    discount_value: ''
   });
 }
 
 function removeCourtDiscountRow(idx: number) {
   form.court_discounts.splice(idx, 1);
+}
+
+function duplicateCourtDiscountRow(idx: number) {
+  const row = form.court_discounts[idx];
+  if (!row) return;
+  const firstUnused = hubCourts.value.find(
+    (c) => !form.court_discounts.some((r) => r.court_id === c.id)
+  );
+  form.court_discounts.splice(idx + 1, 0, {
+    court_id: firstUnused?.id ?? row.court_id,
+    discount_type: row.discount_type,
+    discount_value: row.discount_value
+  });
+}
+
+function originalPrice(courtId: string): number {
+  return parseFloat(
+    hubCourts.value.find((c) => c.id === courtId)?.price_per_hour ?? '0'
+  );
+}
+
+function discountedPrice(
+  courtId: string,
+  discountType: DiscountType,
+  discountValue: string
+): number | null {
+  const orig = originalPrice(courtId);
+  if (!orig || !discountValue) return null;
+  const val = parseFloat(discountValue);
+  if (isNaN(val)) return null;
+  if (discountType === 'percent')
+    return Math.max(0, orig * (1 - Math.min(val, 100) / 100));
+  return Math.max(0, orig - val);
+}
+
+function formatPrice(n: number): string {
+  return `₱${n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 const formErrors = reactive({
@@ -128,8 +176,10 @@ const formErrors = reactive({
   date_from: '',
   date_to: '',
   discount_type: '',
-  discount_value: '',
+  discount_value: ''
 });
+
+const courtDiscountErrors = ref<string[]>([]);
 
 function clearFormErrors() {
   formErrors.title = '';
@@ -138,6 +188,7 @@ function clearFormErrors() {
   formErrors.date_to = '';
   formErrors.discount_type = '';
   formErrors.discount_value = '';
+  courtDiscountErrors.value = [];
 }
 
 function validateForm(): boolean {
@@ -170,9 +221,19 @@ function validateForm(): boolean {
       valid = false;
     }
     if (!form.discount_value || isNaN(parseFloat(form.discount_value))) {
-      formErrors.discount_value = 'A valid discount value is required for promos.';
+      formErrors.discount_value =
+        'A valid discount value is required for promos.';
       valid = false;
     }
+  }
+
+  if (form.event_type === 'promo' && form.court_discounts.length > 0) {
+    courtDiscountErrors.value = form.court_discounts.map((row) =>
+      !row.discount_value || isNaN(parseFloat(row.discount_value))
+        ? 'Value is required.'
+        : ''
+    );
+    if (courtDiscountErrors.value.some((e) => e)) valid = false;
   }
 
   return valid;
@@ -181,19 +242,20 @@ function validateForm(): boolean {
 function openAdd() {
   editingEvent.value = null;
   clearFormErrors();
+  const today = toDateStr(new Date());
   Object.assign(form, {
     title: '',
     description: '',
     event_type: 'announcement',
-    date_from: '',
-    date_to: '',
+    date_from: today,
+    date_to: today,
     time_from: '',
     time_to: '',
     discount_type: 'percent',
     discount_value: '',
     affected_courts: null,
     court_discounts: [],
-    is_active: true,
+    is_active: true
   });
   isFormOpen.value = true;
 }
@@ -212,12 +274,13 @@ function openEdit(event: HubEvent) {
     discount_type: event.discount_type ?? 'percent',
     discount_value: event.discount_value ?? '',
     affected_courts: event.affected_courts ?? null,
-    court_discounts: event.court_discounts?.map((r) => ({
-      court_id: r.court_id,
-      discount_type: r.discount_type,
-      discount_value: String(r.discount_value),
-    })) ?? [],
-    is_active: event.is_active,
+    court_discounts:
+      event.court_discounts?.map((r) => ({
+        court_id: r.court_id,
+        discount_type: r.discount_type,
+        discount_value: String(r.discount_value)
+      })) ?? [],
+    is_active: event.is_active
   });
   isFormOpen.value = true;
 }
@@ -236,17 +299,26 @@ async function submitForm() {
       date_to: form.date_to,
       time_from: form.time_from || null,
       time_to: form.time_to || null,
-      discount_type: (form.event_type === 'promo' && !form.court_discounts.length) ? form.discount_type : null,
-      discount_value: (form.event_type === 'promo' && !form.court_discounts.length) ? parseFloat(form.discount_value) : null,
-      affected_courts: form.affected_courts?.length ? form.affected_courts : null,
-      court_discounts: (form.event_type === 'promo' && form.court_discounts.length)
-        ? form.court_discounts.map((r) => ({
-            court_id: r.court_id,
-            discount_type: r.discount_type,
-            discount_value: parseFloat(r.discount_value),
-          }))
+      discount_type:
+        form.event_type === 'promo' && !form.court_discounts.length
+          ? form.discount_type
+          : null,
+      discount_value:
+        form.event_type === 'promo' && !form.court_discounts.length
+          ? parseFloat(form.discount_value)
+          : null,
+      affected_courts: form.affected_courts?.length
+        ? form.affected_courts
         : null,
-      is_active: form.is_active,
+      court_discounts:
+        form.event_type === 'promo' && form.court_discounts.length
+          ? form.court_discounts.map((r) => ({
+              court_id: r.court_id,
+              discount_type: r.discount_type,
+              discount_value: parseFloat(r.discount_value)
+            }))
+          : null,
+      is_active: form.is_active
     };
 
     if (editingEvent.value) {
@@ -313,12 +385,16 @@ async function handleToggle(event: HubEvent) {
 
 const dateFromObj = computed({
   get: () => toDateObj(form.date_from),
-  set: (d: Date) => { form.date_from = toDateStr(d); },
+  set: (d: Date) => {
+    form.date_from = toDateStr(d);
+  }
 });
 
 const dateToObj = computed({
   get: () => toDateObj(form.date_to),
-  set: (d: Date) => { form.date_to = toDateStr(d); },
+  set: (d: Date) => {
+    form.date_to = toDateStr(d);
+  }
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -326,13 +402,13 @@ const dateToObj = computed({
 const EVENT_TYPE_STYLES: Record<EventType, string> = {
   closure: 'bg-[#fee2e2] text-[#9f1239]',
   promo: 'bg-[#fef9c3] text-[#854d0e]',
-  announcement: 'bg-[#dbeafe] text-[#1e40af]',
+  announcement: 'bg-[#dbeafe] text-[#1e40af]'
 };
 
 const EVENT_TYPE_LABELS: Record<EventType, string> = {
   closure: 'Closure',
   promo: 'Promo',
-  announcement: 'Announcement',
+  announcement: 'Announcement'
 };
 
 function formatDateRange(from: string, to: string): string {
@@ -346,7 +422,8 @@ function formatDiscount(event: HubEvent): string {
     return `${event.court_discounts.length} court${event.court_discounts.length > 1 ? 's' : ''}`;
   }
   if (!event.discount_value) return '—';
-  if (event.discount_type === 'percent') return `${parseFloat(event.discount_value)}% off`;
+  if (event.discount_type === 'percent')
+    return `${parseFloat(event.discount_value)}% off`;
   return `₱${parseFloat(event.discount_value).toFixed(0)} off`;
 }
 </script>
@@ -364,7 +441,7 @@ function formatDiscount(event: HubEvent): string {
       <UButton
         v-if="selectedHubId"
         icon="i-heroicons-plus"
-        class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
+        class="bg-[#004e89] font-semibold hover:bg-[#003d6b] shrink-0 whitespace-nowrap"
         @click="openAdd"
       >
         Add Event
@@ -385,10 +462,19 @@ function formatDiscount(event: HubEvent): string {
       v-else-if="!hubStore.myHubs.length"
       class="rounded-2xl border border-dashed border-[#dbe4ef] bg-white p-12 text-center"
     >
-      <UIcon name="i-heroicons-building-office-2" class="mx-auto h-12 w-12 text-[#c8d5e0]" />
+      <UIcon
+        name="i-heroicons-building-office-2"
+        class="mx-auto h-12 w-12 text-[#c8d5e0]"
+      />
       <h3 class="mt-4 text-base font-semibold text-[#0f1728]">No hubs yet</h3>
-      <p class="mt-1 text-sm text-[#64748b]">Create a hub first before adding events.</p>
-      <UButton to="/hubs/create" icon="i-heroicons-plus" class="mt-5 bg-[#004e89] hover:bg-[#003d6b]">
+      <p class="mt-1 text-sm text-[#64748b]">
+        Create a hub first before adding events.
+      </p>
+      <UButton
+        to="/hubs/create"
+        icon="i-heroicons-plus"
+        class="mt-5 bg-[#004e89] hover:bg-[#003d6b]"
+      >
         Create Hub
       </UButton>
     </div>
@@ -411,87 +497,110 @@ function formatDiscount(event: HubEvent): string {
         v-else-if="!events.length"
         class="rounded-2xl border border-dashed border-[#dbe4ef] bg-white p-10 text-center"
       >
-        <UIcon name="i-heroicons-calendar-days" class="mx-auto h-10 w-10 text-[#c8d5e0]" />
+        <UIcon
+          name="i-heroicons-calendar-days"
+          class="mx-auto h-10 w-10 text-[#c8d5e0]"
+        />
         <h3 class="mt-3 text-sm font-semibold text-[#0f1728]">No events yet</h3>
         <p class="mt-1 text-xs text-[#64748b]">
           Add closures, promos, or announcements to inform your customers.
         </p>
-        <UButton icon="i-heroicons-plus" class="mt-4 bg-[#004e89] hover:bg-[#003d6b]" size="sm" @click="openAdd">
+        <UButton
+          icon="i-heroicons-plus"
+          class="mt-4 bg-[#004e89] hover:bg-[#003d6b]"
+          size="sm"
+          @click="openAdd"
+        >
           Add Event
         </UButton>
       </div>
 
-      <!-- Events table -->
-      <div v-else class="overflow-hidden rounded-2xl border border-[#dbe4ef] bg-white">
-        <table class="w-full text-sm">
-          <thead class="border-b border-[#dbe4ef] bg-[#f8fafc] text-[#64748b]">
-            <tr>
-              <th class="px-4 py-3 text-left font-medium">Type</th>
-              <th class="px-4 py-3 text-left font-medium">Title</th>
-              <th class="hidden px-4 py-3 text-left font-medium sm:table-cell">Date Range</th>
-              <th class="hidden px-4 py-3 text-left font-medium md:table-cell">Discount</th>
-              <th class="px-4 py-3 text-left font-medium">Status</th>
-              <th class="px-4 py-3 text-right font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-[#f0f4f8]">
-            <tr v-for="event in events" :key="event.id" class="hover:bg-[#fafcff]">
-              <td class="px-4 py-3">
+      <!-- Events list -->
+      <div v-else class="space-y-0 overflow-hidden rounded-2xl border border-[#dbe4ef] bg-white">
+        <!-- Desktop table header -->
+        <div class="hidden sm:grid sm:grid-cols-[140px_1fr_160px_100px_140px_80px] border-b border-[#dbe4ef] bg-[#f8fafc] px-4 py-3 text-xs font-medium text-[#64748b]">
+          <span>Type</span>
+          <span>Title</span>
+          <span>Date Range</span>
+          <span>Discount</span>
+          <span>Status</span>
+          <span class="text-right">Actions</span>
+        </div>
+
+        <div
+          v-for="event in events"
+          :key="event.id"
+          class="border-b border-[#f0f4f8] last:border-0 hover:bg-[#fafcff]"
+        >
+          <!-- Mobile card layout -->
+          <div class="flex items-start justify-between gap-3 p-4 sm:hidden">
+            <div class="min-w-0 flex-1 space-y-1">
+              <div class="flex items-center gap-2 flex-wrap">
                 <span
-                  class="rounded-full px-2 py-0.5 text-xs font-medium"
+                  class="rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
                   :class="EVENT_TYPE_STYLES[event.event_type]"
                 >
                   {{ EVENT_TYPE_LABELS[event.event_type] }}
                 </span>
-              </td>
-              <td class="max-w-[200px] px-4 py-3 font-medium text-[#0f1728]">
-                <p class="truncate" :title="event.title">{{ event.title }}</p>
-                <p v-if="event.description" class="truncate text-xs text-[#64748b]" :title="event.description">
-                  {{ event.description }}
-                </p>
-              </td>
-              <td class="hidden px-4 py-3 text-[#64748b] sm:table-cell">
-                {{ formatDateRange(event.date_from, event.date_to) }}
-              </td>
-              <td class="hidden px-4 py-3 text-[#64748b] md:table-cell">
-                {{ formatDiscount(event) }}
-              </td>
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <USwitch
-                    :model-value="event.is_active"
-                    :disabled="togglingEventId === event.id"
-                    @update:model-value="handleToggle(event)"
-                  />
-                  <span
-                    class="rounded-full px-2 py-0.5 text-xs font-medium"
-                    :class="event.is_active ? 'bg-[#daf7d0] text-[#1e6a0f]' : 'bg-[#fee2e2] text-[#9f1239]'"
-                  >
-                    {{ event.is_active ? 'Active' : 'Inactive' }}
-                  </span>
-                </div>
-              </td>
-              <td class="px-4 py-3 text-right">
-                <div class="flex items-center justify-end gap-1">
-                  <UButton
-                    icon="i-heroicons-pencil-square"
-                    color="neutral"
-                    variant="ghost"
-                    size="sm"
-                    @click="openEdit(event)"
-                  />
-                  <UButton
-                    icon="i-heroicons-trash"
-                    color="error"
-                    variant="ghost"
-                    size="sm"
-                    @click="openDelete(event)"
-                  />
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <span
+                  class="rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
+                  :class="event.is_active ? 'bg-[#daf7d0] text-[#1e6a0f]' : 'bg-[#fee2e2] text-[#9f1239]'"
+                >
+                  {{ event.is_active ? 'Active' : 'Inactive' }}
+                </span>
+              </div>
+              <p class="font-medium text-sm text-[#0f1728] truncate">{{ event.title }}</p>
+              <p v-if="event.description" class="text-xs text-[#64748b] truncate">{{ event.description }}</p>
+              <p class="text-xs text-[#94a3b8]">{{ formatDateRange(event.date_from, event.date_to) }}</p>
+            </div>
+            <div class="flex shrink-0 flex-col items-end gap-2">
+              <div class="flex items-center gap-1">
+                <UButton icon="i-heroicons-pencil-square" color="neutral" variant="ghost" size="sm" @click="openEdit(event)" />
+                <UButton icon="i-heroicons-trash" color="error" variant="ghost" size="sm" @click="openDelete(event)" />
+              </div>
+              <USwitch
+                :model-value="event.is_active"
+                :disabled="togglingEventId === event.id"
+                @update:model-value="handleToggle(event)"
+              />
+            </div>
+          </div>
+
+          <!-- Desktop row layout -->
+          <div class="hidden sm:grid sm:grid-cols-[140px_1fr_160px_100px_140px_80px] items-center px-4 py-3 text-sm">
+            <div>
+              <span
+                class="rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="EVENT_TYPE_STYLES[event.event_type]"
+              >
+                {{ EVENT_TYPE_LABELS[event.event_type] }}
+              </span>
+            </div>
+            <div class="min-w-0 pr-3">
+              <p class="truncate font-medium text-[#0f1728]" :title="event.title">{{ event.title }}</p>
+              <p v-if="event.description" class="truncate text-xs text-[#64748b]" :title="event.description">{{ event.description }}</p>
+            </div>
+            <div class="text-[#64748b]">{{ formatDateRange(event.date_from, event.date_to) }}</div>
+            <div class="text-[#64748b]">{{ formatDiscount(event) }}</div>
+            <div class="flex items-center gap-2">
+              <USwitch
+                :model-value="event.is_active"
+                :disabled="togglingEventId === event.id"
+                @update:model-value="handleToggle(event)"
+              />
+              <span
+                class="rounded-full px-2 py-0.5 text-xs font-medium"
+                :class="event.is_active ? 'bg-[#daf7d0] text-[#1e6a0f]' : 'bg-[#fee2e2] text-[#9f1239]'"
+              >
+                {{ event.is_active ? 'Active' : 'Inactive' }}
+              </span>
+            </div>
+            <div class="flex items-center justify-end gap-1">
+              <UButton icon="i-heroicons-pencil-square" color="neutral" variant="ghost" size="sm" @click="openEdit(event)" />
+              <UButton icon="i-heroicons-trash" color="error" variant="ghost" size="sm" @click="openDelete(event)" />
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -506,7 +615,11 @@ function formatDiscount(event: HubEvent): string {
     >
       <template #body>
         <div class="space-y-4">
-          <UFormField label="Event Type" required :error="formErrors.event_type || undefined">
+          <UFormField
+            label="Event Type"
+            required
+            :error="formErrors.event_type || undefined"
+          >
             <div class="flex gap-2 flex-wrap pt-1">
               <label
                 v-for="opt in EVENT_TYPE_OPTIONS"
@@ -518,14 +631,28 @@ function formatDiscount(event: HubEvent): string {
                     : 'border-[#dbe4ef] text-[#64748b] hover:border-[#004e89]'
                 "
               >
-                <input type="radio" class="sr-only" :value="opt.value" v-model="form.event_type" />
+                <input
+                  type="radio"
+                  class="sr-only"
+                  :value="opt.value"
+                  v-model="form.event_type"
+                />
                 {{ opt.label }}
               </label>
             </div>
           </UFormField>
 
-          <UFormField label="Title" required :error="formErrors.title || undefined">
-            <UInput v-model="form.title" placeholder="e.g. Holiday Closure" class="w-full" maxlength="100" />
+          <UFormField
+            label="Title"
+            required
+            :error="formErrors.title || undefined"
+          >
+            <UInput
+              v-model="form.title"
+              placeholder="e.g. Holiday Closure"
+              class="w-full"
+              maxlength="100"
+            />
           </UFormField>
 
           <UFormField label="Description (optional)">
@@ -539,10 +666,18 @@ function formatDiscount(event: HubEvent): string {
           </UFormField>
 
           <div class="grid grid-cols-2 gap-3">
-            <UFormField label="Start Date" required :error="formErrors.date_from || undefined">
+            <UFormField
+              label="Start Date"
+              required
+              :error="formErrors.date_from || undefined"
+            >
               <AppDatePicker v-model="dateFromObj" class="w-full" />
             </UFormField>
-            <UFormField label="End Date" required :error="formErrors.date_to || undefined">
+            <UFormField
+              label="End Date"
+              required
+              :error="formErrors.date_to || undefined"
+            >
               <AppDatePicker v-model="dateToObj" class="w-full" />
             </UFormField>
           </div>
@@ -562,12 +697,10 @@ function formatDiscount(event: HubEvent): string {
             <div class="space-y-2">
               <div class="flex items-center justify-between">
                 <p class="text-sm font-medium text-[#0f1728]">
-                  Court Discounts
-                  <span class="ml-1 text-xs font-normal text-[#64748b]">(leave empty to apply one discount to all courts)</span>
+                  Per Court Discounts
                 </p>
                 <UButton
                   v-if="form.court_discounts.length < hubCourts.length"
-                  size="xs"
                   variant="ghost"
                   color="primary"
                   icon="i-heroicons-plus"
@@ -580,50 +713,129 @@ function formatDiscount(event: HubEvent): string {
               <div
                 v-for="(row, idx) in form.court_discounts"
                 :key="idx"
-                class="flex items-end gap-2 rounded-lg border border-[#dbe4ef] bg-[#f8fafc] p-2"
+                class="rounded-lg border border-[#dbe4ef] bg-[#f8fafc] p-3 space-y-2"
               >
-                <UFormField label="Court" class="flex-1 min-w-0">
+                <!-- Row 1: Court selector + actions -->
+                <div class="flex items-center gap-2">
+                  <span class="shrink-0 text-sm font-semibold text-[#0f1728]"
+                    >Court:</span
+                  >
                   <USelect
                     v-model="row.court_id"
-                    :items="courtOptions.filter(o => o.value === row.court_id || !form.court_discounts.some((r, i) => i !== idx && r.court_id === o.value))"
-                    class="w-full"
+                    :items="
+                      courtOptions.filter(
+                        (o) =>
+                          o.value === row.court_id ||
+                          !form.court_discounts.some(
+                            (r, i) => i !== idx && r.court_id === o.value
+                          )
+                      )
+                    "
+                    class="flex-1 min-w-0"
                   />
-                </UFormField>
-                <UFormField label="Type" class="w-32 shrink-0">
-                  <USelect v-model="row.discount_type" :items="[...DISCOUNT_TYPE_OPTIONS]" class="w-full" />
-                </UFormField>
-                <UFormField :label="row.discount_type === 'percent' ? 'Value (%)' : 'Value (₱)'" class="w-24 shrink-0">
-                  <UInput
-                    v-model="row.discount_value"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    :placeholder="row.discount_type === 'percent' ? '20' : '100'"
-                    class="w-full"
+                  <UButton
+                    icon="i-heroicons-document-duplicate"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="form.court_discounts.length >= hubCourts.length"
+                    class="shrink-0"
+                    @click="duplicateCourtDiscountRow(idx)"
                   />
-                </UFormField>
-                <UButton
-                  icon="i-heroicons-trash"
-                  color="error"
-                  variant="ghost"
-                  size="sm"
-                  class="mb-0.5 shrink-0"
-                  @click="removeCourtDiscountRow(idx)"
-                />
+                  <UButton
+                    icon="i-heroicons-trash"
+                    color="error"
+                    variant="ghost"
+                    size="sm"
+                    class="shrink-0"
+                    @click="removeCourtDiscountRow(idx)"
+                  />
+                </div>
+                <!-- Row 2: Type + Value -->
+                <div class="grid grid-cols-2 gap-2">
+                  <UFormField label="Type">
+                    <USelect
+                      v-model="row.discount_type"
+                      :items="[...DISCOUNT_TYPE_OPTIONS]"
+                      class="w-full"
+                    />
+                  </UFormField>
+                  <UFormField
+                    label="Value"
+                    required
+                    :error="courtDiscountErrors[idx] || undefined"
+                  >
+                    <UInput
+                      v-model="row.discount_value"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      :placeholder="
+                        row.discount_type === 'percent' ? '20' : '100'
+                      "
+                      class="w-full"
+                      @input="courtDiscountErrors[idx] = ''"
+                    />
+                  </UFormField>
+                </div>
+                <!-- Row 3: Price preview -->
+                <div class="justify-end flex">
+                  <template
+                    v-if="
+                      discountedPrice(
+                        row.court_id,
+                        row.discount_type,
+                        row.discount_value
+                      ) !== null
+                    "
+                  >
+                    <span class="text-[#64748b] line-through mr-1">{{
+                      formatPrice(originalPrice(row.court_id))
+                    }}</span>
+                    <span class="font-semibold text-[#166534]"
+                      >{{
+                        formatPrice(
+                          discountedPrice(
+                            row.court_id,
+                            row.discount_type,
+                            row.discount_value
+                          )!
+                        )
+                      }}/hr</span
+                    >
+                  </template>
+                  <span v-else class="text-[#94a3b8]">—</span>
+                </div>
               </div>
 
-              <p v-if="form.court_discounts.length === 0" class="text-xs text-[#64748b]">
-                No per-court discounts — fill in the fields below to apply one discount to all courts.
+              <p
+                v-if="form.court_discounts.length === 0"
+                class="text-xs text-[#64748b]"
+              >
+                No per-court discounts — fill in the fields below to apply one
+                discount to all courts.
               </p>
             </div>
 
             <!-- Global discount (only shown when no per-court rows) -->
             <template v-if="form.court_discounts.length === 0">
-              <UFormField label="Discount Type" required :error="formErrors.discount_type || undefined">
-                <USelect v-model="form.discount_type" :items="[...DISCOUNT_TYPE_OPTIONS]" class="w-full" />
+              <UFormField
+                label="Discount Type"
+                required
+                :error="formErrors.discount_type || undefined"
+              >
+                <USelect
+                  v-model="form.discount_type"
+                  :items="[...DISCOUNT_TYPE_OPTIONS]"
+                  class="w-full"
+                />
               </UFormField>
               <UFormField
-                :label="form.discount_type === 'percent' ? 'Discount (%)' : 'Discount (₱)'"
+                :label="
+                  form.discount_type === 'percent'
+                    ? 'Discount (%)'
+                    : 'Discount (₱)'
+                "
                 required
                 :error="formErrors.discount_value || undefined"
               >
@@ -659,7 +871,9 @@ function formatDiscount(event: HubEvent): string {
     >
       <template #body>
         <p class="text-sm text-[#0f1728]">
-          Are you sure you want to delete <strong>{{ deletingEvent?.title }}</strong>? This cannot be undone.
+          Are you sure you want to delete
+          <strong>{{ deletingEvent?.title }}</strong
+          >? This cannot be undone.
         </p>
       </template>
     </AppModal>

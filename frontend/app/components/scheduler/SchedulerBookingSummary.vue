@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Court, Hub } from '~/types/hub';
+import type { Court, Hub, HubEvent, DiscountType } from '~/types/hub';
 import type { Booking, SelectedSlot } from '~/types/booking';
 import { useAuthStore } from '~/stores/auth';
 
@@ -75,8 +75,36 @@ interface SummaryGroup {
   slots: SelectedSlot[];
   totalHours: number;
   pricePerHour: number | null;
+  discountedPricePerHour: number | null;
+  hasDiscount: boolean;
   subtotal: number | null;
   ranges: TimeRange[];
+}
+
+function getEffectivePricePerHour(
+  court: Court,
+  dateKey: string,
+  promoEvents: HubEvent[]
+): { effectivePrice: number; hasDiscount: boolean } {
+  const original = parseFloat(court.price_per_hour);
+  const activePromo = promoEvents.find((e) => {
+    if (e.event_type !== 'promo') return false;
+    if (dateKey < e.date_from || dateKey > e.date_to) return false;
+    if (e.affected_courts?.length && !e.affected_courts.includes(court.id)) return false;
+    return true;
+  });
+
+  if (!activePromo) return { effectivePrice: original, hasDiscount: false };
+
+  const courtDiscount = activePromo.court_discounts?.find((cd) => cd.court_id === court.id);
+  const dtype: DiscountType | null = courtDiscount?.discount_type ?? activePromo.discount_type;
+  const dval = parseFloat(courtDiscount?.discount_value ?? activePromo.discount_value ?? '0');
+
+  let effective = original;
+  if (dtype === 'percent') effective = original * (1 - dval / 100);
+  else if (dtype === 'flat') effective = Math.max(0, original - dval);
+
+  return { effectivePrice: effective, hasDiscount: effective < original };
 }
 
 function formatTime12(date: Date): string {
@@ -140,6 +168,8 @@ const summaryGroups = computed<SummaryGroup[]>(() => {
         slots: [],
         totalHours: 0,
         pricePerHour: null,
+        discountedPricePerHour: null,
+        hasDiscount: false,
         subtotal: null,
         ranges: []
       };
@@ -153,9 +183,13 @@ const summaryGroups = computed<SummaryGroup[]>(() => {
       group.totalHours = group.slots.length;
       const priceNum = parseFloat(group.court.price_per_hour);
       group.pricePerHour = isNaN(priceNum) ? null : priceNum;
+      const promoEvents = props.hub?.active_events?.filter((e) => e.event_type === 'promo') ?? [];
+      const { effectivePrice, hasDiscount } = getEffectivePricePerHour(group.court, group.dateKey, promoEvents);
+      group.hasDiscount = hasDiscount;
+      group.discountedPricePerHour = isNaN(priceNum) ? null : effectivePrice;
       group.subtotal =
-        group.pricePerHour !== null
-          ? group.pricePerHour * group.totalHours
+        group.discountedPricePerHour !== null
+          ? group.discountedPricePerHour * group.totalHours
           : null;
       group.ranges = mergeContiguousSlots(group.slots);
       return group;
@@ -371,7 +405,11 @@ function scrollToSchedule() {
           <div class="flex items-center justify-between">
             <span class="text-sm text-[var(--aktiv-muted)]">
               {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }}
-              <template v-if="group.pricePerHour !== null">
+              <template v-if="group.hasDiscount && group.discountedPricePerHour !== null">
+                × <span class="line-through">₱{{ formatPriceInt(group.pricePerHour!) }}/hr</span>
+                <span class="ml-1 font-semibold text-[#b8860b]">₱{{ formatPriceInt(group.discountedPricePerHour) }}/hr</span>
+              </template>
+              <template v-else-if="group.pricePerHour !== null">
                 × ₱{{ formatPriceInt(group.pricePerHour) }}/hr
               </template>
             </span>
@@ -557,7 +595,11 @@ function scrollToSchedule() {
           <div class="flex items-center justify-end text-sm">
             <span class="text-[var(--aktiv-muted)]">
               {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }}
-              <template v-if="group.pricePerHour !== null">
+              <template v-if="group.hasDiscount && group.discountedPricePerHour !== null">
+                × <span class="line-through">₱{{ formatPriceInt(group.pricePerHour!) }}/hr</span>
+                <span class="ml-1 font-semibold text-[#b8860b]">₱{{ formatPriceInt(group.discountedPricePerHour) }}/hr</span>
+              </template>
+              <template v-else-if="group.pricePerHour !== null">
                 × ₱{{ formatPriceInt(group.pricePerHour) }}/hr
               </template>
               <strong

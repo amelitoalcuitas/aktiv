@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useMediaQuery } from '@vueuse/core';
+
 const open = defineModel<boolean>('open', { default: false });
 
 const props = withDefaults(
@@ -47,10 +49,20 @@ function onCancel() {
   emit('cancel');
   open.value = false;
 }
+
+const isDesktop = useMediaQuery('(min-width: 768px)');
 </script>
 
 <template>
-  <UModal v-model:open="open" :title :description :fullscreen :dismissible :ui>
+  <UModal
+    v-if="isDesktop"
+    v-model:open="open"
+    :title
+    :description
+    :fullscreen
+    :dismissible
+    :ui
+  >
     <template v-for="(_, name) in nonFooterSlots" #[name]="slotData">
       <slot :name="name" v-bind="slotData ?? {}" />
     </template>
@@ -73,4 +85,35 @@ function onCancel() {
       </slot>
     </template>
   </UModal>
+
+  <UDrawer
+    v-else
+    v-model:open="open"
+    :title
+    :description
+    :dismissible
+    :ui="{ content: 'max-h-[85dvh]', body: 'overflow-y-auto', ...(ui ?? {}) }"
+  >
+    <template v-for="(_, name) in nonFooterSlots" #[name]="slotData">
+      <slot :name="name" v-bind="slotData ?? {}" />
+    </template>
+
+    <template v-if="slots.footer || confirm" #footer>
+      <slot name="footer">
+        <div class="flex justify-end gap-2 w-full">
+          <UButton color="neutral" :variant="cancelVariant" @click="onCancel">
+            {{ cancel }}
+          </UButton>
+          <UButton
+            :color="confirmColor"
+            :loading="confirmLoading"
+            :disabled="confirmDisabled"
+            @click="emit('confirm')"
+          >
+            {{ confirm }}
+          </UButton>
+        </div>
+      </slot>
+    </template>
+  </UDrawer>
 </template>

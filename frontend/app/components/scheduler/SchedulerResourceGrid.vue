@@ -16,13 +16,15 @@ const props = withDefaults(
     selectedSlots?: SelectedSlot[];
     operatingHours?: OperatingHoursEntry[];
     closureEvents?: HubEvent[];
+    promoEvents?: HubEvent[];
   }>(),
   {
     minTime: '06:00',
     maxTime: '23:00',
     selectedSlots: () => [],
     operatingHours: () => [],
-    closureEvents: () => []
+    closureEvents: () => [],
+    promoEvents: () => []
   }
 );
 
@@ -90,12 +92,13 @@ function isCourtClosedByEvent(courtId: string, slotTime?: string): boolean {
   const dateStr = formatDateString(props.selectedDate);
   return props.closureEvents.some((e) => {
     if (e.date_from > dateStr || e.date_to < dateStr) return false;
-    if (e.affected_courts !== null && !e.affected_courts.includes(courtId)) return false;
+    if (e.affected_courts !== null && !e.affected_courts.includes(courtId))
+      return false;
     // If the closure has a time window, only close slots within it
     if (slotTime && e.time_from && e.time_to) {
       // Normalize to HH:mm — DB returns "HH:mm:ss", slots are "HH:mm"
       const from = e.time_from.slice(0, 5);
-      const to   = e.time_to.slice(0, 5);
+      const to = e.time_to.slice(0, 5);
       return slotTime >= from && slotTime < to;
     }
     return true;
@@ -170,7 +173,8 @@ const grid = computed<Record<string, CellState[]>>(() => {
       const slotEndMs = start.getTime() + 3_600_000;
       const booking = getBookingForSlot(bookings, start.getTime(), slotEndMs);
       if (booking) return { type: 'booked', booking };
-      if (isDayClosed.value || isCourtClosedByEvent(court.id, slot)) return { type: 'closed', booking: null };
+      if (isDayClosed.value || isCourtClosedByEvent(court.id, slot))
+        return { type: 'closed', booking: null };
       if (start <= now.value) return { type: 'past', booking: null };
       return { type: 'available', booking: null };
     });
@@ -237,6 +241,48 @@ function bookingTextColor(status: BookingStatus): string {
     default:
       return '#475569';
   }
+}
+
+// ── Promo discount helpers ──────────────────────────────────────
+function getCourtPriceInfo(court: Court): {
+  effectivePrice: number;
+  originalPrice: number;
+  hasDiscount: boolean;
+} {
+  const original = parseFloat(court.price_per_hour);
+  const dateKey = formatDateString(props.selectedDate);
+  const activePromo = props.promoEvents.find((e) => {
+    if (e.event_type !== 'promo') return false;
+    if (dateKey < e.date_from || dateKey > e.date_to) return false;
+    if (e.affected_courts?.length && !e.affected_courts.includes(court.id))
+      return false;
+    return true;
+  });
+
+  if (!activePromo)
+    return {
+      effectivePrice: original,
+      originalPrice: original,
+      hasDiscount: false
+    };
+
+  const courtDiscount = activePromo.court_discounts?.find(
+    (cd) => cd.court_id === court.id
+  );
+  const dtype = courtDiscount?.discount_type ?? activePromo.discount_type;
+  const dval = parseFloat(
+    courtDiscount?.discount_value ?? activePromo.discount_value ?? '0'
+  );
+
+  let effective = original;
+  if (dtype === 'percent') effective = original * (1 - dval / 100);
+  else if (dtype === 'flat') effective = Math.max(0, original - dval);
+
+  return {
+    effectivePrice: effective,
+    originalPrice: original,
+    hasDiscount: effective < original
+  };
 }
 
 // ── Price label ────────────────────────────────────────────────
@@ -539,17 +585,39 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                   :class="[
                     'flex cursor-pointer h-12 w-full items-center justify-center gap-1 rounded-md text-sm font-semibold transition-colors active:scale-95',
                     isSlotSelected(court.id, slotIdx)
-                      ? 'bg-[var(--aktiv-primary)] text-white hover:bg-[var(--aktiv-primary-hover)]'
-                      : 'bg-[#dbeafe] text-[var(--aktiv-primary)] border border-dashed border-[#93c5fd] hover:brightness-95'
+                      ? getCourtPriceInfo(court).hasDiscount
+                        ? 'slot-promo-selected'
+                        : 'bg-[var(--aktiv-primary)] text-white hover:bg-[var(--aktiv-primary-hover)]'
+                      : getCourtPriceInfo(court).hasDiscount
+                        ? 'slot-promo'
+                        : 'bg-[#dbeafe] text-[var(--aktiv-primary)] border border-dashed border-[#93c5fd] hover:brightness-95'
                   ]"
                   @click="handleCellClick(court, slotIdx)"
                 >
                   <UIcon
                     v-if="isSlotSelected(court.id, slotIdx)"
                     name="i-heroicons-check"
-                    class="h-3.5 w-3.5 shrink-0"
+                    class="shrink-0 size-6"
                   />
-                  {{ priceLabel(court) ?? 'Book' }}
+                  <template v-else-if="getCourtPriceInfo(court).hasDiscount">
+                    <span
+                      class="flex flex-col items-center leading-none gap-0.5"
+                    >
+                      <span class="text-xs line-through opacity-60">{{
+                        priceLabel(court)
+                      }}</span>
+                      <span class="text-sm font-bold"
+                        >₱{{
+                          getCourtPriceInfo(
+                            court
+                          ).effectivePrice.toLocaleString('en-PH', {
+                            maximumFractionDigits: 0
+                          })
+                        }}/hr</span
+                      >
+                    </span>
+                  </template>
+                  <template v-else>{{ priceLabel(court) ?? 'Book' }}</template>
                 </button>
               </td>
             </template>
@@ -586,6 +654,46 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
         />
         <span class="text-sm text-[var(--aktiv-muted)]">Past</span>
       </div>
+      <div v-if="promoEvents.length > 0" class="flex items-center gap-1.5">
+        <span class="slot-promo inline-block h-3.5 w-3.5 rounded-sm" />
+        <span class="text-sm text-[var(--aktiv-muted)]">Promo</span>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+@keyframes shine {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+.slot-promo {
+  background: linear-gradient(
+    105deg,
+    #d4a017 30%,
+    #f5d76e 45%,
+    #fce97a 52%,
+    #f5d76e 59%,
+    #d4a017 70%
+  );
+  background-size: 200% auto;
+  animation: shine 3.5s linear infinite;
+  color: #3b2000;
+  border: 1px solid #b8860b;
+}
+
+.slot-promo:hover {
+  filter: brightness(1.05);
+}
+
+.slot-promo-selected {
+  background-color: #c9960c;
+  color: #fff;
+  border: 1px solid #a07808;
+}
+</style>

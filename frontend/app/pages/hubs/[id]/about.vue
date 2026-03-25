@@ -332,33 +332,14 @@ onUnmounted(() => {
       </div>
 
       <!-- Promo banner (non-dismissable) -->
-      <div
+      <HubPromoAlert
         v-for="event in hub.active_events?.filter(
           (e) => e.event_type === 'promo'
         )"
         :key="event.id"
-        class="mb-4 rounded-xl border border-[#fde68a] bg-[#fefce8] px-4 py-3"
-      >
-        <p class="font-semibold text-[#854d0e]">{{ event.title }}</p>
-        <p v-if="event.description" class="mt-0.5 text-sm text-[#92400e]">
-          {{ event.description }}
-        </p>
-        <!-- Per-court discounts -->
-        <ul v-if="event.court_discounts?.length" class="mt-1 space-y-0.5 text-sm text-[#92400e]">
-          <li v-for="cd in event.court_discounts" :key="cd.court_id">
-            <span class="font-medium">{{ courts?.find((c) => c.id === cd.court_id)?.name ?? 'Court' }}</span>:
-            <template v-if="cd.discount_type === 'percent'">{{ parseFloat(cd.discount_value) }}% off</template>
-            <template v-else>₱{{ parseFloat(cd.discount_value).toFixed(0) }} off</template>
-            — automatically applied at checkout
-          </li>
-        </ul>
-        <!-- Global discount -->
-        <p v-else-if="event.discount_type && event.discount_value" class="mt-0.5 text-sm text-[#92400e]">
-          <template v-if="event.discount_type === 'percent'">{{ parseFloat(event.discount_value) }}% off</template>
-          <template v-else>₱{{ parseFloat(event.discount_value).toFixed(0) }} off</template>
-          — automatically applied at checkout
-        </p>
-      </div>
+        :event="event"
+        :courts="courts ?? []"
+      />
 
       <div
         class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[2fr_2fr_minmax(320px,1.2fr)]"
@@ -610,6 +591,10 @@ onUnmounted(() => {
               :operating-hours="hub?.operating_hours ?? []"
               :closure-events="
                 hub?.active_events?.filter((e) => e.event_type === 'closure') ??
+                []
+              "
+              :promo-events="
+                hub?.active_events?.filter((e) => e.event_type === 'promo') ??
                 []
               "
               @slot-click="onSlotClick"

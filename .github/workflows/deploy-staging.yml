@@ -10,13 +10,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install Tailscale
-        run: |
-          curl -fsSL https://tailscale.com/install.sh | sh
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      # Official Tailscale Action using Auth Key
       - name: Connect to Tailscale
-        run: |
-          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }}
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
       - name: Deploy to staging server
         uses: appleboy/ssh-action@v1.0.3
@@ -24,16 +25,22 @@ jobs:
           host: ${{ secrets.STAGING_TAILSCALE_IP }}
           username: deploy
           key: ${{ secrets.STAGING_SSH_KEY }}
+          # These timeouts are critical for slower home networks
+          connect_timeout: 60s
+          command_timeout: 60m
           script: |
             set -e
             cd /home/deploy/aktiv
 
+            # Pull latest changes from the staging branch
             git pull origin staging
 
+            # Build and start the containers
+            # -d runs in background, --build forces fresh image creation
             docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build
 
+            # Laravel post-deployment commands
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan migrate --force
-
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan config:cache
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan route:cache
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan view:cache

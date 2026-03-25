@@ -37,8 +37,10 @@ jobs:
             git pull origin staging
 
             # Build and start the containers
-            # --pull ensures we check for the latest PHP/Composer base images
             docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build
+
+            # NEW: Restore the vendor folder inside the mounted volume!
+            docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend composer install --no-interaction --prefer-dist --optimize-autoloader
 
             # Laravel post-deployment commands
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan migrate --force

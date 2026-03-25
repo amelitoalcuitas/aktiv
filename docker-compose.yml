@@ -21,6 +21,7 @@ services:
     image: node:20-alpine
     container_name: aktiv_frontend
     working_dir: /app
+    user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./frontend:/app
       # node_modules and .nuxt are on your local WSL filesystem.
@@ -36,11 +37,11 @@ services:
       - NUXT_PORT=3000
       - NUXT_PUBLIC_REVERB_KEY=${REVERB_APP_KEY}
       - NUXT_PUBLIC_REVERB_HOST=localhost
-      - NUXT_PUBLIC_REVERB_PORT=8085 # CHANGED: Updated to match new Reverb port
+      - NUXT_PUBLIC_REVERB_PORT=8081
       - NUXT_PUBLIC_REVERB_SCHEME=http
     command: sh -c "npm install && npm run dev"
-    ports:
-      - "3003:3000" # CHANGED: 3000 is used by aiostreams
+    expose:
+      - "3000"
     restart: unless-stopped
 
   # ─── Laravel backend ───────────────────────────────────────────────────────
@@ -48,7 +49,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    image: aktiv-backend
     container_name: aktiv_backend
     working_dir: /var/www
     volumes:
@@ -91,7 +91,7 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_BUCKET=aktiv-media
       - AWS_ENDPOINT=http://minio:9000
-      - AWS_URL=http://localhost:9005/aktiv-media # UPDATED to match MinIO host port
+      - AWS_URL=http://localhost:8080/minio/aktiv-media
       - AWS_USE_PATH_STYLE_ENDPOINT=true
     expose:
       - "9000"
@@ -134,7 +134,7 @@ services:
       - REVERB_SCHEME=http
     command: sh -c "docker-php-ext-install pcntl && php artisan reverb:start --host=0.0.0.0 --port=8080 --no-interaction"
     ports:
-      - "8085:8080" # CHANGED: 8081 was causing a conflict, moved to 8085
+      - "8081:8080"
     depends_on:
       db:
         condition: service_healthy
@@ -185,7 +185,7 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_BUCKET=aktiv-media
       - AWS_ENDPOINT=http://minio:9000
-      - AWS_URL=http://localhost:9005/aktiv-media # UPDATED to match MinIO host port
+      - AWS_URL=http://localhost:8080/minio/aktiv-media
       - AWS_USE_PATH_STYLE_ENDPOINT=true
     command: php artisan queue:work --sleep=3 --tries=3
     depends_on:
@@ -238,7 +238,7 @@ services:
       - AWS_DEFAULT_REGION=us-east-1
       - AWS_BUCKET=aktiv-media
       - AWS_ENDPOINT=http://minio:9000
-      - AWS_URL=http://localhost:9005/aktiv-media # UPDATED to match MinIO host port
+      - AWS_URL=http://localhost:8080/minio/aktiv-media
       - AWS_USE_PATH_STYLE_ENDPOINT=true
     command: php artisan schedule:work
     depends_on:
@@ -253,7 +253,7 @@ services:
     image: postgres:16-alpine
     container_name: aktiv_db
     ports:
-      - "5433:5432"
+      - "5433:5432"           # Using 5433 on host to avoid conflict with other projects on 5432
     environment:
       - POSTGRES_DB=${DB_DATABASE:-aktiv}
       - POSTGRES_USER=${DB_USERNAME:-aktiv_user}
@@ -272,21 +272,24 @@ services:
     image: redis:alpine
     container_name: aktiv_redis
     ports:
-      - "6380:6379" # CHANGED: 6379 is used by immich_redis
+      - "6379:6379"           # Exposed for local debugging
     volumes:
       - redis_data:/data
     restart: unless-stopped
 
-  # ─── Mailpit ──────────────────────────────────────────────────────────────
+  # ─── Mailpit (local email catcher) ────────────────────────────────────────
+  # Catches all outgoing mail from Laravel in dev.
+  # View caught emails at http://localhost:8025
+  # No emails are actually sent during local development.
   mailpit:
     image: axllent/mailpit
     container_name: aktiv_mailpit
     ports:
-      - "8025:8025"
-      - "1025:1025"
+      - "8025:8025"           # Web UI
+      - "1025:1025"           # SMTP (Laravel points here)
     restart: unless-stopped
 
-  # ─── MinIO ────────────────────────────────────────────────────────────────
+  # ─── MinIO (S3-compatible object storage) ────────────────────────────────
   minio:
     image: minio/minio:latest
     container_name: aktiv_minio
@@ -295,12 +298,13 @@ services:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
     ports:
-      - "9005:9000" # CHANGED: 9000 is used by portainer
+      - "9000:9000"
       - "9001:9001"
     volumes:
       - minio_data:/data
     restart: unless-stopped
 
+  # Initializes MinIO bucket for media uploads
   minio-init:
     image: minio/mc:latest
     container_name: aktiv_minio_init

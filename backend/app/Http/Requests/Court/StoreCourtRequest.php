@@ -17,7 +17,7 @@ class StoreCourtRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'                     => ['required', 'string', 'max:50'],
+            'name'                     => ['required', 'string', 'max:36'],
             'surface'                  => ['nullable', 'string', 'in:hardcourt,clay,synthetic,grass,concrete,wood'],
             'indoor'                   => ['nullable', 'boolean'],
             'price_per_hour'           => ['nullable', 'numeric', 'min:0'],

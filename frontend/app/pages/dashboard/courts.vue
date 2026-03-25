@@ -556,9 +556,9 @@ function formatPrice(price: string) {
               v-model="courtForm.name"
               placeholder="e.g. Court A"
               class="w-full"
-              maxlength="50"
+              maxlength="36"
             />
-            <p class="mt-1 text-xs text-[var(--aktiv-muted)]">Max 50 characters</p>
+            <p class="mt-1 text-xs text-[var(--aktiv-muted)]">Max 36 characters</p>
           </UFormField>
 
           <UFormField

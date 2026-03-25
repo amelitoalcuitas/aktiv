@@ -11,7 +11,7 @@ services:
       - APP_ENV=staging
       - APP_URL=https://staging.aktivhub.app
     env_file:
-      - .env.staging
+      - backend/.env.staging
 
   frontend:
     environment:

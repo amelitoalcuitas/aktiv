@@ -108,6 +108,25 @@ const formattedPrice = computed(() => {
               from {{ formattedPrice }}/hr
             </span>
           </div>
+
+          <!-- Event badges -->
+          <div
+            v-if="hub.has_active_promo || hub.has_active_announcement"
+            class="flex flex-wrap gap-2"
+          >
+            <span
+              v-if="hub.has_active_promo"
+              class="inline-flex items-center gap-1 rounded-full bg-[#fef9c3] px-2.5 py-0.5 text-xs font-semibold text-[#854d0e]"
+            >
+              % Promo
+            </span>
+            <span
+              v-if="hub.has_active_announcement"
+              class="inline-flex items-center gap-1 rounded-full bg-[#dbeafe] px-2.5 py-0.5 text-xs font-semibold text-[#1e40af]"
+            >
+              Event
+            </span>
+          </div>
         </div>
       </div>
     </div>

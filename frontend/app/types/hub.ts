@@ -70,6 +70,11 @@ export interface Hub {
   reviews_count: number;
   rating_breakdown?: Record<number, number> | null;
 
+  // Event flags (from API)
+  has_active_promo: boolean;
+  has_active_announcement: boolean;
+  active_events?: HubEvent[] | null;
+
   // Client-side helpers used on legacy listing pages (computed from API data)
   coverImageUrl?: string;
   courtsCount?: number;
@@ -111,6 +116,28 @@ export interface HubSport {
   id: string;
   hub_id: string;
   sport: SportType;
+}
+
+export type EventType = 'closure' | 'promo' | 'announcement'
+export type DiscountType = 'percent' | 'flat'
+
+export interface HubEvent {
+  id: string
+  hub_id: string
+  title: string
+  description: string | null
+  event_type: EventType
+  date_from: string   // YYYY-MM-DD
+  date_to: string     // YYYY-MM-DD
+  time_from: string | null
+  time_to: string | null
+  discount_type: DiscountType | null
+  discount_value: string | null  // decimal string from API
+  affected_courts: string[] | null  // null = all courts
+  court_discounts: Array<{ court_id: string; discount_type: DiscountType; discount_value: string }> | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface PaginationMeta {

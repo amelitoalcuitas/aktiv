@@ -7,6 +7,7 @@ use App\Http\Requests\Hub\StoreHubRequest;
 use App\Http\Requests\Hub\UpdateHubRequest;
 use App\Models\Hub;
 use App\Models\HubContactNumber;
+use App\Models\HubEvent;
 use App\Models\HubSettings;
 use App\Models\HubImage;
 use App\Models\HubWebsite;
@@ -78,9 +79,10 @@ class HubController extends Controller
 
         $limit = $request->integer('limit');
         if ($limit > 0) {
-            $hubs = $query->limit($limit)->get()->map(fn (Hub $hub) => $this->formatHub($hub));
+            $hubs = $query->limit($limit)->get();
+            $eventsMap = $this->loadActiveEventsMap($hubs->pluck('id')->all());
 
-            return response()->json(['data' => $hubs]);
+            return response()->json(['data' => $hubs->map(fn (Hub $hub) => $this->formatHub($hub, activeEvents: $eventsMap[$hub->id] ?? collect()))]);
         }
 
         $perPage = min((int) ($request->integer('per_page') ?: 12), 48);
@@ -91,8 +93,10 @@ class HubController extends Controller
             $suggestions = $this->buildSuggestions($search, $request, $lat, $lng);
         }
 
+        $eventsMap = $this->loadActiveEventsMap($paginator->getCollection()->pluck('id')->all());
+
         return response()->json([
-            'data' => $paginator->getCollection()->map(fn (Hub $hub) => $this->formatHub($hub)),
+            'data' => $paginator->getCollection()->map(fn (Hub $hub) => $this->formatHub($hub, activeEvents: $eventsMap[$hub->id] ?? collect())),
             'meta' => [
                 'total'        => $paginator->total(),
                 'current_page' => $paginator->currentPage(),
@@ -138,7 +142,15 @@ class HubController extends Controller
             $hub->loadCount(["ratings as ratings_{$star}" => fn ($q) => $q->where('rating', $star)]);
         }
 
-        return response()->json(['data' => $this->formatHub($hub, withBreakdown: true)]);
+        $todayStart = now('Asia/Manila')->startOfDay();
+        $todayEnd   = now('Asia/Manila')->endOfDay();
+        $activeEvents = HubEvent::where('hub_id', $hub->id)
+            ->where('is_active', true)
+            ->where('date_from', '<=', $todayEnd)
+            ->where('date_to', '>=', $todayStart)
+            ->get();
+
+        return response()->json(['data' => $this->formatHub($hub, withBreakdown: true, activeEvents: $activeEvents)]);
     }
 
     /**
@@ -526,7 +538,31 @@ class HubController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function formatHub(Hub $hub, bool $withBreakdown = false): array
+    /**
+     * Load active events for a list of hub IDs, grouped by hub_id.
+     *
+     * @param  array<string>  $hubIds
+     * @return array<string, \Illuminate\Support\Collection<int, HubEvent>>
+     */
+    private function loadActiveEventsMap(array $hubIds): array
+    {
+        if (empty($hubIds)) {
+            return [];
+        }
+
+        $todayStart = now('Asia/Manila')->startOfDay();
+        $todayEnd   = now('Asia/Manila')->endOfDay();
+
+        return HubEvent::whereIn('hub_id', $hubIds)
+            ->where('is_active', true)
+            ->where('date_from', '<=', $todayEnd)
+            ->where('date_to', '>=', $todayStart)
+            ->get()
+            ->groupBy('hub_id')
+            ->all();
+    }
+
+    private function formatHub(Hub $hub, bool $withBreakdown = false, ?\Illuminate\Support\Collection $activeEvents = null): array
     {
         return [
             'id'                   => $hub->id,
@@ -591,6 +627,28 @@ class HubController extends Controller
                 ])->values()
                 : [],
             'created_at'           => $hub->created_at,
+            'has_active_promo'         => $activeEvents
+                ? $activeEvents->contains('event_type', 'promo')
+                : false,
+            'has_active_announcement'  => $activeEvents
+                ? $activeEvents->contains('event_type', 'announcement')
+                : false,
+            'active_events'            => $withBreakdown && $activeEvents !== null
+                ? $activeEvents->values()->map(fn (HubEvent $e): array => [
+                    'id'               => $e->id,
+                    'title'            => $e->title,
+                    'description'      => $e->description,
+                    'event_type'       => $e->event_type,
+                    'date_from'        => $e->date_from->toDateString(),
+                    'date_to'          => $e->date_to->toDateString(),
+                    'time_from'        => $e->time_from,
+                    'time_to'          => $e->time_to,
+                    'discount_type'    => $e->discount_type,
+                    'discount_value'   => $e->discount_value,
+                    'affected_courts'  => $e->affected_courts,
+                    'court_discounts'  => $e->court_discounts,
+                ])
+                : null,
         ];
     }
 }

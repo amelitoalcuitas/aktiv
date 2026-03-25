@@ -21,6 +21,11 @@ const navLinks = [
     to: '/dashboard/bookings'
   },
   {
+    label: 'Events',
+    icon: 'i-heroicons-megaphone',
+    to: '/dashboard/events'
+  },
+  {
     label: 'Reviews',
     icon: 'i-heroicons-star',
     to: '/dashboard/reviews'

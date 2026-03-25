@@ -8,6 +8,7 @@ use App\Http\Requests\Booking\UploadReceiptRequest;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
+use App\Models\HubEvent;
 use App\Models\GuestBookingPenalty;
 use Illuminate\Http\Request;
 use App\Services\BookingNotificationService;
@@ -113,6 +114,14 @@ class BookingController extends Controller
         $startTime = Carbon::parse($request->start_time);
         $endTime = Carbon::parse($request->end_time);
 
+        // Closure check: reject if an active closure event covers this court and time window
+        $closureEvent = $this->findClosureEvent($hub, $court, $startTime, $endTime);
+        if ($closureEvent) {
+            return response()->json([
+                'message' => "This court is unavailable: {$closureEvent->title}",
+            ], 422);
+        }
+
         // Conflict detection: any non-cancelled, non-expired booking whose interval overlaps
         $conflict = Booking::where('court_id', $court->id)
             ->whereNotIn('status', ['cancelled'])
@@ -131,6 +140,21 @@ class BookingController extends Controller
         $hours = $startTime->diffInMinutes($endTime) / 60;
         $pricePerHour = (float) $court->price_per_hour;
         $totalPrice = $pricePerHour > 0 ? round($pricePerHour * $hours, 2) : null;
+
+        // Promo auto-apply: check for an active promo event overlapping this slot
+        $appliedPromo = null;
+        if ($totalPrice !== null) {
+            $promoEvent = $this->findPromoEvent($hub, $court, $startTime, $endTime);
+            if ($promoEvent) {
+                $discount = $promoEvent->discountForCourt($court->id);
+                $totalPrice = $this->applyPromoDiscount($totalPrice, $discount);
+                $appliedPromo = [
+                    'title'          => $promoEvent->title,
+                    'discount_type'  => $discount['discount_type'],
+                    'discount_value' => $discount['discount_value'],
+                ];
+            }
+        }
 
         $booking = Booking::create([
             'court_id' => $court->id,
@@ -165,6 +189,7 @@ class BookingController extends Controller
                 'total_price' => $booking->total_price,
                 'expires_at' => $booking->expires_at->toIso8601String(),
                 'created_at' => $booking->created_at->toIso8601String(),
+                'applied_promo' => $appliedPromo,
             ],
         ], 201);
     }
@@ -228,6 +253,64 @@ class BookingController extends Controller
             'Content-Type'  => 'image/svg+xml',
             'Cache-Control' => 'public, max-age=31536000, immutable',
         ]);
+    }
+
+    private function findClosureEvent(Hub $hub, Court $court, Carbon $startTime, Carbon $endTime): ?HubEvent
+    {
+        // Use start-of-day / end-of-day so the comparison works in both SQLite (tests) and PostgreSQL (prod)
+        $bookingStart = $startTime->copy()->setTimezone('Asia/Manila')->startOfDay();
+        $bookingEnd   = $endTime->copy()->setTimezone('Asia/Manila')->endOfDay();
+
+        $slotStart = $startTime->copy()->setTimezone('Asia/Manila')->format('H:i');
+        $slotEnd   = $endTime->copy()->setTimezone('Asia/Manila')->format('H:i');
+
+        return HubEvent::where('hub_id', $hub->id)
+            ->where('event_type', 'closure')
+            ->where('is_active', true)
+            ->where('date_from', '<=', $bookingEnd)
+            ->where('date_to', '>=', $bookingStart)
+            ->get()
+            ->filter(function (HubEvent $e) use ($slotStart, $slotEnd) {
+                if (! $e->time_from || ! $e->time_to) return true;
+                return $slotStart < substr($e->time_to, 0, 5) && $slotEnd > substr($e->time_from, 0, 5);
+            })
+            ->first(fn (HubEvent $e) => $e->appliesToCourt($court->id));
+    }
+
+    private function findPromoEvent(Hub $hub, Court $court, Carbon $startTime, Carbon $endTime): ?HubEvent
+    {
+        $bookingStart = $startTime->copy()->setTimezone('Asia/Manila')->startOfDay();
+        $bookingEnd   = $endTime->copy()->setTimezone('Asia/Manila')->endOfDay();
+
+        $slotStart = $startTime->copy()->setTimezone('Asia/Manila')->format('H:i');
+        $slotEnd   = $endTime->copy()->setTimezone('Asia/Manila')->format('H:i');
+
+        return HubEvent::where('hub_id', $hub->id)
+            ->where('event_type', 'promo')
+            ->where('is_active', true)
+            ->whereNotNull('discount_type')
+            ->whereNotNull('discount_value')
+            ->where('date_from', '<=', $bookingEnd)
+            ->where('date_to', '>=', $bookingStart)
+            ->get()
+            ->filter(function (HubEvent $e) use ($slotStart, $slotEnd) {
+                if (! $e->time_from || ! $e->time_to) return true;
+                return $slotStart < substr($e->time_to, 0, 5) && $slotEnd > substr($e->time_from, 0, 5);
+            })
+            ->first(fn (HubEvent $e) => $e->appliesToCourt($court->id));
+    }
+
+    private function applyPromoDiscount(float $price, array $discount): float
+    {
+        $value = $discount['discount_value'];
+
+        if ($discount['discount_type'] === 'percent') {
+            $discounted = $price * (1 - min($value, 100) / 100);
+        } else {
+            $discounted = max(0, $price - $value);
+        }
+
+        return round($discounted, 2);
     }
 
     private function resolveExpiresAt(string $paymentMethod, Carbon $startTime): Carbon

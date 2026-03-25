@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Court, OperatingHoursEntry } from '~/types/hub';
+import type { Court, OperatingHoursEntry, HubEvent } from '~/types/hub';
 import type {
   CalendarBooking,
   BookingStatus,
@@ -15,12 +15,14 @@ const props = withDefaults(
     maxTime?: string;
     selectedSlots?: SelectedSlot[];
     operatingHours?: OperatingHoursEntry[];
+    closureEvents?: HubEvent[];
   }>(),
   {
     minTime: '06:00',
     maxTime: '23:00',
     selectedSlots: () => [],
-    operatingHours: () => []
+    operatingHours: () => [],
+    closureEvents: () => []
   }
 );
 
@@ -80,6 +82,31 @@ function slotStartDate(timeStr: string): Date {
   const d = new Date(props.selectedDate);
   d.setHours(h, m, 0, 0);
   return d;
+}
+
+// ── Closure event detection ────────────────────────────────────
+function isCourtClosedByEvent(courtId: string, slotTime?: string): boolean {
+  if (!props.closureEvents?.length) return false;
+  const dateStr = formatDateString(props.selectedDate);
+  return props.closureEvents.some((e) => {
+    if (e.date_from > dateStr || e.date_to < dateStr) return false;
+    if (e.affected_courts !== null && !e.affected_courts.includes(courtId)) return false;
+    // If the closure has a time window, only close slots within it
+    if (slotTime && e.time_from && e.time_to) {
+      // Normalize to HH:mm — DB returns "HH:mm:ss", slots are "HH:mm"
+      const from = e.time_from.slice(0, 5);
+      const to   = e.time_to.slice(0, 5);
+      return slotTime >= from && slotTime < to;
+    }
+    return true;
+  });
+}
+
+function formatDateString(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 // ── Closed day detection ───────────────────────────────────────
@@ -143,7 +170,7 @@ const grid = computed<Record<string, CellState[]>>(() => {
       const slotEndMs = start.getTime() + 3_600_000;
       const booking = getBookingForSlot(bookings, start.getTime(), slotEndMs);
       if (booking) return { type: 'booked', booking };
-      if (isDayClosed.value) return { type: 'closed', booking: null };
+      if (isDayClosed.value || isCourtClosedByEvent(court.id, slot)) return { type: 'closed', booking: null };
       if (start <= now.value) return { type: 'past', booking: null };
       return { type: 'available', booking: null };
     });

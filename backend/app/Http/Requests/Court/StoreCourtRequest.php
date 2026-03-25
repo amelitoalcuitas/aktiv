@@ -18,12 +18,12 @@ class StoreCourtRequest extends FormRequest
     {
         return [
             'name'                     => ['required', 'string', 'max:36'],
-            'surface'                  => ['nullable', 'string', 'in:hardcourt,clay,synthetic,grass,concrete,wood'],
+            'surface'                  => ['nullable', 'string', 'max:50'],
             'indoor'                   => ['nullable', 'boolean'],
             'price_per_hour'           => ['nullable', 'numeric', 'min:0'],
             'is_active'                => ['nullable', 'boolean'],
             'sports'                   => ['nullable', 'array'],
-            'sports.*'                 => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],
+            'sports.*'                 => ['string', 'max:50'],
             'court_image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
         ];
     }

@@ -94,4 +94,19 @@ class Hub extends Model
     {
         return $this->hasMany(HubRating::class);
     }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(HubEvent::class);
+    }
+
+    public function activeEvents(): HasMany
+    {
+        $today = now('Asia/Manila')->toDateString();
+
+        return $this->hasMany(HubEvent::class)
+            ->where('is_active', true)
+            ->where('date_from', '<=', $today)
+            ->where('date_to', '>=', $today);
+    }
 }

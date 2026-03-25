@@ -79,17 +79,23 @@ const SURFACE_OPTIONS = [
   { label: 'Clay', value: 'clay' },
   { label: 'Synthetic', value: 'synthetic' },
   { label: 'Grass', value: 'grass' },
-  { label: 'Wood', value: 'wood' }
+  { label: 'Wood', value: 'wood' },
+  { label: 'Others', value: 'others' }
 ];
+
+const KNOWN_SURFACE_VALUES = SURFACE_OPTIONS.filter(o => o.value !== 'others').map(o => o.value);
 
 const courtForm = reactive({
   name: '',
   surface: 'concrete' as string,
+  surface_custom: '',
   indoor: true,
   price_per_hour: '',
   is_active: true,
   sports: [] as string[]
 });
+
+const customSportInput = ref('');
 
 watch(
   () => courtForm.is_active,
@@ -103,6 +109,7 @@ const formSubmitted = ref(false);
 const formErrors = reactive({
   name: '',
   surface: '',
+  surface_custom: '',
   price_per_hour: '',
   sports: ''
 });
@@ -110,12 +117,14 @@ const formErrors = reactive({
 function clearFormErrors() {
   formErrors.name = '';
   formErrors.surface = '';
+  formErrors.surface_custom = '';
   formErrors.price_per_hour = '';
   formErrors.sports = '';
 }
 
 function clearConditionalFormErrors() {
   formErrors.surface = '';
+  formErrors.surface_custom = '';
   formErrors.price_per_hour = '';
   formErrors.sports = '';
 }
@@ -145,6 +154,10 @@ const courtFormSchema = z
       z.string().min(1, 'Court name is required.')
     ),
     surface: z.preprocess((value) => normalizeUnknownText(value), z.string()),
+    surface_custom: z.preprocess(
+      (value) => normalizeUnknownText(value),
+      z.string().max(16, 'Surface name must be 16 characters or less.')
+    ),
     price_per_hour: z.preprocess(
       (value) => normalizeUnknownText(value),
       z.string()
@@ -153,6 +166,14 @@ const courtFormSchema = z
     is_active: z.boolean()
   })
   .superRefine((data, ctx) => {
+    if (data.surface === 'others' && !data.surface_custom) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['surface_custom'],
+        message: 'Please specify the surface type.'
+      });
+    }
+
     if (!data.is_active) return;
 
     if (!data.surface) {
@@ -196,6 +217,9 @@ function setFormErrorsFromZod(error: z.ZodError) {
     if (key === 'surface' && !formErrors.surface) {
       formErrors.surface = issue.message;
     }
+    if (key === 'surface_custom' && !formErrors.surface_custom) {
+      formErrors.surface_custom = issue.message;
+    }
     if (key === 'price_per_hour' && !formErrors.price_per_hour) {
       formErrors.price_per_hour = issue.message;
     }
@@ -208,6 +232,7 @@ function validateCourtForm() {
   const parsed = courtFormSchema.safeParse({
     name: courtForm.name,
     surface: courtForm.surface,
+    surface_custom: courtForm.surface_custom,
     price_per_hour: courtForm.price_per_hour,
     sports: courtForm.sports,
     is_active: courtForm.is_active
@@ -229,9 +254,11 @@ function openAdd() {
   courtImageFile.value = null;
   courtImagePreview.value = null;
   removeCourtImage.value = false;
+  customSportInput.value = '';
   Object.assign(courtForm, {
     name: '',
     surface: 'concrete',
+    surface_custom: '',
     indoor: true,
     price_per_hour: '',
     is_active: true,
@@ -247,9 +274,18 @@ function openEdit(court: Court) {
   courtImageFile.value = null;
   courtImagePreview.value = court.image_url ?? null;
   removeCourtImage.value = false;
+  customSportInput.value = '';
+  const isKnownSurface = court.surface
+    ? KNOWN_SURFACE_VALUES.includes(court.surface)
+    : true;
   Object.assign(courtForm, {
     name: court.name,
-    surface: court.surface ?? '',
+    surface: court.surface
+      ? isKnownSurface
+        ? court.surface
+        : 'others'
+      : '',
+    surface_custom: court.surface && !isKnownSurface ? court.surface : '',
     indoor: court.indoor,
     price_per_hour: court.price_per_hour
       ? String(parseFloat(court.price_per_hour))
@@ -277,9 +313,14 @@ async function submitForm() {
   try {
     const pricePerHour = normalizeTextValue(courtForm.price_per_hour);
 
+    const resolvedSurface =
+      courtForm.surface === 'others'
+        ? courtForm.surface_custom.trim() || undefined
+        : courtForm.surface || undefined;
+
     const payload = {
       name: courtForm.name,
-      surface: courtForm.surface || undefined,
+      surface: resolvedSurface,
       indoor: courtForm.indoor,
       price_per_hour: pricePerHour ? parseFloat(pricePerHour) : 0,
       is_active: courtForm.is_active,
@@ -332,6 +373,36 @@ async function confirmDelete() {
   } finally {
     deleteLoading.value = false;
   }
+}
+
+// ── Toggle active ─────────────────────────────────────────────────────────────
+
+const togglingCourtId = ref<string | null>(null);
+
+async function toggleActive(court: Court) {
+  if (!selectedHubId.value) return;
+  togglingCourtId.value = court.id;
+  try {
+    await updateCourt(selectedHubId.value, court.id, {
+      is_active: !court.is_active
+    });
+    court.is_active = !court.is_active;
+  } catch {
+    toast.add({ title: 'Failed to update status', color: 'error' });
+  } finally {
+    togglingCourtId.value = null;
+  }
+}
+
+// ── Custom sport ──────────────────────────────────────────────────────────────
+
+function addCustomSport() {
+  const value = customSportInput.value.trim();
+  if (!value || value.length > 32) return;
+  if (courtForm.sports.some((s) => s.toLowerCase() === value.toLowerCase()))
+    return;
+  courtForm.sports.push(value);
+  customSportInput.value = '';
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -499,16 +570,23 @@ function formatPrice(price: string) {
                 </div>
               </td>
               <td class="px-4 py-3">
-                <span
-                  class="rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="
-                    court.is_active
-                      ? 'bg-[#daf7d0] text-[#1e6a0f]'
-                      : 'bg-[#fee2e2] text-[#9f1239]'
-                  "
-                >
-                  {{ court.is_active ? 'Active' : 'Inactive' }}
-                </span>
+                <div class="flex items-center gap-2">
+                  <USwitch
+                    :model-value="court.is_active"
+                    :disabled="togglingCourtId === court.id"
+                    @update:model-value="toggleActive(court)"
+                  />
+                  <span
+                    class="rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="
+                      court.is_active
+                        ? 'bg-[#daf7d0] text-[#1e6a0f]'
+                        : 'bg-[#fee2e2] text-[#9f1239]'
+                    "
+                  >
+                    {{ court.is_active ? 'Active' : 'Inactive' }}
+                  </span>
+                </div>
               </td>
               <td class="px-4 py-3 text-right">
                 <div class="flex items-center justify-end gap-1">
@@ -575,6 +653,21 @@ function formatPrice(price: string) {
               :items="[SURFACE_OPTIONS]"
               class="w-full"
             />
+            <template v-if="courtForm.surface === 'others'">
+              <UInput
+                v-model="courtForm.surface_custom"
+                placeholder="Specify surface"
+                class="mt-2 w-full"
+                maxlength="16"
+              />
+              <p
+                v-if="formSubmitted && formErrors.surface_custom"
+                class="mt-1 text-xs text-[#dc2626]"
+              >
+                {{ formErrors.surface_custom }}
+              </p>
+              <p class="mt-1 text-xs text-[var(--aktiv-muted)]">Max 16 characters</p>
+            </template>
           </UFormField>
 
           <UFormField
@@ -647,6 +740,38 @@ function formatPrice(price: string) {
                 />
                 {{ opt.label }}
               </label>
+              <!-- Custom sports added by the user -->
+              <label
+                v-for="custom in courtForm.sports.filter(
+                  (s) => !SPORT_OPTIONS.some((o) => o.value === s)
+                )"
+                :key="custom"
+                class="flex cursor-pointer items-center gap-1.5 rounded-full border border-[#004e89] bg-[#e8f0f8] px-3 py-1 text-sm font-medium text-[#004e89] transition"
+                @click="
+                  courtForm.sports = courtForm.sports.filter((s) => s !== custom)
+                "
+              >
+                {{ sportLabel(custom) }}
+                <UIcon name="i-heroicons-x-mark" class="h-3.5 w-3.5" />
+              </label>
+            </div>
+            <!-- Add custom sport -->
+            <div class="mt-2 flex gap-2">
+              <UInput
+                v-model="customSportInput"
+                placeholder="Add a sport…"
+                class="flex-1"
+                maxlength="32"
+                @keydown.enter.prevent="addCustomSport"
+              />
+              <UButton
+                type="button"
+                color="neutral"
+                variant="outline"
+                @click="addCustomSport"
+              >
+                Add
+              </UButton>
             </div>
             <p
               v-if="formSubmitted && formErrors.sports"

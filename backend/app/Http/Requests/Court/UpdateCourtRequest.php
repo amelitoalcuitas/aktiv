@@ -18,12 +18,12 @@ class UpdateCourtRequest extends FormRequest
     {
         return [
             'name'                     => ['sometimes', 'string', 'max:36'],
-            'surface'                  => ['sometimes', 'nullable', 'string', 'in:hardcourt,clay,synthetic,grass,concrete,wood'],
+            'surface'                  => ['sometimes', 'nullable', 'string', 'max:50'],
             'indoor'                   => ['sometimes', 'nullable', 'boolean'],
             'price_per_hour'           => ['sometimes', 'nullable', 'numeric', 'min:0'],
             'is_active'                => ['sometimes', 'nullable', 'boolean'],
             'sports'                   => ['sometimes', 'array'],
-            'sports.*'                 => ['string', 'in:tennis,badminton,basketball,pickleball,volleyball'],
+            'sports.*'                 => ['string', 'max:50'],
             'court_image'              => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp', 'max:10240'],
             'remove_court_image'       => ['nullable', 'boolean'],
         ];

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\HubEventController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CourtController;
 use App\Http\Controllers\Api\GuestBookingController;
@@ -99,6 +100,13 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function (): void {
     Route::post('/dashboard/hubs/{hub}/courts/{court}/walk-in', [OwnerBookingController::class, 'walkIn'])->name('api.dashboard.hubs.walk-in');
     Route::get('/dashboard/users/search', [OwnerBookingController::class, 'searchUsers'])->name('api.dashboard.users.search');
     Route::get('/dashboard/hubs/{hub}/bookings/verify/{code}', [OwnerBookingController::class, 'verifyByCode'])->name('api.dashboard.hubs.bookings.verify');
+
+    // Hub events (owner)
+    Route::get('/dashboard/hubs/{hub}/events', [HubEventController::class, 'index'])->name('api.dashboard.hubs.events.index');
+    Route::post('/dashboard/hubs/{hub}/events', [HubEventController::class, 'store'])->name('api.dashboard.hubs.events.store');
+    Route::put('/dashboard/hubs/{hub}/events/{event}', [HubEventController::class, 'update'])->name('api.dashboard.hubs.events.update');
+    Route::delete('/dashboard/hubs/{hub}/events/{event}', [HubEventController::class, 'destroy'])->name('api.dashboard.hubs.events.destroy');
+    Route::patch('/dashboard/hubs/{hub}/events/{event}/toggle', [HubEventController::class, 'toggle'])->name('api.dashboard.hubs.events.toggle');
 });
 
 Route::get('/status', static fn (): array => ['ok' => true])->name('api.status');

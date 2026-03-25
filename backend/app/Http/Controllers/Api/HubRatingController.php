@@ -6,13 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\HubRatingResource;
 use App\Models\Hub;
 use App\Models\HubRating;
+use App\Models\RatingImage;
+use App\Services\ImageUploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class HubRatingController extends Controller
 {
+    public function __construct(
+        private readonly ImageUploadService $imageUploadService
+    ) {}
+
     /**
      * Public paginated list of ratings for a hub.
      * Supports ?sort=newest|highest|lowest (default: newest)
@@ -20,7 +27,7 @@ class HubRatingController extends Controller
     public function index(Hub $hub, Request $request): AnonymousResourceCollection
     {
         $query = $hub->ratings()
-            ->with(['user:id,name,avatar_url', 'booking.court:id,name']);
+            ->with(['user:id,name,avatar_url', 'booking.court:id,name', 'images']);
 
         if ($request->filled('court')) {
             $query->whereHas('booking.court', fn ($q) =>
@@ -63,6 +70,8 @@ class HubRatingController extends Controller
             'rating'     => ['required', 'integer', 'min:1', 'max:5'],
             'comment'    => ['nullable', 'string', 'max:1000'],
             'booking_id' => ['nullable', 'uuid', 'exists:bookings,id'],
+            'images'     => ['nullable', 'array', 'max:3'],
+            'images.*'   => ['image', 'max:10240'],
         ]);
 
         if (isset($validated['booking_id'])) {
@@ -76,19 +85,40 @@ class HubRatingController extends Controller
             );
         }
 
-        $rating = HubRating::query()->updateOrCreate(
-            [
-                'hub_id'  => $hub->id,
-                'user_id' => $request->user()->id,
-            ],
-            [
-                'rating'     => $validated['rating'],
-                'comment'    => $validated['comment'] ?? null,
-                'booking_id' => $validated['booking_id'] ?? null,
-            ]
-        );
+        $rating = DB::transaction(function () use ($hub, $request, $validated): HubRating {
+            $rating = HubRating::query()->updateOrCreate(
+                [
+                    'hub_id'  => $hub->id,
+                    'user_id' => $request->user()->id,
+                ],
+                [
+                    'rating'     => $validated['rating'],
+                    'comment'    => $validated['comment'] ?? null,
+                    'booking_id' => $validated['booking_id'] ?? null,
+                ]
+            );
 
-        $rating->load(['user:id,name,avatar_url', 'booking.court:id,name']);
+            if ($request->hasFile('images')) {
+                foreach ($rating->images as $img) {
+                    Storage::disk('s3')->delete($img->storage_path);
+                }
+                $rating->images()->delete();
+
+                foreach ($request->file('images') as $index => $file) {
+                    $result = $this->imageUploadService->upload($file, 'rating-images');
+                    RatingImage::create([
+                        'hub_rating_id' => $rating->id,
+                        'storage_path'  => $result['path'],
+                        'url'           => $result['url'],
+                        'order'         => $index,
+                    ]);
+                }
+            }
+
+            return $rating;
+        });
+
+        $rating->load(['user:id,name,avatar_url', 'booking.court:id,name', 'images']);
 
         return response()->json(['data' => new HubRatingResource($rating)], 201);
     }

@@ -280,6 +280,18 @@ function relativeTime(iso: string): string {
 
                   <!-- Comment -->
                   <p v-if="rating.comment" class="mt-1.5 text-sm text-[var(--aktiv-ink)]">{{ rating.comment }}</p>
+
+                  <!-- Images -->
+                  <div v-if="rating.images?.length" class="mt-2 flex flex-wrap gap-2">
+                    <AppImageViewer
+                      v-for="(img, idx) in rating.images"
+                      :key="idx"
+                      :src="img.url"
+                      :alt="`Review photo ${idx + 1}`"
+                      wrapper-class="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[var(--aktiv-border)]"
+                      image-class="h-full w-full object-cover"
+                    />
+                  </div>
               </div>
             </div>
           </div>

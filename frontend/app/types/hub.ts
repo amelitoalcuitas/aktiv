@@ -85,6 +85,7 @@ export interface HubRating {
   created_at: string;
   court_name: string | null;
   user: { id: string; name: string; avatar_url: string | null };
+  images: { url: string }[];
 }
 
 export interface Court {

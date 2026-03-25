@@ -1,4 +1,12 @@
-import type { Hub, Court, HubRating, HubContactNumber, HubWebsite, OperatingHoursEntry, PaginationMeta } from '~/types/hub';
+import type {
+  Hub,
+  Court,
+  HubRating,
+  HubContactNumber,
+  HubWebsite,
+  OperatingHoursEntry,
+  PaginationMeta
+} from '~/types/hub';
 import { useApi } from '~/utils/api';
 
 /**
@@ -12,8 +20,8 @@ export function isHubOpenNow(hub: Hub): boolean {
   const now = new Date();
   const todayHours = hours.find((oh) => oh.day_of_week === now.getDay());
   if (!todayHours || todayHours.is_closed) return false;
-  const [openH, openM] = todayHours.opens_at.split(':').map(Number);
-  const [closeH, closeM] = todayHours.closes_at.split(':').map(Number);
+  const [openH = 0, openM = 0] = todayHours.opens_at.split(':').map(Number);
+  const [closeH = 0, closeM = 0] = todayHours.closes_at.split(':').map(Number);
   const nowMins = now.getHours() * 60 + now.getMinutes();
   return nowMins >= openH * 60 + openM && nowMins < closeH * 60 + closeM;
 }
@@ -47,6 +55,7 @@ export function useHubs() {
       lat: number | null;
       lng: number | null;
       is_active: boolean;
+      require_account_to_book: boolean;
       contact_numbers: HubContactNumber[];
       websites: HubWebsite[];
       cover_image: File | null;
@@ -57,6 +66,7 @@ export function useHubs() {
       guest_max_hours: number;
       payment_methods: Array<'pay_on_site' | 'digital_bank'>;
       payment_qr_image: File | null;
+      remove_payment_qr: boolean;
       digital_bank_name: string | null;
       digital_bank_account: string | null;
     }>
@@ -86,7 +96,10 @@ export function useHubs() {
       formData.append('is_active', payload.is_active ? '1' : '0');
     }
     if (payload.require_account_to_book !== undefined) {
-      formData.append('require_account_to_book', payload.require_account_to_book ? '1' : '0');
+      formData.append(
+        'require_account_to_book',
+        payload.require_account_to_book ? '1' : '0'
+      );
     }
     appendIfDefined('guest_booking_limit', payload.guest_booking_limit);
     appendIfDefined('guest_max_hours', payload.guest_max_hours);
@@ -111,10 +124,16 @@ export function useHubs() {
       formData.append('remove_gallery_image_ids[]', String(id))
     );
     (payload.operating_hours ?? []).forEach((oh, i) => {
-      formData.append(`operating_hours[${i}][day_of_week]`, String(oh.day_of_week));
+      formData.append(
+        `operating_hours[${i}][day_of_week]`,
+        String(oh.day_of_week)
+      );
       formData.append(`operating_hours[${i}][opens_at]`, oh.opens_at);
       formData.append(`operating_hours[${i}][closes_at]`, oh.closes_at);
-      formData.append(`operating_hours[${i}][is_closed]`, oh.is_closed ? '1' : '0');
+      formData.append(
+        `operating_hours[${i}][is_closed]`,
+        oh.is_closed ? '1' : '0'
+      );
     });
 
     (payload.payment_methods ?? []).forEach((method) =>
@@ -165,7 +184,11 @@ export function useHubs() {
     if (params.radius != null) query.set('radius', String(params.radius));
     (params.sports ?? []).forEach((s) => query.append('sports[]', s));
     const qs = query.toString();
-    const res = await apiFetch<{ data: Hub[]; meta?: PaginationMeta; suggestions?: Hub[] }>(`/hubs${qs ? `?${qs}` : ''}`);
+    const res = await apiFetch<{
+      data: Hub[];
+      meta?: PaginationMeta;
+      suggestions?: Hub[];
+    }>(`/hubs${qs ? `?${qs}` : ''}`);
     return { data: res.data, meta: res.meta, suggestions: res.suggestions };
   }
 
@@ -375,14 +398,19 @@ export function useHubs() {
     if (sort) params.set('sort', sort);
     if (court) params.set('court', court);
     const qs = params.toString();
-    const res = await apiFetch<{ data: HubRating[]; next_cursor: string | null }>(
-      `/hubs/${hubId}/ratings${qs ? `?${qs}` : ''}`
-    );
+    const res = await apiFetch<{
+      data: HubRating[];
+      next_cursor: string | null;
+    }>(`/hubs/${hubId}/ratings${qs ? `?${qs}` : ''}`);
     return res;
   }
 
-  async function fetchHubRatingCourts(hubId: number | string): Promise<string[]> {
-    const res = await apiFetch<{ data: string[] }>(`/hubs/${hubId}/ratings/courts`);
+  async function fetchHubRatingCourts(
+    hubId: number | string
+  ): Promise<string[]> {
+    const res = await apiFetch<{ data: string[] }>(
+      `/hubs/${hubId}/ratings/courts`
+    );
     return res.data;
   }
 
@@ -390,8 +418,22 @@ export function useHubs() {
     hubId: number | string,
     rating: number,
     comment?: string | null,
-    bookingId?: number | null
+    bookingId?: string | null,
+    images?: File[] | null
   ): Promise<HubRating> {
+    if (images && images.length > 0) {
+      const fd = new FormData();
+      fd.append('rating', String(rating));
+      if (comment) fd.append('comment', comment);
+      if (bookingId) fd.append('booking_id', bookingId);
+      images.forEach((file) => fd.append('images[]', file));
+      const res = await apiFetch<{ data: HubRating }>(`/hubs/${hubId}/ratings`, {
+        method: 'POST',
+        body: fd
+      });
+      return res.data;
+    }
+
     const res = await apiFetch<{ data: HubRating }>(`/hubs/${hubId}/ratings`, {
       method: 'POST',
       body: { rating, comment: comment ?? null, booking_id: bookingId ?? null }
@@ -408,10 +450,10 @@ export function useHubs() {
     );
   }
 
-  async function skipBookingReview(bookingId: number): Promise<void> {
+  async function skipBookingReview(bookingId: string): Promise<void> {
     await apiFetch('/user/booking-review-skip', {
       method: 'POST',
-      body: { booking_id: bookingId },
+      body: { booking_id: bookingId }
     });
   }
 

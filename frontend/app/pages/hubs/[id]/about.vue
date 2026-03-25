@@ -485,7 +485,7 @@ onUnmounted(() => {
                   <UButton
                     block
                     size="xs"
-                    variant="solid"
+                    variant="ghost"
                     color="primary"
                     label="Book this Court"
                     icon="i-heroicons-calendar-days"
@@ -511,16 +511,18 @@ onUnmounted(() => {
             <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
               Schedule
             </h2>
-            <UBadge
-              v-if="filteredCourtId"
-              color="primary"
-              variant="subtle"
-              class="cursor-pointer select-none"
-              @click="filteredCourtId = null"
-            >
-              {{ filteredCourtName }}
-              <UIcon name="i-heroicons-x-mark" class="ml-1 h-3.5 w-3.5" />
-            </UBadge>
+            <div v-if="filteredCourtId" class="flex gap-2 items-center">
+              <span class="text-xs font-medium">Court Filtered:</span>
+              <UBadge
+                color="primary"
+                variant="subtle"
+                class="cursor-pointer select-none"
+                @click="filteredCourtId = null"
+              >
+                {{ filteredCourtName }}
+                <UIcon name="i-heroicons-x-mark" class="ml-1 h-3.5 w-3.5" />
+              </UBadge>
+            </div>
           </div>
           <div class="space-y-4">
             <SchedulerResourceGrid

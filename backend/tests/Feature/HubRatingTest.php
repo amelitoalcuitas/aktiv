@@ -4,7 +4,10 @@ use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
 use App\Models\HubRating;
+use App\Models\RatingImage;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -142,8 +145,101 @@ it('returns correct average rating in hub show', function () {
         ->assertOk()
         ->json('data');
 
-    expect((float) $data['rating'])->toBe(3.0);
+    // Bayesian avg: (5 × 3.5 + 4 + 2) / (5 + 2) = 23.5 / 7 ≈ 3.4
+    expect((float) $data['rating'])->toBe(3.4);
     expect($data['reviews_count'])->toBe(2);
+});
+
+it('dampens a single low rating toward the prior instead of showing raw 1.0', function () {
+    $hub  = makeApprovedHub();
+    $user = makeRatingUser();
+
+    HubRating::factory()->create(['hub_id' => $hub->id, 'user_id' => $user->id, 'rating' => 1]);
+
+    $data = $this->getJson("/api/hubs/{$hub->id}")
+        ->assertOk()
+        ->json('data');
+
+    // Bayesian avg: (5 × 3.5 + 1) / (5 + 1) = 18.5 / 6 ≈ 3.1
+    expect((float) $data['rating'])->toBe(3.1);
+});
+
+// ── Rating images ────────────────────────────────────────────────
+
+it('attaches images to a rating', function () {
+    Storage::fake('s3');
+    $hub  = makeApprovedHub();
+    $user = makeRatingUser();
+
+    $this->actingAs($user)
+        ->post("/api/hubs/{$hub->id}/ratings", [
+            'rating' => 4,
+            'images' => [
+                UploadedFile::fake()->image('a.jpg'),
+                UploadedFile::fake()->image('b.jpg'),
+            ],
+        ])
+        ->assertCreated()
+        ->assertJsonCount(2, 'data.images');
+
+    expect(RatingImage::count())->toBe(2);
+});
+
+it('rejects more than 3 images', function () {
+    Storage::fake('s3');
+    $hub  = makeApprovedHub();
+    $user = makeRatingUser();
+
+    $this->actingAs($user)
+        ->withHeaders(['Accept' => 'application/json'])
+        ->post("/api/hubs/{$hub->id}/ratings", [
+            'rating' => 3,
+            'images' => array_fill(0, 4, UploadedFile::fake()->image('x.jpg')),
+        ])
+        ->assertUnprocessable();
+});
+
+it('replaces old images when rating is updated with new images', function () {
+    Storage::fake('s3');
+    $hub  = makeApprovedHub();
+    $user = makeRatingUser();
+
+    $this->actingAs($user)
+        ->post("/api/hubs/{$hub->id}/ratings", [
+            'rating' => 3,
+            'images' => [UploadedFile::fake()->image('old1.jpg'), UploadedFile::fake()->image('old2.jpg')],
+        ])
+        ->assertCreated();
+
+    expect(RatingImage::count())->toBe(2);
+
+    $this->actingAs($user)
+        ->post("/api/hubs/{$hub->id}/ratings", [
+            'rating' => 5,
+            'images' => [UploadedFile::fake()->image('new.jpg')],
+        ])
+        ->assertCreated();
+
+    expect(RatingImage::count())->toBe(1);
+});
+
+it('preserves existing images when rating is updated without sending images', function () {
+    Storage::fake('s3');
+    $hub  = makeApprovedHub();
+    $user = makeRatingUser();
+
+    $this->actingAs($user)
+        ->post("/api/hubs/{$hub->id}/ratings", [
+            'rating' => 3,
+            'images' => [UploadedFile::fake()->image('keep.jpg')],
+        ])
+        ->assertCreated();
+
+    $this->actingAs($user)
+        ->postJson("/api/hubs/{$hub->id}/ratings", ['rating' => 4, 'comment' => 'Updated'])
+        ->assertCreated();
+
+    expect(RatingImage::count())->toBe(1);
 });
 
 it('rejects booking_id that belongs to another user', function () {

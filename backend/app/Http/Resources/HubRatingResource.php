@@ -15,6 +15,9 @@ class HubRatingResource extends JsonResource
             'comment'    => $this->comment,
             'created_at' => $this->created_at,
             'court_name' => $this->booking?->court?->name,
+            'images'     => $this->whenLoaded('images', fn () =>
+                $this->images->map(fn ($img) => ['url' => $img->url])->values()
+            ),
             'user'       => [
                 'id'         => $this->user->id,
                 'name'       => $this->censorName($this->user->name),

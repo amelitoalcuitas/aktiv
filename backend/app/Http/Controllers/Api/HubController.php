@@ -507,6 +507,23 @@ class HubController extends Controller
     }
 
     /**
+     * Bayesian average rating: pulls toward 3.5 prior when review count is low.
+     * C=5 means a hub needs ~5 reviews before its own average dominates.
+     */
+    private function bayesianRating(mixed $avg, int $count): ?float
+    {
+        if ($count === 0 || $avg === null) {
+            return null;
+        }
+
+        $C     = 5;
+        $prior = 3.5;
+        $sum   = (float) $avg * $count;
+
+        return round(($C * $prior + $sum) / ($C + $count), 1);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function formatHub(Hub $hub, bool $withBreakdown = false): array
@@ -556,7 +573,7 @@ class HubController extends Controller
                 : [],
             'courts_count'         => $hub->courts_count ?? 0,
             'lowest_price_per_hour' => $hub->courts_min_price_per_hour,
-            'rating'               => $hub->ratings_avg_rating !== null ? round((float) $hub->ratings_avg_rating, 1) : null,
+            'rating'               => $this->bayesianRating($hub->ratings_avg_rating, $hub->reviews_count ?? 0),
             'reviews_count'        => $hub->reviews_count ?? 0,
             'rating_breakdown'     => $withBreakdown ? [
                 5 => (int) ($hub->ratings_5 ?? 0),

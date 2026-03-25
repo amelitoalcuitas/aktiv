@@ -382,7 +382,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
             >
               <div class="flex items-center justify-between">
                 <span
-                  class="max-w-[150px] truncate text-sm font-semibold leading-tight text-[var(--aktiv-ink)]"
+                  class="min-w-0 flex-1 truncate text-sm font-semibold leading-tight text-[var(--aktiv-ink)]"
                   :title="court.name"
                 >
                   {{ court.name }}

@@ -23,7 +23,6 @@ class CourtFactory extends Factory
             'surface' => fake()->randomElement(['hardcourt', 'clay', 'synthetic']),
             'indoor' => fake()->boolean(),
             'price_per_hour' => fake()->randomFloat(2, 150, 1200),
-            'max_players' => fake()->randomElement([2, 4, 6, 10]),
             'is_active' => true,
         ];
     }

@@ -21,7 +21,6 @@ services:
     image: node:20-alpine
     container_name: aktiv_frontend
     working_dir: /app
-    user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./frontend:/app
       # node_modules and .nuxt are on your local WSL filesystem.

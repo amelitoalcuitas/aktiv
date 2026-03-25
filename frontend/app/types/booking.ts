@@ -7,6 +7,7 @@ export type BookingStatus =
 
 export type SessionType = 'private' | 'open_play';
 export type BookingSource = 'self_booked' | 'owner_added';
+export type PaymentMethod = 'gcash' | 'bank_transfer' | 'pay_on_site' | string;
 export type CancelledBy = 'user' | 'owner' | 'system';
 
 export interface Booking {
@@ -20,11 +21,15 @@ export interface Booking {
   session_type: SessionType;
   status: BookingStatus;
   booking_source: BookingSource;
+  payment_method: PaymentMethod | null;
   created_by: string | null;
   guest_name: string | null;
   guest_phone: string | null;
   guest_email: string | null;
   total_price: string | null;
+  original_price: string | null;
+  discount_amount: string | null;
+  applied_promo_title: string | null;
   receipt_image_url: string | null;
   receipt_uploaded_at: string | null;
   payment_note: string | null;

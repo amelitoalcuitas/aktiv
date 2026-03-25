@@ -41,6 +41,19 @@ const formattedPrice = computed(() => {
       <div
         class="relative h-[210px] w-full shrink-0 overflow-hidden bg-[var(--aktiv-border)]"
       >
+        <!-- Promo ribbon -->
+        <div
+          v-if="hub.has_active_promo"
+          class="absolute right-0 top-0 z-10 overflow-hidden"
+          style="width: 110px; height: 110px;"
+        >
+          <div
+            class="absolute flex items-center justify-center bg-[#F0A202] text-white text-[12px] font-bold tracking-wide shadow"
+            style="width: 150px; top: 28px; right: -38px; transform: rotate(45deg); padding: 6px 0;"
+          >
+            PROMO
+          </div>
+        </div>
         <img
           v-if="imgSrc"
           :src="imgSrc"
@@ -111,17 +124,10 @@ const formattedPrice = computed(() => {
 
           <!-- Event badges -->
           <div
-            v-if="hub.has_active_promo || hub.has_active_announcement"
+            v-if="hub.has_active_announcement"
             class="flex flex-wrap gap-2"
           >
             <span
-              v-if="hub.has_active_promo"
-              class="inline-flex items-center gap-1 rounded-full bg-[#fef9c3] px-2.5 py-0.5 text-xs font-semibold text-[#854d0e]"
-            >
-              % Promo
-            </span>
-            <span
-              v-if="hub.has_active_announcement"
               class="inline-flex items-center gap-1 rounded-full bg-[#dbeafe] px-2.5 py-0.5 text-xs font-semibold text-[#1e40af]"
             >
               Event

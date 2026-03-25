@@ -288,9 +288,21 @@ const statusLabels: Record<string, string> = {
               </div>
               <div v-if="foundBooking.total_price" class="flex justify-between">
                 <span class="text-[#64748b]">Amount</span>
-                <span class="font-semibold text-[#004e89]"
-                  >₱{{ foundBooking.total_price }}</span
-                >
+                <div class="flex flex-col items-end gap-0.5">
+                  <span v-if="foundBooking.original_price" class="text-sm line-through text-[#64748b]">
+                    ₱{{ Number(foundBooking.original_price).toLocaleString('en-PH') }}
+                  </span>
+                  <span class="font-semibold text-[#004e89]">
+                    ₱{{ Number(foundBooking.total_price).toLocaleString('en-PH') }}
+                  </span>
+                  <span
+                    v-if="foundBooking.discount_amount"
+                    class="rounded-full bg-[#fde68a] px-2 py-0.5 text-xs font-semibold text-[#854d0e]"
+                  >
+                    Saved ₱{{ Number(foundBooking.discount_amount).toLocaleString('en-PH') }}
+                    <template v-if="foundBooking.applied_promo_title"> · {{ foundBooking.applied_promo_title }}</template>
+                  </span>
+                </div>
               </div>
               <div class="flex justify-between">
                 <span class="text-[#64748b]">Code</span>

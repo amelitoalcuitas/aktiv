@@ -276,6 +276,7 @@ const receiptCalendarBooking = computed((): CalendarBooking | null => {
 
 function canUploadReceipt(booking: UserBooking): boolean {
   if (booking.status !== 'pending_payment') return false;
+  if (booking.payment_method === 'pay_on_site') return false;
   if (!booking.expires_at) return true;
   return new Date(booking.expires_at).getTime() > Date.now();
 }
@@ -442,12 +443,52 @@ function canUploadReceipt(booking: UserBooking): boolean {
                 statusConfig[effectiveStatus(booking)]?.label ?? booking.status
               }}
             </UBadge>
-            <span
-              v-if="booking.total_price"
-              class="text-3xl font-semibold text-[var(--aktiv-primary)]"
-            >
-              ₱{{ Number(booking.total_price).toLocaleString('en-PH') }}
-            </span>
+            <template v-if="booking.total_price">
+              <!-- Promo label -->
+              <span
+                v-if="booking.applied_promo_title"
+                class="text-xs font-medium text-[#92400e]"
+              >
+                {{ booking.applied_promo_title }}
+              </span>
+              <!-- Original price (strikethrough) -->
+              <span
+                v-if="booking.original_price"
+                class="text-sm line-through text-[var(--aktiv-muted)]"
+              >
+                ₱{{ Number(booking.original_price).toLocaleString('en-PH') }}
+              </span>
+              <!-- Discounted / final price -->
+              <span class="text-3xl font-semibold text-[var(--aktiv-primary)]">
+                ₱{{ Number(booking.total_price).toLocaleString('en-PH') }}
+              </span>
+              <!-- Saved badge -->
+              <span
+                v-if="booking.discount_amount"
+                class="rounded-full bg-[#fde68a] px-2.5 py-0.5 text-xs font-semibold text-[#854d0e]"
+              >
+                Saved ₱{{ Number(booking.discount_amount).toLocaleString('en-PH') }}
+              </span>
+            </template>
+          </div>
+        </div>
+
+        <!-- Booking code + QR -->
+        <div
+          v-if="booking.booking_code"
+          class="mt-3 flex items-center gap-3 border-t border-[var(--aktiv-border)] pt-3"
+        >
+          <AppImageViewer
+            :src="`/api/bookings/${booking.booking_code}/qr`"
+            alt="QR code"
+            wrapper-class="shrink-0 rounded-lg overflow-hidden border border-[var(--aktiv-border)] bg-white p-1"
+            image-class="block h-12 w-12 object-contain"
+          />
+          <div>
+            <p class="text-xs text-[var(--aktiv-muted)]">Booking Code</p>
+            <p class="font-mono font-bold tracking-widest text-[var(--aktiv-ink)]">
+              {{ booking.booking_code }}
+            </p>
           </div>
         </div>
 

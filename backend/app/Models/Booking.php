@@ -29,6 +29,9 @@ class Booking extends Model
         'guest_phone',
         'guest_email',
         'total_price',
+        'original_price',
+        'discount_amount',
+        'applied_promo_title',
         'receipt_image_url',
         'receipt_uploaded_at',
         'payment_note',
@@ -46,7 +49,9 @@ class Booking extends Model
             'receipt_uploaded_at' => 'datetime',
             'payment_confirmed_at' => 'datetime',
             'expires_at' => 'datetime',
-            'total_price' => 'decimal:2',
+            'total_price'     => 'decimal:2',
+            'original_price'  => 'decimal:2',
+            'discount_amount' => 'decimal:2',
         ];
     }
 

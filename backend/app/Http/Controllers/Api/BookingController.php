@@ -143,11 +143,17 @@ class BookingController extends Controller
 
         // Promo auto-apply: check for an active promo event overlapping this slot
         $appliedPromo = null;
+        $originalPrice = null;
+        $discountAmount = null;
+        $appliedPromoTitle = null;
         if ($totalPrice !== null) {
             $promoEvent = $this->findPromoEvent($hub, $court, $startTime, $endTime);
             if ($promoEvent) {
                 $discount = $promoEvent->discountForCourt($court->id);
+                $originalPrice = $totalPrice;
                 $totalPrice = $this->applyPromoDiscount($totalPrice, $discount);
+                $discountAmount = round($originalPrice - $totalPrice, 2);
+                $appliedPromoTitle = $promoEvent->title;
                 $appliedPromo = [
                     'title'          => $promoEvent->title,
                     'discount_type'  => $discount['discount_type'],
@@ -157,18 +163,21 @@ class BookingController extends Controller
         }
 
         $booking = Booking::create([
-            'court_id' => $court->id,
-            'booked_by' => $request->user()->id,
-            'created_by' => $request->user()->id,
-            'sport' => $court->sports->first()?->sport,
-            'start_time' => $startTime,
-            'end_time' => $endTime,
-            'session_type' => $request->session_type,
-            'status' => 'pending_payment',
-            'booking_source' => 'self_booked',
-            'total_price' => $totalPrice,
-            'payment_method' => $request->payment_method,
-            'expires_at' => $this->resolveExpiresAt($request->payment_method, $startTime),
+            'court_id'            => $court->id,
+            'booked_by'           => $request->user()->id,
+            'created_by'          => $request->user()->id,
+            'sport'               => $court->sports->first()?->sport,
+            'start_time'          => $startTime,
+            'end_time'            => $endTime,
+            'session_type'        => $request->session_type,
+            'status'              => 'pending_payment',
+            'booking_source'      => 'self_booked',
+            'total_price'         => $totalPrice,
+            'original_price'      => $originalPrice,
+            'discount_amount'     => $discountAmount,
+            'applied_promo_title' => $appliedPromoTitle,
+            'payment_method'      => $request->payment_method,
+            'expires_at'          => $this->resolveExpiresAt($request->payment_method, $startTime),
         ]);
 
         $booking->load('court.hub.owner');
@@ -288,8 +297,7 @@ class BookingController extends Controller
         return HubEvent::where('hub_id', $hub->id)
             ->where('event_type', 'promo')
             ->where('is_active', true)
-            ->whereNotNull('discount_type')
-            ->whereNotNull('discount_value')
+            ->where(fn ($q) => $q->whereNotNull('discount_type')->orWhereNotNull('court_discounts'))
             ->where('date_from', '<=', $bookingEnd)
             ->where('date_to', '>=', $bookingStart)
             ->get()

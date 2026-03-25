@@ -126,12 +126,20 @@ function formatDate(iso: string) {
               {{ formatTime(booking.start_time) }} –
               {{ formatTime(booking.end_time) }}
             </div>
-            <div
-              v-if="booking.total_price"
-              class="mt-1 font-semibold text-[#004e89]"
-            >
-              ₱{{ booking.total_price }}
-            </div>
+            <template v-if="booking.total_price">
+              <div v-if="booking.original_price" class="mt-1 text-sm line-through text-[#64748b]">
+                ₱{{ Number(booking.original_price).toLocaleString('en-PH') }}
+              </div>
+              <div class="font-semibold text-[#004e89]">
+                ₱{{ Number(booking.total_price).toLocaleString('en-PH') }}
+              </div>
+              <div
+                v-if="booking.discount_amount"
+                class="rounded-full bg-[#fde68a] px-2 py-0.5 text-xs font-semibold text-[#854d0e]"
+              >
+                Saved ₱{{ Number(booking.discount_amount).toLocaleString('en-PH') }}
+              </div>
+            </template>
           </div>
 
           <!-- QR code -->

@@ -1,7 +1,7 @@
 services:
   # ─── Nginx ───────────────────────────────────────────────────────────────
   nginx:
-    ports: !reset
+    ports:
       - "8089:80" 
     environment:
       - APP_ENV=staging

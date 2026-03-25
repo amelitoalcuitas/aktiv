@@ -49,6 +49,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: aktiv-backend
     container_name: aktiv_backend
     working_dir: /var/www
     volumes:

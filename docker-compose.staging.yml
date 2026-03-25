@@ -1,29 +1,29 @@
 services:
-  # ─── Nginx (The Entry Point) ──────────────────────────────────────────────
+  # ─── Nginx ───────────────────────────────────────────────────────────────
   nginx:
-    ports:
-      - "8089:80" # Maps Host 8089 to Container 80
+    ports: !reset
+      - "8089:80" 
     environment:
       - APP_ENV=staging
 
-  # ─── Frontend (Nuxt 3) ────────────────────────────────────────────────────
+  # ─── Frontend ─────────────────────────────────────────────────────────────
   frontend:
-    ports:
-      - "3003:3000" # Avoids aiostreams on 3000
+    ports: !reset
+      - "3003:3000" 
     environment:
       - NODE_ENV=production
       - NUXT_PUBLIC_API_BASE=https://staging.aktivhub.app/api
-      - NUXT_PUBLIC_REVERB_PORT=8085
+      - NUXT_PUBLIC_REVERB_PORT=8085 
     env_file:
       - ./frontend/.env.staging
-    user: "root" # Fixes the permission errors we saw earlier
+    user: "root" 
     command: >
       sh -c "npm install && 
              npm run build && 
              node .output/server/index.mjs"
     restart: unless-stopped
 
-  # ─── Backend (Laravel) ────────────────────────────────────────────────────
+  # ─── Backend ──────────────────────────────────────────────────────────────
   backend:
     environment:
       - APP_ENV=staging
@@ -32,23 +32,23 @@ services:
     env_file:
       - ./backend/.env.staging
 
-  # ─── Reverb (WebSockets) ──────────────────────────────────────────────────
+  # ─── Reverb ───────────────────────────────────────────────────────────────
   reverb:
-    ports:
-      - "8085:8080" # Exposed for Nginx Proxy Manager
+    ports: !reset
+      - "8085:8080" 
     environment:
       - APP_ENV=staging
 
   # ─── Redis ────────────────────────────────────────────────────────────────
   redis:
-    ports:
-      - "6380:6379" # Avoids Immich on 6379
+    ports: !reset
+      - "6380:6379" 
 
-  # ─── MinIO (Storage) ──────────────────────────────────────────────────────
+  # ─── MinIO ────────────────────────────────────────────────────────────────
   minio:
-    ports:
-      - "9005:9000" # Avoids Portainer on 9000
-      - "9006:9001" # Avoids Portainer agent/console conflicts
+    ports: !reset
+      - "9005:9000" 
+      - "9006:9001" 
 
   # ─── Workers & Scheduler ──────────────────────────────────────────────────
   queue:

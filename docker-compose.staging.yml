@@ -1,20 +1,61 @@
-# Inherits from docker-compose.yml but overrides ports and env
 services:
+  # ─── Nginx ───────────────────────────────────────────────────────────────
   nginx:
     ports:
-      - "8081:8080"   # staging on 8081, not 8080
+      - "8089:80" # Avoids conflict with Nginx Proxy Manager (80/81)
     environment:
       - APP_ENV=staging
 
+  # ─── Frontend ─────────────────────────────────────────────────────────────
+  frontend:
+    ports:
+      - "3003:3000" # Avoids conflict with aiostreams (3000)
+    environment:
+      - NODE_ENV=production
+      - NUXT_PUBLIC_API_BASE=https://staging.aktivhub.app/api
+      - NUXT_PUBLIC_REVERB_PORT=8085 # Matches the Reverb host port below
+    # Remove user mapping for server to avoid the EACCES permission errors
+    user: "root" 
+    command: >
+      sh -c "npm install && 
+             npm run build && 
+             node .output/server/index.mjs"
+    restart: unless-stopped
+
+  # ─── Backend ──────────────────────────────────────────────────────────────
   backend:
     environment:
       - APP_ENV=staging
       - APP_URL=https://staging.aktivhub.app
+      - AWS_URL=https://staging.aktivhub.app/minio/aktiv-media
     env_file:
-      - backend/.env.staging
+      - .env.staging
 
-  frontend:
+  # ─── Reverb ───────────────────────────────────────────────────────────────
+  reverb:
+    ports:
+      - "8085:8080" # Avoids conflict with Nginx Proxy Manager (81)
     environment:
-      - NUXT_PUBLIC_API_BASE=https://staging.aktivhub.app/api
-    env_file:
-      - frontend/.env.staging
+      - APP_ENV=staging
+
+  # ─── Redis ────────────────────────────────────────────────────────────────
+  redis:
+    ports:
+      - "6380:6379" # Avoids conflict with immich_redis (6379)
+
+  # ─── MinIO ────────────────────────────────────────────────────────────────
+  minio:
+    ports:
+      - "9005:9000" # Avoids conflict with portainer (9000)
+      - "9001:9001"
+
+  # Also override queue and scheduler to ensure they use staging URLs
+  queue:
+    environment:
+      - APP_ENV=staging
+      - AWS_URL=https://staging.aktivhub.app/minio/aktiv-media
+
+  scheduler:
+    environment:
+      - APP_ENV=staging
+      - AWS_URL=https://staging.aktivhub.app/minio/aktiv-media

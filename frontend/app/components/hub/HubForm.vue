@@ -132,7 +132,19 @@ const coverPreview = ref('');
 const currentCoverUrl = ref(props.existingCoverUrl ?? '');
 const removeGalleryImageIds = ref<number[]>([]);
 const newGalleryImages = ref<File[]>([]);
-const newGalleryPreviews = ref<string[]>([]);
+
+const activeExistingGallery = computed(() =>
+  props.existingGallery.filter((img) => !removeGalleryImageIds.value.includes(img.id))
+);
+
+const activeExistingGalleryUrls = computed(() =>
+  activeExistingGallery.value.map((img) => img.url)
+);
+
+function removeExistingGallery(index: number) {
+  const img = activeExistingGallery.value[index];
+  if (img) removeGalleryImageIds.value.push(img.id);
+}
 
 watch(
   () => props.initialData,
@@ -334,52 +346,10 @@ function onCoverImageChange(event: Event) {
   }
 }
 
-function onGalleryImagesChange(event: Event) {
-  const input = event.target as HTMLInputElement;
-  const files = Array.from(input.files ?? []);
-  if (!files.length) return;
-
-  const validFiles = files.filter((file) => file.size <= HUB_IMAGE_MAX_BYTES);
-  const oversizedCount = files.length - validFiles.length;
-  if (oversizedCount > 0) {
-    toast.add({
-      title: `${oversizedCount} image(s) skipped. Max ${HUB_IMAGE_MAX_SIZE_MB}MB per image.`,
-      color: 'error'
-    });
-  }
-
-  const remainingSlots =
-    10 -
-    (props.existingGallery.length - removeGalleryImageIds.value.length) -
-    newGalleryImages.value.length;
-
-  const filesToAdd = validFiles.slice(0, Math.max(0, remainingSlots));
-
-  filesToAdd.forEach((file) => {
-    newGalleryImages.value.push(file);
-    newGalleryPreviews.value.push(URL.createObjectURL(file));
-  });
-
-  input.value = '';
+function onGalleryFilesUpdate(value: File | File[] | null) {
+  newGalleryImages.value = Array.isArray(value) ? value : value ? [value] : [];
 }
 
-function removeNewGalleryImage(index: number) {
-  const [preview] = newGalleryPreviews.value.splice(index, 1);
-  newGalleryImages.value.splice(index, 1);
-  if (preview) {
-    URL.revokeObjectURL(preview);
-  }
-}
-
-function toggleExistingGalleryRemoval(imageId: number) {
-  if (removeGalleryImageIds.value.includes(imageId)) {
-    removeGalleryImageIds.value = removeGalleryImageIds.value.filter(
-      (id) => id !== imageId
-    );
-    return;
-  }
-  removeGalleryImageIds.value.push(imageId);
-}
 
 function handleSubmit() {
   fieldErrors.value = {};
@@ -452,7 +422,6 @@ onUnmounted(() => {
   if (coverPreview.value) {
     URL.revokeObjectURL(coverPreview.value);
   }
-  newGalleryPreviews.value.forEach((preview) => URL.revokeObjectURL(preview));
 });
 </script>
 
@@ -854,76 +823,15 @@ onUnmounted(() => {
 
       <!-- Gallery Images -->
       <UFormField label="Gallery Images" :error="fieldError('gallery_images')">
-        <p class="text-xs text-[var(--aktiv-muted)]">
-          Up to 10 images total, max {{ HUB_IMAGE_MAX_SIZE_MB }}MB each.
-          <template v-if="existingGallery.length">
-            Mark existing images for removal or add new ones.
-          </template>
-        </p>
-
-        <div
-          v-if="existingGallery.length"
-          class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3"
-        >
-          <div
-            v-for="image in existingGallery"
-            :key="image.id"
-            class="relative"
-          >
-            <img
-              :src="image.url"
-              :alt="`Gallery image ${image.id}`"
-              class="h-28 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
-              :class="
-                removeGalleryImageIds.includes(image.id) ? 'opacity-40' : ''
-              "
-            />
-            <button
-              type="button"
-              class="absolute right-1 top-1 rounded px-2 py-0.5 text-xs text-white"
-              :class="
-                removeGalleryImageIds.includes(image.id)
-                  ? 'bg-emerald-600'
-                  : 'bg-black/70'
-              "
-              @click="toggleExistingGalleryRemoval(image.id)"
-            >
-              {{ removeGalleryImageIds.includes(image.id) ? 'Undo' : 'Remove' }}
-            </button>
-          </div>
-        </div>
-
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          class="mt-3 block w-full text-sm text-[var(--aktiv-muted)] file:mr-4 file:rounded-md file:border-0 file:bg-[var(--aktiv-primary)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-[var(--aktiv-primary-hover)]"
-          @change="onGalleryImagesChange"
+        <AppImageUploader
+          :model-value="newGalleryImages"
+          :preview-url="activeExistingGalleryUrls"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          :max-mb="HUB_IMAGE_MAX_SIZE_MB"
+          :max-files="10"
+          @update:model-value="onGalleryFilesUpdate"
+          @remove-existing="removeExistingGallery"
         />
-
-        <div
-          v-if="newGalleryPreviews.length"
-          class="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3"
-        >
-          <div
-            v-for="(preview, index) in newGalleryPreviews"
-            :key="`${preview}-${index}`"
-            class="relative"
-          >
-            <img
-              :src="preview"
-              :alt="`New gallery image ${index + 1}`"
-              class="h-28 w-full rounded-lg border border-[var(--aktiv-border)] object-cover"
-            />
-            <button
-              type="button"
-              class="absolute right-1 top-1 rounded bg-black/70 px-2 py-0.5 text-xs text-white"
-              @click="removeNewGalleryImage(index)"
-            >
-              Remove
-            </button>
-          </div>
-        </div>
       </UFormField>
     </section>
 

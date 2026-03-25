@@ -1,6 +1,9 @@
 services:
 
   # ─── Nginx reverse proxy ───────────────────────────────────────────────────
+  # Routes /api/* and /sanctum/* to the Laravel backend.
+  # All other requests go to the Nuxt frontend.
+  # Binds to host port 8080 to avoid conflict with port 80 on WSL.
   nginx:
     image: nginx:alpine
     container_name: aktiv_nginx
@@ -21,15 +24,20 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./frontend:/app
+      # node_modules and .nuxt are on your local WSL filesystem.
+      # This means VS Code IntelliSense and autocomplete work natively.
+      # Run `npm install` in WSL inside frontend/ to install locally too.
     environment:
       - NODE_ENV=development
       - NUXT_PUBLIC_API_BASE=http://localhost:8080/api
+      # Internal Docker URL used by Nuxt SSR to reach the Laravel backend
       - NUXT_API_BASE_INTERNAL=http://nginx/api
+      # Bind to all interfaces inside the container so Nginx can reach it
       - NUXT_HOST=0.0.0.0
       - NUXT_PORT=3000
       - NUXT_PUBLIC_REVERB_KEY=${REVERB_APP_KEY}
       - NUXT_PUBLIC_REVERB_HOST=localhost
-      - NUXT_PUBLIC_REVERB_PORT=8081
+      - NUXT_PUBLIC_REVERB_PORT=8085 # CHANGED: Updated to match new Reverb port
       - NUXT_PUBLIC_REVERB_SCHEME=http
     command: sh -c "npm install && npm run dev"
     ports:
@@ -46,6 +54,9 @@ services:
     working_dir: /var/www
     volumes:
       - ./backend:/var/www
+      # vendor/ is on your local WSL filesystem.
+      # This means VS Code IntelliSense and autocomplete work natively.
+      # Run `composer install` in WSL inside backend/ to install locally too.
     environment:
       - APP_ENV=local
       - APP_DEBUG=true
@@ -124,7 +135,7 @@ services:
       - REVERB_SCHEME=http
     command: sh -c "docker-php-ext-install pcntl && php artisan reverb:start --host=0.0.0.0 --port=8080 --no-interaction"
     ports:
-      - "8081:8080"
+      - "8085:8080" # CHANGED: 8081 was causing a conflict, moved to 8085
     depends_on:
       db:
         condition: service_healthy

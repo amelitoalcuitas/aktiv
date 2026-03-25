@@ -100,6 +100,25 @@ watch(
 
 watch(selectedDate, () => loadAllBookings());
 
+// ── Court filter ───────────────────────────────────────────────────────────
+const filteredCourtId = ref<string | null>(null);
+
+const filteredCourts = computed(() =>
+  filteredCourtId.value
+    ? (courts.value ?? []).filter((c) => c.id === filteredCourtId.value)
+    : (courts.value ?? [])
+);
+
+const filteredCourtName = computed(
+  () => courts.value?.find((c) => c.id === filteredCourtId.value)?.name ?? ''
+);
+
+function bookThisCourt(court: Court) {
+  filteredCourtId.value = court.id;
+  selectedSlots.value = [];
+  scrollToSchedule();
+}
+
 // ── Multi-slot selection ────────────────────────────────────────────────────
 const selectedSlots = ref<SelectedSlot[]>([]);
 
@@ -369,7 +388,9 @@ onUnmounted(() => {
                 class="flex flex-col overflow-hidden rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-bg)]"
               >
                 <!-- Court image banner -->
-                <div class="relative h-[140px] w-full shrink-0 overflow-hidden bg-[var(--aktiv-border)]">
+                <div
+                  class="relative h-[140px] w-full shrink-0 overflow-hidden bg-[var(--aktiv-border)]"
+                >
                   <AppImageViewer
                     v-if="court.image_url"
                     :src="court.image_url"
@@ -397,64 +418,80 @@ onUnmounted(() => {
                   </div>
                 </div>
 
-                <div class="flex flex-col gap-2 p-3">
-                <!-- Name + price -->
-                <div class="flex min-w-0 items-center justify-between gap-2">
-                  <p class="min-w-0 truncate font-semibold text-[var(--aktiv-ink)]" :title="court.name">
-                    {{ court.name }}
-                  </p>
-                  <span class="font-bold text-[var(--aktiv-primary)] text-xl">
-                    ₱{{
-                      parseFloat(court.price_per_hour).toLocaleString('en-PH')
-                    }}<span
-                      class="font-normal text-sm text-[var(--aktiv-muted)]"
-                      >/hr</span
+                <div class="flex flex-1 flex-col gap-2 p-3">
+                  <!-- Name + price -->
+                  <div class="flex min-w-0 items-center justify-between gap-2">
+                    <p
+                      class="min-w-0 truncate font-semibold text-[var(--aktiv-ink)]"
+                      :title="court.name"
                     >
-                  </span>
-                </div>
+                      {{ court.name }}
+                    </p>
+                    <span class="font-bold text-[var(--aktiv-primary)] text-xl">
+                      ₱{{
+                        parseFloat(court.price_per_hour).toLocaleString(
+                          'en-PH'
+                        )
+                      }}<span
+                        class="font-normal text-sm text-[var(--aktiv-muted)]"
+                        >/hr</span
+                      >
+                    </span>
+                  </div>
 
-                <!-- Attributes -->
-                <div
-                  class="flex flex-wrap gap-x-3 text-sm gap-y-1 text-[var(--aktiv-muted)]"
-                >
-                  <span class="inline-flex items-center gap-1">
-                    <UIcon
-                      :name="
-                        court.indoor
-                          ? 'i-heroicons-building-office-2'
-                          : 'i-heroicons-sun'
-                      "
-                      class="h-4 w-4 shrink-0"
-                    />
-                    {{ court.indoor ? 'Indoor' : 'Outdoor' }}
-                  </span>
-                  <span
-                    v-if="court.surface"
-                    class="inline-flex items-center gap-1 capitalize"
+                  <!-- Attributes -->
+                  <div
+                    class="flex flex-wrap gap-x-3 text-sm gap-y-1 text-[var(--aktiv-muted)]"
                   >
-                    <UIcon
-                      name="i-heroicons-squares-2x2"
-                      class="h-4 w-4 shrink-0"
+                    <span class="inline-flex items-center gap-1">
+                      <UIcon
+                        :name="
+                          court.indoor
+                            ? 'i-heroicons-building-office-2'
+                            : 'i-heroicons-sun'
+                        "
+                        class="h-4 w-4 shrink-0"
+                      />
+                      {{ court.indoor ? 'Indoor' : 'Outdoor' }}
+                    </span>
+                    <span
+                      v-if="court.surface"
+                      class="inline-flex items-center gap-1 capitalize"
+                    >
+                      <UIcon
+                        name="i-heroicons-squares-2x2"
+                        class="h-4 w-4 shrink-0"
+                      />
+                      {{ court.surface }}
+                    </span>
+                  </div>
+
+                  <!-- Sports -->
+                  <div
+                    v-if="court.sports.length > 0"
+                    class="flex flex-wrap gap-1"
+                  >
+                    <UBadge
+                      v-for="sport in court.sports"
+                      :key="sport"
+                      :label="sport"
+                      variant="subtle"
+                      color="neutral"
+                      class="capitalize text-xs"
                     />
-                    {{ court.surface }}
-                  </span>
+                  </div>
 
-                </div>
-
-                <!-- Sports -->
-                <div
-                  v-if="court.sports.length > 0"
-                  class="flex flex-wrap gap-1"
-                >
-                  <UBadge
-                    v-for="sport in court.sports"
-                    :key="sport"
-                    :label="sport"
-                    variant="subtle"
-                    color="neutral"
-                    class="capitalize text-xs"
+                  <!-- Book this Court -->
+                  <UButton
+                    block
+                    size="xs"
+                    variant="solid"
+                    color="primary"
+                    label="Book this Court"
+                    icon="i-heroicons-calendar-days"
+                    class="mt-auto"
+                    @click="bookThisCourt(court)"
                   />
-                </div>
                 </div>
               </div>
             </div>
@@ -470,12 +507,24 @@ onUnmounted(() => {
           id="schedule"
           class="overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4 md:p-6"
         >
-          <h2 class="mb-4 text-base font-bold text-[var(--aktiv-ink)]">
-            Schedule
-          </h2>
+          <div class="mb-4 flex flex-wrap justify-between items-center gap-2">
+            <h2 class="text-base font-bold text-[var(--aktiv-ink)]">
+              Schedule
+            </h2>
+            <UBadge
+              v-if="filteredCourtId"
+              color="primary"
+              variant="subtle"
+              class="cursor-pointer select-none"
+              @click="filteredCourtId = null"
+            >
+              {{ filteredCourtName }}
+              <UIcon name="i-heroicons-x-mark" class="ml-1 h-3.5 w-3.5" />
+            </UBadge>
+          </div>
           <div class="space-y-4">
             <SchedulerResourceGrid
-              :courts="courts ?? []"
+              :courts="filteredCourts"
               :bookings-map="bookingsMap"
               :selected-date="selectedDate"
               :selected-slots="selectedSlots"

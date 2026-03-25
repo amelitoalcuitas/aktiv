@@ -15,6 +15,8 @@ services:
       - NUXT_PUBLIC_API_BASE=https://staging.aktivhub.app/api
       - NUXT_PUBLIC_REVERB_PORT=8085 # Matches the Reverb host port below
     # Remove user mapping for server to avoid the EACCES permission errors
+    env_file:
+      - ./frontend/.env.staging
     user: "root" 
     command: >
       sh -c "npm install && 
@@ -29,7 +31,7 @@ services:
       - APP_URL=https://staging.aktivhub.app
       - AWS_URL=https://staging.aktivhub.app/minio/aktiv-media
     env_file:
-      - .env.staging
+      - ./backend/.env.staging
 
   # ─── Reverb ───────────────────────────────────────────────────────────────
   reverb:

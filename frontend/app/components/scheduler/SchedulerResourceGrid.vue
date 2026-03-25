@@ -123,6 +123,15 @@ onMounted(() => {
     now.value = new Date();
   }, 60_000);
 });
+
+const isMobile = ref(false);
+onMounted(() => {
+  const mq = window.matchMedia('(max-width: 768px)');
+  isMobile.value = mq.matches;
+  mq.addEventListener('change', (e) => {
+    isMobile.value = e.matches;
+  });
+});
 onUnmounted(() => clearInterval(nowTimer));
 
 const grid = computed<Record<string, CellState[]>>(() => {
@@ -371,12 +380,40 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
               :key="court.id"
               class="sticky top-0 z-10 min-w-[110px] border-b border-r border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-3 py-3 text-left"
             >
-              <div class="flex flex-col gap-1">
+              <div class="flex items-center justify-between">
                 <span
                   class="text-sm font-semibold leading-tight text-[var(--aktiv-ink)]"
                 >
                   {{ court.name }}
                 </span>
+                <UPopover
+                  :mode="isMobile ? 'click' : 'hover'"
+                  :ui="{ content: 'p-0' }"
+                >
+                  <UButton
+                    icon="i-lucide-image"
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    aria-label="View court image"
+                  />
+                  <template #content>
+                    <div class="w-48">
+                      <img
+                        v-if="court.image_url"
+                        :src="court.image_url"
+                        :alt="court.name"
+                        class="w-full rounded object-cover"
+                      />
+                      <div
+                        v-else
+                        class="flex h-32 w-48 items-center justify-center rounded bg-[var(--aktiv-border)] text-[var(--aktiv-muted)]"
+                      >
+                        <UIcon name="i-lucide-image-off" class="size-8" />
+                      </div>
+                    </div>
+                  </template>
+                </UPopover>
               </div>
             </th>
           </tr>

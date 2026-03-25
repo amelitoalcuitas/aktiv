@@ -202,7 +202,7 @@ const activeFilterCount = computed(
     <div
       class="border-b border-[var(--aktiv-border)] bg-white px-4 pb-6 pt-[calc(76px+24px)] md:px-8"
     >
-      <div class="mx-auto max-w-[1280px]">
+      <div class="mx-auto max-w-[1400px]">
         <h1 class="text-3xl font-black text-[#0f1728] md:text-4xl">
           Explore <span class="text-[#0f76bf]">Hubs</span>
         </h1>
@@ -212,7 +212,7 @@ const activeFilterCount = computed(
       </div>
     </div>
 
-    <div class="mx-auto flex max-w-[1280px] gap-6 px-4 py-8 md:px-8">
+    <div class="mx-auto flex max-w-[1400px] gap-6 px-4 py-8 md:px-8">
       <!-- ── Desktop filter panel (sticky left sidebar) ── -->
       <aside class="hidden w-64 shrink-0 lg:block">
         <div

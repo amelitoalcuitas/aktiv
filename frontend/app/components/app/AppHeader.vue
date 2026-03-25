@@ -22,7 +22,7 @@ onMounted(() => {
     ]"
   >
     <div
-      class="mx-auto flex h-[76px] w-full max-w-[1280px] items-center justify-between px-4 md:px-8"
+      class="mx-auto flex h-[76px] w-full max-w-[1400px] items-center justify-between px-4 md:px-8"
     >
       <!-- Logo -->
       <NuxtLink

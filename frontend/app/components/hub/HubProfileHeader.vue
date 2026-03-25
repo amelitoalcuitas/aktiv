@@ -156,7 +156,7 @@ const ratingsModalOpen = ref(false);
 
     <div class="absolute inset-x-0 bottom-0">
       <div
-        class="mx-auto flex w-full max-w-[1160px] items-end justify-between px-4 pb-4 md:px-6"
+        class="mx-auto flex w-full max-w-[1400px] items-end justify-between px-4 pb-4 md:px-6"
       >
         <!-- Left: name + meta -->
         <div class="min-w-0 flex-1 pr-4">
@@ -241,7 +241,7 @@ const ratingsModalOpen = ref(false);
     v-if="isInactiveOwnerView"
     class="border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
   >
-    <div class="mx-auto w-full max-w-[1160px] px-4 py-3 md:px-6">
+    <div class="mx-auto w-full max-w-[1400px] px-4 py-3 md:px-6">
       <UAlert
         icon="i-heroicons-eye-slash"
         color="warning"
@@ -256,7 +256,7 @@ const ratingsModalOpen = ref(false);
   <nav
     class="sticky top-[76px] z-25 border-b border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
   >
-    <div class="mx-auto flex w-full max-w-[1160px] items-center px-4 md:px-6">
+    <div class="mx-auto flex w-full max-w-[1400px] items-center px-4 md:px-6">
       <!-- Tabs (scrollable) -->
       <div class="flex min-w-0 flex-1 overflow-x-auto">
         <NuxtLink

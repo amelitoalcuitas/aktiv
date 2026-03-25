@@ -10,26 +10,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Install Tailscale
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: Connect to Tailscale
+        run: |
+          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }}
+
       - name: Deploy to staging server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.STAGING_HOST }}
+          host: ${{ secrets.STAGING_TAILSCALE_IP }}
           username: deploy
           key: ${{ secrets.STAGING_SSH_KEY }}
           script: |
             set -e
             cd /home/deploy/aktiv
 
-            # Pull latest code
             git pull origin staging
 
-            # Build and restart containers
             docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build
 
-            # Run migrations
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan migrate --force
 
-            # Clear and cache config
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan config:cache
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan route:cache
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan view:cache

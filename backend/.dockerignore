@@ -1,0 +1,22 @@
+# Dependency folders (Docker will install these itself)
+vendor
+node_modules
+
+# Version control
+.git
+.gitignore
+
+# Environment and logs
+.env
+.env.staging
+.env.production
+*.log
+
+# Docker specific
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile
+
+# OS generated files
+.DS_Store
+Thumbs.db

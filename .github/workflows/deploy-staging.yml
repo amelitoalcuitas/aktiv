@@ -13,20 +13,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Official Tailscale Action using Auth Key
+      # 1. Connect to your Tailscale network using the Auth Key
       - name: Connect to Tailscale
         uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
+      # 2. SSH into your server and run the update script
       - name: Deploy to staging server
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.STAGING_TAILSCALE_IP }}
           username: deploy
           key: ${{ secrets.STAGING_SSH_KEY }}
-          # These timeouts are critical for slower home networks
-          connect_timeout: 60s
+          # 'timeout' is for the handshake, 'command_timeout' is for the script
+          timeout: 60s
           command_timeout: 60m
           script: |
             set -e
@@ -36,8 +37,8 @@ jobs:
             git pull origin staging
 
             # Build and start the containers
-            # -d runs in background, --build forces fresh image creation
-            docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build
+            # --pull ensures we check for the latest PHP/Composer base images
+            docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build --pull
 
             # Laravel post-deployment commands
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan migrate --force

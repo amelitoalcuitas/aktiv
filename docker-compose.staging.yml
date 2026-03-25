@@ -1,30 +1,29 @@
 services:
-  # ─── Nginx ───────────────────────────────────────────────────────────────
+  # ─── Nginx (The Entry Point) ──────────────────────────────────────────────
   nginx:
     ports:
-      - "8089:80" # Avoids conflict with Nginx Proxy Manager (80/81)
+      - "8089:80" # Maps Host 8089 to Container 80
     environment:
       - APP_ENV=staging
 
-  # ─── Frontend ─────────────────────────────────────────────────────────────
+  # ─── Frontend (Nuxt 3) ────────────────────────────────────────────────────
   frontend:
     ports:
-      - "3003:3000" # Avoids conflict with aiostreams (3000)
+      - "3003:3000" # Avoids aiostreams on 3000
     environment:
       - NODE_ENV=production
       - NUXT_PUBLIC_API_BASE=https://staging.aktivhub.app/api
-      - NUXT_PUBLIC_REVERB_PORT=8085 # Matches the Reverb host port below
-    # Remove user mapping for server to avoid the EACCES permission errors
+      - NUXT_PUBLIC_REVERB_PORT=8085
     env_file:
       - ./frontend/.env.staging
-    user: "root" 
+    user: "root" # Fixes the permission errors we saw earlier
     command: >
       sh -c "npm install && 
              npm run build && 
              node .output/server/index.mjs"
     restart: unless-stopped
 
-  # ─── Backend ──────────────────────────────────────────────────────────────
+  # ─── Backend (Laravel) ────────────────────────────────────────────────────
   backend:
     environment:
       - APP_ENV=staging
@@ -33,31 +32,35 @@ services:
     env_file:
       - ./backend/.env.staging
 
-  # ─── Reverb ───────────────────────────────────────────────────────────────
+  # ─── Reverb (WebSockets) ──────────────────────────────────────────────────
   reverb:
     ports:
-      - "8085:8080" # Avoids conflict with Nginx Proxy Manager (81)
+      - "8085:8080" # Exposed for Nginx Proxy Manager
     environment:
       - APP_ENV=staging
 
   # ─── Redis ────────────────────────────────────────────────────────────────
   redis:
     ports:
-      - "6380:6379" # Avoids conflict with immich_redis (6379)
+      - "6380:6379" # Avoids Immich on 6379
 
-  # ─── MinIO ────────────────────────────────────────────────────────────────
+  # ─── MinIO (Storage) ──────────────────────────────────────────────────────
   minio:
     ports:
-      - "9005:9000" # Avoids conflict with portainer (9000)
-      - "9001:9001"
+      - "9005:9000" # Avoids Portainer on 9000
+      - "9006:9001" # Avoids Portainer agent/console conflicts
 
-  # Also override queue and scheduler to ensure they use staging URLs
+  # ─── Workers & Scheduler ──────────────────────────────────────────────────
   queue:
     environment:
       - APP_ENV=staging
       - AWS_URL=https://staging.aktivhub.app/minio/aktiv-media
+    env_file:
+      - ./backend/.env.staging
 
   scheduler:
     environment:
       - APP_ENV=staging
       - AWS_URL=https://staging.aktivhub.app/minio/aktiv-media
+    env_file:
+      - ./backend/.env.staging

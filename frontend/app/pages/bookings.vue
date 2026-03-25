@@ -413,7 +413,7 @@ function canUploadReceipt(booking: UserBooking): boolean {
             >
               —
             </p>
-            <p class="mt-0.5 text-sm md:text-base text-[var(--aktiv-muted)]">
+            <p class="mt-0.5 truncate text-sm md:text-base text-[var(--aktiv-muted)]" :title="booking.court?.name">
               {{ booking.court?.name ?? '—' }}
             </p>
             <p class="mt-1 text-sm md:text-base text-[var(--aktiv-ink)]">

@@ -718,7 +718,7 @@ function bookingDropdownItems(booking: BookingDetail) {
             </template>
 
             <template #court-cell="{ row }">
-              <span class="text-sm text-[#0f1728]">
+              <span class="block max-w-[160px] truncate text-sm text-[#0f1728]" :title="row.original.court?.name">
                 {{ row.original.court?.name ?? '—' }}
               </span>
             </template>

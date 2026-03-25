@@ -17,7 +17,7 @@ class UpdateCourtRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'                     => ['sometimes', 'string', 'max:255'],
+            'name'                     => ['sometimes', 'string', 'max:50'],
             'surface'                  => ['sometimes', 'nullable', 'string', 'in:hardcourt,clay,synthetic,grass,concrete,wood'],
             'indoor'                   => ['sometimes', 'nullable', 'boolean'],
             'price_per_hour'           => ['sometimes', 'nullable', 'numeric', 'min:0'],

@@ -459,7 +459,7 @@ function formatPrice(price: string) {
               :key="court.id"
               class="hover:bg-[#fafcff]"
             >
-              <td class="px-4 py-3 font-medium text-[#0f1728]">
+              <td class="max-w-[200px] truncate px-4 py-3 font-medium text-[#0f1728]" :title="court.name">
                 {{ court.name }}
               </td>
               <td
@@ -556,7 +556,9 @@ function formatPrice(price: string) {
               v-model="courtForm.name"
               placeholder="e.g. Court A"
               class="w-full"
+              maxlength="50"
             />
+            <p class="mt-1 text-xs text-[var(--aktiv-muted)]">Max 50 characters</p>
           </UFormField>
 
           <UFormField

@@ -399,8 +399,8 @@ onUnmounted(() => {
 
                 <div class="flex flex-col gap-2 p-3">
                 <!-- Name + price -->
-                <div class="flex items-center justify-between gap-2">
-                  <p class="font-semibold text-[var(--aktiv-ink)]">
+                <div class="flex min-w-0 items-center justify-between gap-2">
+                  <p class="min-w-0 truncate font-semibold text-[var(--aktiv-ink)]" :title="court.name">
                     {{ court.name }}
                   </p>
                   <span class="font-bold text-[var(--aktiv-primary)] text-xl">

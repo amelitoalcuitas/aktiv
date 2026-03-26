@@ -34,13 +34,13 @@ jobs:
             cd /home/deploy/aktiv
 
             # Ensure env files exist
-            if [ ! -f backend/.env.staging ]; then
-              echo "ERROR: backend/.env.staging not found"
+            if [ ! -f .env.staging ]; then
+              echo "ERROR: .env.staging not found"
               exit 1
             fi
 
-            if [ ! -f frontend/.env.staging ]; then
-              echo "ERROR: frontend/.env.staging not found"
+            if [ ! -f backend/.env.staging ]; then
+              echo "ERROR: backend/.env.staging not found"
               exit 1
             fi
 
@@ -48,6 +48,9 @@ jobs:
             git fetch origin
             git checkout staging || git checkout -b staging
             git reset --hard origin/staging
+
+            # Load staging secrets for compose build args
+            export $(cat /home/deploy/aktiv/.env.staging | xargs)
 
             # Rebuild containers cleanly
             # Note: composer install & dump-autoload are already handled in the Dockerfile

@@ -7,13 +7,18 @@ services:
 
   # ─── Frontend ─────────────────────────────────────────────────────────────
   frontend:
-    env_file: !reset
-      - ./frontend/.env.staging
-    user: "root"
-    command: >
-      sh -c "npm install &&
-             npm run build &&
-             node .output/server/index.mjs"
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NUXT_PUBLIC_API_BASE: https://staging.aktivhub.app/api
+        NUXT_API_BASE_INTERNAL: http://nginx/api
+        NUXT_PUBLIC_REVERB_HOST: staging.aktivhub.app
+        NUXT_PUBLIC_REVERB_PORT: "443"
+        NUXT_PUBLIC_REVERB_SCHEME: https
+        NUXT_PUBLIC_REVERB_KEY: ${NUXT_PUBLIC_REVERB_KEY}
+        NUXT_PUBLIC_GOOGLE_MAPS_KEY: ${NUXT_PUBLIC_GOOGLE_MAPS_KEY}
+        NUXT_CLARITY_ID: ${NUXT_CLARITY_ID}
     restart: unless-stopped
 
   # ─── Backend ──────────────────────────────────────────────────────────────

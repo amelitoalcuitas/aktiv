@@ -16,15 +16,10 @@ services:
 
   # ─── Nuxt 3 frontend ───────────────────────────────────────────────────────
   frontend:
-    image: node:20-alpine
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: aktiv_frontend
-    working_dir: /app
-    user: "${UID:-1000}:${GID:-1000}"
-    volumes:
-      - ./frontend:/app
-    env_file:
-      - ./frontend/.env
-    command: sh -c "npm install && npm run dev"
     expose:
       - "3000"
     restart: unless-stopped

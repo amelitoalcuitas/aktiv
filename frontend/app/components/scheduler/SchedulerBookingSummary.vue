@@ -282,6 +282,13 @@ async function submitBooking() {
         ? `${firstGroup.court.name} · ${firstGroup.dateLabel}`
         : undefined;
       isQrModalOpen.value = true;
+      // Defer clear until QR modal is dismissed so it isn't destroyed with the drawer
+      const stop = watch(isQrModalOpen, (val) => {
+        if (!val) {
+          stop();
+          emit('clear');
+        }
+      });
     } else {
       toast.add({
         title: n === 1 ? 'Booking created!' : `${n} bookings created!`,
@@ -289,9 +296,9 @@ async function submitBooking() {
           'Your slot(s) are held for 1 hour. Upload your payment receipt to confirm.',
         color: 'success'
       });
+      emit('clear');
     }
     emit('booking-created');
-    emit('clear');
   } catch (e: unknown) {
     const err = e as { data?: { message?: string }; status?: number };
     submitError.value =

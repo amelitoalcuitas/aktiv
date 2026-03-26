@@ -342,7 +342,7 @@ onUnmounted(() => {
       />
 
       <div
-        class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[2fr_2fr_minmax(320px,1.2fr)]"
+        class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2 xl:grid-cols-[2fr_2fr_minmax(320px,1.2fr)]"
       >
         <!-- Left: single card -->
         <div
@@ -612,8 +612,8 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Right: sticky booking summary (desktop only) -->
-        <div class="hidden lg:block lg:sticky lg:top-[160px]">
+        <!-- Right: sticky booking summary (xl+ only) -->
+        <div class="hidden xl:block xl:sticky xl:top-[160px]">
           <div
             v-if="!courts || courts.length === 0"
             class="rounded-2xl border border-dashed border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-8 text-center"
@@ -654,7 +654,7 @@ onUnmounted(() => {
       <!-- Mobile floating booking bar -->
       <div
         v-if="courts && courts.length > 0"
-        class="fixed bottom-0 left-0 right-0 z-40 p-4 lg:hidden"
+        class="fixed bottom-0 left-0 right-0 z-40 p-4 xl:hidden"
         style="
           background: var(--aktiv-surface);
           border-top: 1px solid var(--aktiv-border);

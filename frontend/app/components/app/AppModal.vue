@@ -51,6 +51,11 @@ function onCancel() {
 }
 
 const isDesktop = useMediaQuery('(min-width: 768px)');
+
+const drawerUi = computed(() => {
+  const { content: _content, ...rest } = props.ui ?? {};
+  return { content: 'max-h-[85dvh]', body: 'overflow-y-auto', ...rest };
+});
 </script>
 
 <template>
@@ -92,7 +97,7 @@ const isDesktop = useMediaQuery('(min-width: 768px)');
     :title
     :description
     :dismissible
-    :ui="{ content: 'max-h-[85dvh]', body: 'overflow-y-auto', ...(ui ?? {}) }"
+    :ui="drawerUi"
   >
     <template v-for="(_, name) in nonFooterSlots" #[name]="slotData">
       <slot :name="name" v-bind="slotData ?? {}" />

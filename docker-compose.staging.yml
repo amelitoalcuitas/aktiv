@@ -31,6 +31,8 @@ services:
       - AWS_URL=https://staging.aktivhub.app/minio/aktiv-media
     env_file:
       - ./backend/.env.staging
+    volumes:
+      - ./backend/.env.staging:/var/www/html/.env
 
   # ─── Reverb ───────────────────────────────────────────────────────────────
   reverb:
@@ -38,6 +40,8 @@ services:
       - "8085:8080" 
     environment:
       - APP_ENV=staging
+    volumes:
+      - ./backend/.env.staging:/var/www/html/.env
 
   # ─── Redis ────────────────────────────────────────────────────────────────
   redis:
@@ -57,6 +61,8 @@ services:
       - AWS_URL=https://staging.aktivhub.app/minio/aktiv-media
     env_file:
       - ./backend/.env.staging
+    volumes:
+      - ./backend/.env.staging:/var/www/html/.env
 
   scheduler:
     environment:
@@ -64,3 +70,5 @@ services:
       - AWS_URL=https://staging.aktivhub.app/minio/aktiv-media
     env_file:
       - ./backend/.env.staging
+    volumes:
+      - ./backend/.env.staging:/var/www/html/.env

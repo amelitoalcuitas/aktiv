@@ -11,6 +11,7 @@ interface PromoEvent {
   id: string;
   title: string;
   description?: string | null;
+  date_to?: string | null;
   discount_type?: string | null;
   discount_value?: string | null;
   time_from?: string | null;
@@ -58,6 +59,38 @@ const timeRange = computed(() => {
 
 // For global discount: pick the first applicable court as a price reference
 // For per-court: each card shows its own court price
+
+// ── Countdown ──────────────────────────────────────────────────────────────
+const countdown = ref('');
+let countdownTimer: ReturnType<typeof setInterval> | null = null;
+
+function computeCountdown() {
+  if (!props.event.date_to) { countdown.value = ''; return; }
+  // If time_to exists use it, otherwise end of day (23:59:59)
+  const timeStr = props.event.time_to ?? '23:59:59';
+  const endsAt = new Date(`${props.event.date_to}T${timeStr}+08:00`);
+  const diff = endsAt.getTime() - Date.now();
+  if (diff <= 0) { countdown.value = 'Ended'; return; }
+  const totalSeconds = Math.floor(diff / 1000);
+  const d = Math.floor(totalSeconds / 86400);
+  const h = Math.floor((totalSeconds % 86400) / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (d > 0) {
+    countdown.value = `${d}d ${h}h ${m}m`;
+  } else {
+    countdown.value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+}
+
+onMounted(() => {
+  computeCountdown();
+  countdownTimer = setInterval(computeCountdown, 1000);
+});
+
+onUnmounted(() => {
+  if (countdownTimer) clearInterval(countdownTimer);
+});
 </script>
 
 <template>
@@ -79,6 +112,12 @@ const timeRange = computed(() => {
       <p v-if="event.description" class="mt-0.5 text-base text-[#92400e]">
         {{ event.description }}
       </p>
+
+      <!-- Countdown -->
+      <div v-if="countdown && countdown !== 'Ended'" class="mt-1.5 flex items-center gap-1.5">
+        <UIcon name="i-heroicons-clock" class="h-3.5 w-3.5 text-[#a16207]" />
+        <span class="text-sm font-semibold text-[#a16207]">Ends in {{ countdown }}</span>
+      </div>
 
       <!-- Per-court discounts with pricing -->
       <div

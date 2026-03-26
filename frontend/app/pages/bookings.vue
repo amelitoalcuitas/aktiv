@@ -308,7 +308,7 @@ function canUploadReceipt(booking: UserBooking): boolean {
         class="mt-0.5 h-4 w-4 shrink-0"
       />
       <span>
-        Please upload your payment receipt within 1 hour of booking. Repeatedly
+        Please upload your payment receipt before your scheduled booking time. Repeatedly
         letting bookings expire may result in a temporary booking restriction.
       </span>
     </div>

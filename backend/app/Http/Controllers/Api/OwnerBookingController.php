@@ -9,6 +9,7 @@ use App\Http\Requests\Booking\WalkInBookingRequest;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
+use App\Models\HubEvent;
 use App\Models\User;
 use App\Services\BookingNotificationService;
 use Carbon\Carbon;
@@ -90,6 +91,14 @@ class OwnerBookingController extends Controller
 
         $startTime = Carbon::parse($validated['start_time']);
         $endTime = Carbon::parse($validated['end_time']);
+
+        // Closure check: reject if an active closure event covers this court and time window
+        $closureEvent = $this->findClosureEvent($hub, $court, $startTime, $endTime);
+        if ($closureEvent) {
+            return response()->json([
+                'message' => "This court is unavailable: {$closureEvent->title}",
+            ], 422);
+        }
 
         // Check conflicts excluding current booking and expired bookings
         $conflict = Booking::where('court_id', $court->id)
@@ -236,6 +245,14 @@ class OwnerBookingController extends Controller
         $startTime = Carbon::parse($request->start_time);
         $endTime = Carbon::parse($request->end_time);
 
+        // Closure check: reject if an active closure event covers this court and time window
+        $closureEvent = $this->findClosureEvent($hub, $court, $startTime, $endTime);
+        if ($closureEvent) {
+            return response()->json([
+                'message' => "This court is unavailable: {$closureEvent->title}",
+            ], 422);
+        }
+
         // Conflict detection — same logic as self-booked, excluding expired bookings
         $conflict = Booking::where('court_id', $court->id)
             ->whereNotIn('status', ['cancelled'])
@@ -380,6 +397,27 @@ class OwnerBookingController extends Controller
             'cancelled_by' => $booking->cancelled_by,
             'created_at' => $booking->created_at->toIso8601String(),
         ];
+    }
+
+    private function findClosureEvent(Hub $hub, Court $court, Carbon $startTime, Carbon $endTime): ?HubEvent
+    {
+        $bookingStart = $startTime->copy()->setTimezone('Asia/Manila')->startOfDay();
+        $bookingEnd   = $endTime->copy()->setTimezone('Asia/Manila')->endOfDay();
+
+        $slotStart = $startTime->copy()->setTimezone('Asia/Manila')->format('H:i');
+        $slotEnd   = $endTime->copy()->setTimezone('Asia/Manila')->format('H:i');
+
+        return HubEvent::where('hub_id', $hub->id)
+            ->where('event_type', 'closure')
+            ->where('is_active', true)
+            ->where('date_from', '<=', $bookingEnd)
+            ->where('date_to', '>=', $bookingStart)
+            ->get()
+            ->filter(function (HubEvent $e) use ($slotStart, $slotEnd) {
+                if (! $e->time_from || ! $e->time_to) return true;
+                return $slotStart < substr($e->time_to, 0, 5) && $slotEnd > substr($e->time_from, 0, 5);
+            })
+            ->first(fn (HubEvent $e) => $e->appliesToCourt($court->id));
     }
 
     private function resolveExpiresAt(string $paymentMethod, Carbon $startTime): Carbon

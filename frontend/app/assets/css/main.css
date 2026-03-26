@@ -14,6 +14,18 @@
   --color-brand-800: #00243b;
   --color-brand-900: #001621;
   --color-brand-950: #000b11;
+
+  --color-warning-50: #fff4e6;
+  --color-warning-100: #ffe8cc;
+  --color-warning-200: #ffd199;
+  --color-warning-300: #ffba66;
+  --color-warning-400: #ffa333;
+  --color-warning-500: #e97a00;
+  --color-warning-600: #c06400;
+  --color-warning-700: #964e00;
+  --color-warning-800: #6d3800;
+  --color-warning-900: #442200;
+  --color-warning-950: #2a1500;
 }
 
 :root {

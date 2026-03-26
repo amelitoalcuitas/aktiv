@@ -22,6 +22,7 @@ class HubEventResource extends JsonResource
             'discount_type'    => $this->discount_type,
             'discount_value'   => $this->discount_value,
             'affected_courts'  => $this->affected_courts,
+            'court_discounts'  => $this->court_discounts,
             'is_active'        => $this->is_active,
             'created_at'       => $this->created_at,
             'updated_at'       => $this->updated_at,

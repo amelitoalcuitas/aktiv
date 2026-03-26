@@ -21,16 +21,8 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./frontend:/app
-    environment:
-      - NODE_ENV=development
-      - NUXT_PUBLIC_API_BASE=http://localhost:8080/api
-      - NUXT_API_BASE_INTERNAL=http://nginx/api
-      - NUXT_HOST=0.0.0.0
-      - NUXT_PORT=3000
-      - NUXT_PUBLIC_REVERB_KEY=${REVERB_APP_KEY}
-      - NUXT_PUBLIC_REVERB_HOST=localhost
-      - NUXT_PUBLIC_REVERB_PORT=8081
-      - NUXT_PUBLIC_REVERB_SCHEME=http
+    env_file:
+      - ./frontend/.env
     command: sh -c "npm install && npm run dev"
     expose:
       - "3000"

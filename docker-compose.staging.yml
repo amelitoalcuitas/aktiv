@@ -18,15 +18,13 @@ services:
 
   # ─── Backend ──────────────────────────────────────────────────────────────
   backend:
-    volumes: !reset
-      - ./backend:/var/www
+    volumes:
       - ./backend/.env.staging:/var/www/.env
 
   # ─── Reverb ───────────────────────────────────────────────────────────────
   reverb:
     ports: !reset []
-    volumes: !reset
-      - ./backend:/var/www
+    volumes:
       - ./backend/.env.staging:/var/www/.env
 
   # ─── Redis ────────────────────────────────────────────────────────────────
@@ -42,11 +40,9 @@ services:
 
   # ─── Workers & Scheduler ──────────────────────────────────────────────────
   queue:
-    volumes: !reset
-      - ./backend:/var/www
+    volumes:
       - ./backend/.env.staging:/var/www/.env
 
   scheduler:
-    volumes: !reset
-      - ./backend:/var/www
+    volumes:
       - ./backend/.env.staging:/var/www/.env

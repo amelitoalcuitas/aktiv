@@ -27,7 +27,13 @@ export default defineNuxtConfig({
       reverbScheme: process.env.NUXT_PUBLIC_REVERB_SCHEME ?? 'http',
     }
   },
-  modules: ['@nuxt/ui', '@pinia/nuxt', '@nuxt/image', '@nuxt/icon'],
+  modules: [
+    '@nuxt/ui',
+    '@pinia/nuxt',
+    '@nuxt/image',
+    '@nuxt/icon',
+    'nuxt-clarity-analytics'
+  ],
   css: ['~/assets/css/main.css'],
   ui: {
     colorMode: false

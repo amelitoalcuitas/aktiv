@@ -30,24 +30,33 @@ jobs:
           command_timeout: 60m
           script: |
             set -e
+
             cd /home/deploy/aktiv
 
-            # Ensure we have the latest info from GitHub
-            git fetch origin
+            # Ensure env file exists
+            if [ ! -f backend/.env.staging ]; then
+              echo "ERROR: backend/.env.staging not found"
+              exit 1
+            fi
 
-            # Switch to staging and force it to match origin/staging exactly
-            # This fixes the "still on main" issue
+            # Sync code
+            git fetch origin
             git checkout staging || git checkout -b staging
             git reset --hard origin/staging
 
-            # Build and start the containers
+            # Rebuild containers cleanly
+            docker compose -f docker-compose.yml -f docker-compose.staging.yml down
             docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build
 
-            # Restore the vendor folder inside the mounted volume
+            # Install dependencies
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend composer install --no-interaction --prefer-dist --optimize-autoloader
 
-            # Laravel post-deployment commands
+            # Laravel setup
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan migrate --force
+
+            # Clear and rebuild cache (IMPORTANT)
+            docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan config:clear
+            docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan cache:clear
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan config:cache
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan route:cache
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan view:cache

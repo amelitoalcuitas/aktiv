@@ -33,7 +33,12 @@ jobs:
 
             cd /home/deploy/aktiv
 
-            # Ensure env file exists
+            # Ensure env files exist
+            if [ ! -f .env.staging ]; then
+              echo "ERROR: .env.staging not found"
+              exit 1
+            fi
+
             if [ ! -f backend/.env.staging ]; then
               echo "ERROR: backend/.env.staging not found"
               exit 1
@@ -44,17 +49,18 @@ jobs:
             git checkout staging || git checkout -b staging
             git reset --hard origin/staging
 
+            # Load staging secrets for compose build args
+            export $(grep -v '^#' /home/deploy/aktiv/.env.staging | xargs)
+
             # Rebuild containers cleanly
+            # Note: composer install & dump-autoload are already handled in the Dockerfile
             docker compose -f docker-compose.yml -f docker-compose.staging.yml down
             docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build
-
-            # Install dependencies
-            docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend composer install --no-interaction --prefer-dist --optimize-autoloader
 
             # Laravel setup
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan migrate --force
 
-            # Clear and rebuild cache (IMPORTANT)
+            # Clear and rebuild cache
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan config:clear
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan cache:clear
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan config:cache

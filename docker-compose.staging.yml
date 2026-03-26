@@ -1,3 +1,4 @@
+# docker-compose.staging.yml
 services:
   # ─── Nginx ───────────────────────────────────────────────────────────────
   nginx:
@@ -6,19 +7,18 @@ services:
 
   # ─── Frontend ─────────────────────────────────────────────────────────────
   frontend:
-    ports: !reset
-      - "3003:3000"
-    environment:
-      - NODE_ENV=production
-      - NUXT_PUBLIC_API_BASE=https://staging.aktivhub.app/api
-      - NUXT_PUBLIC_REVERB_PORT=8085
-    env_file:
-      - ./frontend/.env.staging
-    user: "root"
-    command: >
-      sh -c "npm install &&
-             npm run build &&
-             node .output/server/index.mjs"
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NUXT_PUBLIC_API_BASE: https://staging.aktivhub.app/api
+        NUXT_API_BASE_INTERNAL: http://nginx/api
+        NUXT_PUBLIC_REVERB_HOST: staging.aktivhub.app
+        NUXT_PUBLIC_REVERB_PORT: "443"
+        NUXT_PUBLIC_REVERB_SCHEME: https
+        NUXT_PUBLIC_REVERB_KEY: ${NUXT_PUBLIC_REVERB_KEY}
+        NUXT_PUBLIC_GOOGLE_MAPS_KEY: ${NUXT_PUBLIC_GOOGLE_MAPS_KEY}
+        NUXT_CLARITY_ID: ${NUXT_CLARITY_ID}
     restart: unless-stopped
 
   # ─── Backend ──────────────────────────────────────────────────────────────
@@ -28,8 +28,7 @@ services:
 
   # ─── Reverb ───────────────────────────────────────────────────────────────
   reverb:
-    ports: !reset
-      - "8085:8080"
+    ports: !reset []
     volumes:
       - ./backend/.env.staging:/var/www/.env
 

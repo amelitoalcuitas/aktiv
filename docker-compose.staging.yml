@@ -1,3 +1,4 @@
+# docker-compose.staging.yml
 services:
   # ─── Nginx ───────────────────────────────────────────────────────────────
   nginx:
@@ -6,8 +7,6 @@ services:
 
   # ─── Frontend ─────────────────────────────────────────────────────────────
   frontend:
-    ports: !reset
-      - "3003:3000"
     env_file: !reset
       - ./frontend/.env.staging
     user: "root"
@@ -19,14 +18,15 @@ services:
 
   # ─── Backend ──────────────────────────────────────────────────────────────
   backend:
-    volumes:
+    volumes: !reset
+      - ./backend:/var/www
       - ./backend/.env.staging:/var/www/.env
 
   # ─── Reverb ───────────────────────────────────────────────────────────────
   reverb:
-    ports: !reset
-      - "8085:8080"
-    volumes:
+    ports: !reset []
+    volumes: !reset
+      - ./backend:/var/www
       - ./backend/.env.staging:/var/www/.env
 
   # ─── Redis ────────────────────────────────────────────────────────────────
@@ -39,15 +39,14 @@ services:
     ports: !reset
       - "9005:9000"
       - "9006:9001"
-    environment:
-      - MINIO_ROOT_USER=aktiv
-      - MINIO_ROOT_PASSWORD=oaUF3Ag*xDMiaD
 
   # ─── Workers & Scheduler ──────────────────────────────────────────────────
   queue:
-    volumes:
+    volumes: !reset
+      - ./backend:/var/www
       - ./backend/.env.staging:/var/www/.env
 
   scheduler:
-    volumes:
+    volumes: !reset
+      - ./backend:/var/www
       - ./backend/.env.staging:/var/www/.env

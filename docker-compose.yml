@@ -1,3 +1,4 @@
+# docker-compose.yml
 services:
 
   # ─── Nginx reverse proxy ───────────────────────────────────────────────────

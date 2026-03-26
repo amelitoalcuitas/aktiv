@@ -50,7 +50,7 @@ jobs:
             git reset --hard origin/staging
 
             # Load staging secrets for compose build args
-            export $(cat /home/deploy/aktiv/.env.staging | xargs)
+            export $(grep -v '^#' /home/deploy/aktiv/.env.staging | xargs)
 
             # Rebuild containers cleanly
             # Note: composer install & dump-autoload are already handled in the Dockerfile

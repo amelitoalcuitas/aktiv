@@ -41,6 +41,15 @@ function statusColor(
   }
 }
 
+function paymentMethodLabel(method: string | null | undefined): string {
+  switch (method) {
+    case 'gcash': return 'GCash';
+    case 'bank_transfer': return 'Bank Transfer';
+    case 'pay_on_site': return 'Pay on Site';
+    default: return method ?? '—';
+  }
+}
+
 function statusLabel(status?: BookingStatus): string {
   switch (status) {
     case 'pending_payment':
@@ -121,6 +130,13 @@ function formatTime(iso: string) {
             >
               {{ booking.booked_by_user?.phone ?? booking.guest_phone }}
             </a>
+          </div>
+          <div
+            v-if="booking.payment_method"
+            class="flex items-center justify-between"
+          >
+            <span class="text-[#64748b]">Payment</span>
+            <span class="font-medium text-[#0f1728]">{{ paymentMethodLabel(booking.payment_method) }}</span>
           </div>
         </div>
 

@@ -372,6 +372,7 @@ class OwnerBookingController extends Controller
             'total_price' => $booking->total_price,
             'receipt_image_url' => $booking->receipt_image_url,
             'receipt_uploaded_at' => $booking->receipt_uploaded_at?->toIso8601String(),
+            'payment_method' => $booking->payment_method,
             'payment_note' => $booking->payment_note,
             'payment_confirmed_by' => $booking->payment_confirmed_by,
             'payment_confirmed_at' => $booking->payment_confirmed_at?->toIso8601String(),

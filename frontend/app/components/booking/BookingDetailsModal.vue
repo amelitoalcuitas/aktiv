@@ -180,6 +180,17 @@ const isConfirmable = computed(() => {
   );
 });
 
+const isPayOnSite = computed(() => props.booking?.payment_method === 'pay_on_site');
+
+function paymentMethodLabel(method: string | null | undefined): string {
+  switch (method) {
+    case 'gcash': return 'GCash';
+    case 'bank_transfer': return 'Bank Transfer';
+    case 'pay_on_site': return 'Pay on Site';
+    default: return method ?? '—';
+  }
+}
+
 // For Date picker formatting
 const dateString = computed(() => {
   return state.date.toLocaleDateString('en-PH', {
@@ -245,6 +256,13 @@ const calendarDate = computed({
             >
               {{ booking.booked_by_user?.phone ?? booking.guest_phone }}
             </a>
+          </div>
+          <div
+            v-if="booking.payment_method"
+            class="mt-2 flex justify-between"
+          >
+            <span class="text-[#64748b]">Payment</span>
+            <span class="font-medium text-[#0f1728]">{{ paymentMethodLabel(booking.payment_method) }}</span>
           </div>
           <div
             v-if="booking.payment_note && booking.status === 'pending_payment'"
@@ -330,11 +348,29 @@ const calendarDate = computed({
             />
           </div>
 
-          <!-- Confirm / Reject alert -->
+          <!-- Pay-on-site: confirm only, no reject -->
           <UAlert
-            v-if="isConfirmable"
+            v-if="isConfirmable && isPayOnSite"
+            title="Awaiting payment on site"
+            description="Confirm this booking once the customer arrives and pays in person."
+            color="info"
+            variant="subtle"
+            :actions="[
+              {
+                label: 'Confirm',
+                color: 'secondary',
+                icon: 'i-heroicons-check-circle',
+                loading: confirmLoading,
+                onClick: () => emit('action-confirm', booking!)
+              }
+            ]"
+          />
+
+          <!-- Digital payment: confirm + reject -->
+          <UAlert
+            v-else-if="isConfirmable"
             title="Awaiting your approval"
-            description="This booking is pending payment confirmation. Please review and confirm or reject."
+            description="This booking is pending payment confirmation. Please review the receipt and confirm or reject."
             color="warning"
             variant="subtle"
             :actions="[

@@ -27,12 +27,12 @@ const selectedDate = ref(new Date());
 const calendarSlot = ref<{
   date: string;
   hour: number;
-  courtId?: number;
+  courtId?: string;
 } | null>(null);
 
 // ── Hub selector ──────────────────────────────────────────────
 
-const selectedHubId = ref<number | undefined>(undefined);
+const selectedHubId = ref<string | undefined>(undefined);
 
 const hubOptions = computed(() =>
   hubStore.myHubs.map((h: Hub) => ({ label: h.name, value: h.id }))
@@ -47,7 +47,10 @@ const gridMinTime = computed(() => {
   if (!oh?.length) return '06:00';
   const open = oh.filter((e) => !e.is_closed);
   if (!open.length) return '06:00';
-  return open.reduce((min, e) => (e.opens_at < min ? e.opens_at : min), open[0]!.opens_at);
+  return open.reduce(
+    (min, e) => (e.opens_at < min ? e.opens_at : min),
+    open[0]!.opens_at
+  );
 });
 
 const gridMaxTime = computed(() => {
@@ -55,7 +58,10 @@ const gridMaxTime = computed(() => {
   if (!oh?.length) return '23:00';
   const open = oh.filter((e) => !e.is_closed);
   if (!open.length) return '23:00';
-  return open.reduce((max, e) => (e.closes_at > max ? e.closes_at : max), open[0]!.closes_at);
+  return open.reduce(
+    (max, e) => (e.closes_at > max ? e.closes_at : max),
+    open[0]!.closes_at
+  );
 });
 
 // ── Courts for this hub ─────────────────────────────────────
@@ -98,7 +104,8 @@ async function loadBookings() {
   if (!selectedHubId.value) return;
   bookingsLoading.value = true;
   try {
-    const date = viewMode.value === 'table' ? tableDate.value : selectedDate.value;
+    const date =
+      viewMode.value === 'table' ? tableDate.value : selectedDate.value;
     const dayStr = formatDateString(date);
     allBookings.value = await fetchHubBookings(selectedHubId.value, {
       date_from: dayStr,
@@ -114,7 +121,7 @@ async function loadBookings() {
 // ── Filters ───────────────────────────────────────────────────
 
 const statusFilter = ref<(BookingStatus | 'expired')[]>([]);
-const courtFilter = ref<number[]>([]);
+const courtFilter = ref<string[]>([]);
 
 const STATUS_OPTIONS: { label: string; value: BookingStatus | 'expired' }[] = [
   { label: 'Pending Payment', value: 'pending_payment' },
@@ -126,7 +133,7 @@ const STATUS_OPTIONS: { label: string; value: BookingStatus | 'expired' }[] = [
 ];
 
 const courtFilterOptions = computed(() =>
-  hubCourts.value.map((c) => ({ label: c.name, value: c.id as number }))
+  hubCourts.value.map((c) => ({ label: c.name, value: c.id as string }))
 );
 
 const filteredBookings = computed(() => {
@@ -157,7 +164,7 @@ onMounted(async () => {
     const qRaw = Array.isArray(route.query.hubId)
       ? route.query.hubId[0]
       : route.query.hubId;
-    const qId = Number(qRaw);
+    const qId = String(qRaw);
     const match = hubStore.myHubs.find((h: Hub) => h.id === qId);
     selectedHubId.value = match ? qId : hubStore.myHubs[0]?.id;
     await Promise.all([loadBookings(), loadCourts()]);
@@ -220,7 +227,7 @@ const { $echo } = useNuxtApp();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let hubChannel: any = null;
 
-function subscribeToHubChannel(hubId: number) {
+function subscribeToHubChannel(hubId: string) {
   if (hubChannel) {
     ($echo as any).leaveChannel(`hub.${hubId}`);
     hubChannel = null;
@@ -244,7 +251,7 @@ onUnmounted(() => {
 
 // ── Confirm ───────────────────────────────────────────────────
 
-const confirmingId = ref<number | null>(null);
+const confirmingId = ref<string | null>(null);
 
 async function handleConfirm(booking: BookingDetail) {
   if (!selectedHubId.value) return;
@@ -266,7 +273,7 @@ const isRejectOpen = ref(false);
 const rejectTargetBooking = ref<BookingDetail | null>(null);
 const rejectNote = ref('');
 const rejectError = ref('');
-const rejectingId = ref<number | null>(null);
+const rejectingId = ref<string | null>(null);
 
 function openReject(booking: BookingDetail) {
   rejectTargetBooking.value = booking;
@@ -305,7 +312,7 @@ async function submitReject() {
 
 const isCancelOpen = ref(false);
 const cancelTargetBooking = ref<BookingDetail | null>(null);
-const cancellingId = ref<number | null>(null);
+const cancellingId = ref<string | null>(null);
 
 function openCancel(booking: BookingDetail) {
   cancelTargetBooking.value = booking;
@@ -358,7 +365,7 @@ function onWalkInCreated(booking: BookingDetail) {
 
 const isDetailsOpen = ref(false);
 const selectedBooking = ref<BookingDetail | null>(null);
-const updatingId = ref<number | null>(null);
+const updatingId = ref<string | null>(null);
 
 function openDetails(booking: BookingDetail) {
   selectedBooking.value = booking;
@@ -380,7 +387,7 @@ function onModalCancel(booking: BookingDetail) {
   openCancel(booking);
 }
 
-async function onModalUpdate({ id, data }: { id: number; data: any }) {
+async function onModalUpdate({ id, data }: { id: string; data: any }) {
   if (!selectedHubId.value) return;
   updatingId.value = id;
   try {
@@ -455,7 +462,8 @@ function formatDateRange(start: string, end: string): string {
 type DisplayStatus = BookingStatus | 'expired';
 
 function effectiveStatus(booking: BookingDetail): DisplayStatus {
-  if (booking.status === 'cancelled' && booking.cancelled_by === 'system') return 'expired';
+  if (booking.status === 'cancelled' && booking.cancelled_by === 'system')
+    return 'expired';
   return booking.status;
 }
 
@@ -516,16 +524,25 @@ function bookingDropdownItems(booking: BookingDetail) {
     loading?: boolean;
     onSelect: () => void;
   }[][] = [];
-  if (booking.status === 'payment_sent' || booking.status === 'pending_payment') {
+  if (
+    booking.status === 'payment_sent' ||
+    booking.status === 'pending_payment'
+  ) {
     groups.push([
       {
-        label: booking.status === 'payment_sent' ? 'Confirm Payment' : 'Confirm Booking',
+        label:
+          booking.status === 'payment_sent'
+            ? 'Confirm Payment'
+            : 'Confirm Booking',
         icon: 'i-heroicons-check-circle',
         loading: confirmingId.value === booking.id,
         onSelect: () => handleConfirm(booking)
       },
       {
-        label: booking.status === 'payment_sent' ? 'Reject Receipt' : 'Reject Booking',
+        label:
+          booking.status === 'payment_sent'
+            ? 'Reject Receipt'
+            : 'Reject Booking',
         icon: 'i-heroicons-x-circle',
         color: 'error' as const,
         onSelect: () => openReject(booking)
@@ -623,183 +640,201 @@ function bookingDropdownItems(booking: BookingDetail) {
       </div>
 
       <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div class="flex flex-wrap items-center gap-3">
-            <USelectMenu
-              v-model="statusFilter"
-              :items="STATUS_OPTIONS"
-              multiple
-              value-key="value"
-              placeholder="All Statuses"
-              class="w-48"
-            />
-            <USelectMenu
-              v-model="courtFilter"
-              :items="courtFilterOptions"
-              multiple
-              value-key="value"
-              placeholder="All Courts"
-              class="w-48"
-            />
-            <div v-if="viewMode === 'table'" class="flex items-center gap-0.5">
-              <button
-                type="button"
-                class="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-[#f1f5f9]"
-                aria-label="Previous day"
-                @click="tableDate = new Date(tableDate.getFullYear(), tableDate.getMonth(), tableDate.getDate() - 1)"
-              >
-                <UIcon name="i-heroicons-chevron-left" class="h-5 w-5 text-[#64748b]" />
-              </button>
-              <AppDatePicker
-                variant="nav"
-                v-model="tableDate"
-                :label="tableDateLabel"
-                :allow-past="true"
+        <div class="flex flex-wrap items-center gap-3">
+          <USelectMenu
+            v-model="statusFilter"
+            :items="STATUS_OPTIONS"
+            multiple
+            value-key="value"
+            placeholder="All Statuses"
+            class="w-48"
+          />
+          <USelectMenu
+            v-model="courtFilter"
+            :items="courtFilterOptions"
+            multiple
+            value-key="value"
+            placeholder="All Courts"
+            class="w-48"
+          />
+          <div v-if="viewMode === 'table'" class="flex items-center gap-0.5">
+            <button
+              type="button"
+              class="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-[#f1f5f9]"
+              aria-label="Previous day"
+              @click="
+                tableDate = new Date(
+                  tableDate.getFullYear(),
+                  tableDate.getMonth(),
+                  tableDate.getDate() - 1
+                )
+              "
+            >
+              <UIcon
+                name="i-heroicons-chevron-left"
+                class="h-5 w-5 text-[#64748b]"
               />
-              <button
-                type="button"
-                class="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-[#f1f5f9]"
-                aria-label="Next day"
-                @click="tableDate = new Date(tableDate.getFullYear(), tableDate.getMonth(), tableDate.getDate() + 1)"
-              >
-                <UIcon name="i-heroicons-chevron-right" class="h-5 w-5 text-[#64748b]" />
-              </button>
-            </div>
-            <UIcon
-              v-if="bookingsLoading"
-              name="i-heroicons-arrow-path"
-              class="h-4 w-4 animate-spin text-[#64748b]"
+            </button>
+            <AppDatePicker
+              variant="nav"
+              v-model="tableDate"
+              :label="tableDateLabel"
+              :allow-past="true"
             />
+            <button
+              type="button"
+              class="flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-[#f1f5f9]"
+              aria-label="Next day"
+              @click="
+                tableDate = new Date(
+                  tableDate.getFullYear(),
+                  tableDate.getMonth(),
+                  tableDate.getDate() + 1
+                )
+              "
+            >
+              <UIcon
+                name="i-heroicons-chevron-right"
+                class="h-5 w-5 text-[#64748b]"
+              />
+            </button>
           </div>
-          <UButton
-            v-if="viewMode === 'table' && selectedHubId && hubCourts.length"
-            icon="i-heroicons-plus"
-            class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
-            @click="() => openWalkIn()"
-          >
-            Add Walk-in
-          </UButton>
-        </div>
-
-        <!-- Table View -->
-        <div
-          v-if="viewMode === 'table'"
-          class="overflow-x-auto rounded-2xl border border-[#dbe4ef] bg-white"
-        >
-          <UTable
-            v-model:column-pinning="columnPinning"
-            :data="filteredBookings"
-            :columns="columns"
-          >
-            <template #empty>
-              <div class="py-12 text-center">
-                <UIcon
-                  name="i-heroicons-calendar-days"
-                  class="mx-auto h-10 w-10 text-[#c8d5e0]"
-                />
-                <p class="mt-3 text-sm font-semibold text-[#0f1728]">
-                  No bookings found
-                </p>
-                <p class="mt-1 text-[#64748b]">Try adjusting your filters.</p>
-              </div>
-            </template>
-
-            <template #customer-cell="{ row }">
-              <div class="space-y-1">
-                <p class="text-sm font-medium text-[#0f1728]">
-                  {{ customerLabel(row.original) }}
-                </p>
-                <UBadge
-                  v-if="row.original.booking_source === 'owner_added'"
-                  label="Walk-in"
-                  color="neutral"
-                  variant="subtle"
-                />
-              </div>
-            </template>
-
-            <template #court-cell="{ row }">
-              <span class="block max-w-[160px] truncate text-sm text-[#0f1728]" :title="row.original.court?.name">
-                {{ row.original.court?.name ?? '—' }}
-              </span>
-            </template>
-
-            <template #datetime-cell="{ row }">
-              <span class="whitespace-nowrap text-sm text-[#64748b]">
-                {{
-                  formatDateRange(
-                    row.original.start_time,
-                    row.original.end_time
-                  )
-                }}
-              </span>
-            </template>
-
-            <template #status-cell="{ row }">
-              <div class="space-y-1">
-                <UBadge
-                  :label="statusLabel(effectiveStatus(row.original))"
-                  :color="statusColor(effectiveStatus(row.original))"
-                  variant="subtle"
-                />
-                <p
-                  v-if="
-                    row.original.payment_note &&
-                    row.original.status === 'pending_payment'
-                  "
-                  class="rounded bg-[#fef9c3] px-1.5 py-0.5 text-[#92400e]"
-                >
-                  {{ row.original.payment_note }}
-                </p>
-              </div>
-            </template>
-
-            <template #receipt-cell="{ row }">
-              <a
-                v-if="row.original.receipt_image_url"
-                :href="row.original.receipt_image_url"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <img
-                  :src="row.original.receipt_image_url"
-                  alt="Receipt"
-                  class="h-10 w-10 rounded-md border border-[#dbe4ef] object-cover transition-opacity hover:opacity-75"
-                />
-              </a>
-              <span v-else class="text-sm text-[#c8d5e0]">—</span>
-            </template>
-
-            <template #actions-cell="{ row }">
-              <UDropdownMenu
-                v-if="bookingDropdownItems(row.original).length"
-                :items="bookingDropdownItems(row.original)"
-              >
-                <UButton
-                  icon="i-heroicons-ellipsis-horizontal"
-                  color="neutral"
-                  variant="ghost"
-                />
-              </UDropdownMenu>
-            </template>
-          </UTable>
-        </div>
-
-        <!-- Calendar View -->
-        <div v-else class="min-w-0 overflow-hidden">
-          <BookingOwnerGrid
-            v-model:selected-date="selectedDate"
-            :courts="filteredCourts"
-            :bookings="filteredBookings"
-            :min-time="gridMinTime"
-            :max-time="gridMaxTime"
-            :operating-hours="selectedHub?.operating_hours ?? []"
-            @book-slot="openWalkIn"
-            @action-confirm="handleConfirm"
-            @action-reject="openReject"
-            @action-cancel="openCancel"
-            @view-booking="openDetails"
+          <UIcon
+            v-if="bookingsLoading"
+            name="i-heroicons-arrow-path"
+            class="h-4 w-4 animate-spin text-[#64748b]"
           />
         </div>
+        <UButton
+          v-if="viewMode === 'table' && selectedHubId && hubCourts.length"
+          icon="i-heroicons-plus"
+          class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
+          @click="() => openWalkIn()"
+        >
+          Add Walk-in
+        </UButton>
+      </div>
+
+      <!-- Table View -->
+      <div
+        v-if="viewMode === 'table'"
+        class="overflow-x-auto rounded-2xl border border-[#dbe4ef] bg-white"
+      >
+        <UTable
+          v-model:column-pinning="columnPinning"
+          :data="filteredBookings"
+          :columns="columns"
+        >
+          <template #empty>
+            <div class="py-12 text-center">
+              <UIcon
+                name="i-heroicons-calendar-days"
+                class="mx-auto h-10 w-10 text-[#c8d5e0]"
+              />
+              <p class="mt-3 text-sm font-semibold text-[#0f1728]">
+                No bookings found
+              </p>
+              <p class="mt-1 text-[#64748b]">Try adjusting your filters.</p>
+            </div>
+          </template>
+
+          <template #customer-cell="{ row }">
+            <div class="space-y-1">
+              <p class="text-sm font-medium text-[#0f1728]">
+                {{ customerLabel(row.original) }}
+              </p>
+              <UBadge
+                v-if="row.original.booking_source === 'owner_added'"
+                label="Walk-in"
+                color="neutral"
+                variant="subtle"
+              />
+            </div>
+          </template>
+
+          <template #court-cell="{ row }">
+            <span
+              class="block max-w-[160px] truncate text-sm text-[#0f1728]"
+              :title="row.original.court?.name"
+            >
+              {{ row.original.court?.name ?? '—' }}
+            </span>
+          </template>
+
+          <template #datetime-cell="{ row }">
+            <span class="whitespace-nowrap text-sm text-[#64748b]">
+              {{
+                formatDateRange(row.original.start_time, row.original.end_time)
+              }}
+            </span>
+          </template>
+
+          <template #status-cell="{ row }">
+            <div class="space-y-1">
+              <UBadge
+                :label="statusLabel(effectiveStatus(row.original))"
+                :color="statusColor(effectiveStatus(row.original))"
+                variant="subtle"
+              />
+              <p
+                v-if="
+                  row.original.payment_note &&
+                  row.original.status === 'pending_payment'
+                "
+                class="rounded bg-[#fef9c3] px-1.5 py-0.5 text-[#92400e]"
+              >
+                {{ row.original.payment_note }}
+              </p>
+            </div>
+          </template>
+
+          <template #receipt-cell="{ row }">
+            <a
+              v-if="row.original.receipt_image_url"
+              :href="row.original.receipt_image_url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <img
+                :src="row.original.receipt_image_url"
+                alt="Receipt"
+                class="h-10 w-10 rounded-md border border-[#dbe4ef] object-cover transition-opacity hover:opacity-75"
+              />
+            </a>
+            <span v-else class="text-sm text-[#c8d5e0]">—</span>
+          </template>
+
+          <template #actions-cell="{ row }">
+            <UDropdownMenu
+              v-if="bookingDropdownItems(row.original).length"
+              :items="bookingDropdownItems(row.original)"
+            >
+              <UButton
+                icon="i-heroicons-ellipsis-horizontal"
+                color="neutral"
+                variant="ghost"
+              />
+            </UDropdownMenu>
+          </template>
+        </UTable>
+      </div>
+
+      <!-- Calendar View -->
+      <div v-else class="min-w-0 overflow-hidden">
+        <BookingOwnerGrid
+          v-model:selected-date="selectedDate"
+          :courts="filteredCourts"
+          :bookings="filteredBookings"
+          :min-time="gridMinTime"
+          :max-time="gridMaxTime"
+          :operating-hours="selectedHub?.operating_hours ?? []"
+          @book-slot="openWalkIn"
+          @action-confirm="handleConfirm"
+          @action-reject="openReject"
+          @action-cancel="openCancel"
+          @view-booking="openDetails"
+        />
+      </div>
     </template>
     <!-- ── Reject modal ──────────────────────────────────────────── -->
     <AppModal
@@ -878,7 +913,12 @@ function bookingDropdownItems(booking: BookingDetail) {
 
     <!-- ── Booking Details modal ─────────────────────────────────────── -->
     <BookingDetailsModal
-      v-if="selectedBooking && !['cancelled', 'completed', 'confirmed'].includes(selectedBooking.status)"
+      v-if="
+        selectedBooking &&
+        !['cancelled', 'completed', 'confirmed'].includes(
+          selectedBooking.status
+        )
+      "
       v-model:open="isDetailsOpen"
       :booking="selectedBooking"
       :courts="hubCourts"

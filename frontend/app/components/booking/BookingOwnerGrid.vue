@@ -445,27 +445,6 @@ function handleCellClick(court: Court, slotIdx: number) {
                     </p>
                   </div>
 
-                  <!-- Dropdown action menu positioned top-right -->
-                  <div
-                    v-if="getBookingActions(block.booking!).length"
-                    class="absolute right-1 top-1"
-                  >
-                    <UDropdownMenu :items="getBookingActions(block.booking!)">
-                      <button
-                        type="button"
-                        class="flex items-center justify-center rounded p-0.5 transition-colors hover:bg-black/10"
-                        :style="{
-                          color: bookingTextColor(block.booking!.status)
-                        }"
-                        @click.stop
-                      >
-                        <UIcon
-                          name="i-heroicons-ellipsis-vertical"
-                          class="h-4 w-4"
-                        />
-                      </button>
-                    </UDropdownMenu>
-                  </div>
                 </div>
 
                 <!-- Past slot -->

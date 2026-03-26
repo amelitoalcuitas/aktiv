@@ -1,9 +1,6 @@
 services:
 
   # ─── Nginx reverse proxy ───────────────────────────────────────────────────
-  # Routes /api/* and /sanctum/* to the Laravel backend.
-  # All other requests go to the Nuxt frontend.
-  # Binds to host port 8080 to avoid conflict with port 80 on WSL.
   nginx:
     image: nginx:alpine
     container_name: aktiv_nginx
@@ -24,15 +21,10 @@ services:
     user: "${UID:-1000}:${GID:-1000}"
     volumes:
       - ./frontend:/app
-      # node_modules and .nuxt are on your local WSL filesystem.
-      # This means VS Code IntelliSense and autocomplete work natively.
-      # Run `npm install` in WSL inside frontend/ to install locally too.
     environment:
       - NODE_ENV=development
       - NUXT_PUBLIC_API_BASE=http://localhost:8080/api
-      # Internal Docker URL used by Nuxt SSR to reach the Laravel backend
       - NUXT_API_BASE_INTERNAL=http://nginx/api
-      # Bind to all interfaces inside the container so Nginx can reach it
       - NUXT_HOST=0.0.0.0
       - NUXT_PORT=3000
       - NUXT_PUBLIC_REVERB_KEY=${REVERB_APP_KEY}
@@ -53,46 +45,7 @@ services:
     working_dir: /var/www
     volumes:
       - ./backend:/var/www
-      # vendor/ is on your local WSL filesystem.
-      # This means VS Code IntelliSense and autocomplete work natively.
-      # Run `composer install` in WSL inside backend/ to install locally too.
-    environment:
-      - APP_ENV=local
-      - APP_DEBUG=true
-      - APP_URL=http://localhost:8080
-      - FILESYSTEM_DISK=s3
-      - DB_CONNECTION=pgsql
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_DATABASE=${DB_DATABASE:-aktiv}
-      - DB_USERNAME=${DB_USERNAME:-aktiv_user}
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CACHE_DRIVER=redis
-      - QUEUE_CONNECTION=redis
-      - BROADCAST_CONNECTION=reverb
-      - REVERB_APP_ID=${REVERB_APP_ID}
-      - REVERB_APP_KEY=${REVERB_APP_KEY}
-      - REVERB_APP_SECRET=${REVERB_APP_SECRET}
-      - REVERB_HOST=reverb
-      - REVERB_PORT=8080
-      - REVERB_SCHEME=http
-      - MAIL_MAILER=smtp
-      - MAIL_HOST=mailpit
-      - MAIL_PORT=1025
-      - MAIL_USERNAME=null
-      - MAIL_PASSWORD=null
-      - MAIL_ENCRYPTION=null
-      - MAIL_FROM_ADDRESS=hello@aktiv.local
-      - MAIL_FROM_NAME=Aktiv
-      - AWS_ACCESS_KEY_ID=minioadmin
-      - AWS_SECRET_ACCESS_KEY=minioadmin
-      - AWS_DEFAULT_REGION=us-east-1
-      - AWS_BUCKET=aktiv-media
-      - AWS_ENDPOINT=http://minio:9000
-      - AWS_URL=http://localhost:8080/minio/aktiv-media
-      - AWS_USE_PATH_STYLE_ENDPOINT=true
+      - ./backend/.env:/var/www/.env
     expose:
       - "9000"
     depends_on:
@@ -103,9 +56,13 @@ services:
       minio:
         condition: service_started
     command: >
-      sh -c "chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache &&
+      sh -c "
+      chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache &&
       chmod -R ug+rwX /var/www/storage /var/www/bootstrap/cache &&
-      php-fpm"
+      php artisan config:clear &&
+      php artisan cache:clear &&
+      php-fpm
+      "
     restart: unless-stopped
 
   # ─── Laravel Reverb (WebSocket server) ────────────────────────────────────
@@ -115,24 +72,13 @@ services:
     working_dir: /var/www
     volumes:
       - ./backend:/var/www
-    environment:
-      - APP_ENV=local
-      - APP_KEY=${APP_KEY}
-      - APP_DEBUG=true
-      - DB_CONNECTION=pgsql
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_DATABASE=${DB_DATABASE:-aktiv}
-      - DB_USERNAME=${DB_USERNAME:-aktiv_user}
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
-      - BROADCAST_CONNECTION=reverb
-      - REVERB_APP_ID=${REVERB_APP_ID}
-      - REVERB_APP_KEY=${REVERB_APP_KEY}
-      - REVERB_APP_SECRET=${REVERB_APP_SECRET}
-      - REVERB_HOST=0.0.0.0
-      - REVERB_PORT=8080
-      - REVERB_SCHEME=http
-    command: sh -c "docker-php-ext-install pcntl && php artisan reverb:start --host=0.0.0.0 --port=8080 --no-interaction"
+      - ./backend/.env:/var/www/.env
+    command: >
+      sh -c "
+      docker-php-ext-install pcntl &&
+      php artisan config:clear &&
+      php artisan reverb:start --host=0.0.0.0 --port=8080 --no-interaction
+      "
     ports:
       - "8081:8080"
     depends_on:
@@ -149,44 +95,7 @@ services:
     working_dir: /var/www
     volumes:
       - ./backend:/var/www
-    environment:
-      - APP_ENV=local
-      - APP_KEY=${APP_KEY}
-      - APP_DEBUG=true
-      - APP_URL=http://localhost:8080
-      - FILESYSTEM_DISK=s3
-      - DB_CONNECTION=pgsql
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_DATABASE=${DB_DATABASE:-aktiv}
-      - DB_USERNAME=${DB_USERNAME:-aktiv_user}
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CACHE_DRIVER=redis
-      - QUEUE_CONNECTION=redis
-      - BROADCAST_CONNECTION=reverb
-      - REVERB_APP_ID=${REVERB_APP_ID}
-      - REVERB_APP_KEY=${REVERB_APP_KEY}
-      - REVERB_APP_SECRET=${REVERB_APP_SECRET}
-      - REVERB_HOST=reverb
-      - REVERB_PORT=8080
-      - REVERB_SCHEME=http
-      - MAIL_MAILER=smtp
-      - MAIL_HOST=mailpit
-      - MAIL_PORT=1025
-      - MAIL_USERNAME=null
-      - MAIL_PASSWORD=null
-      - MAIL_ENCRYPTION=null
-      - MAIL_FROM_ADDRESS=hello@aktiv.local
-      - MAIL_FROM_NAME=Aktiv
-      - AWS_ACCESS_KEY_ID=minioadmin
-      - AWS_SECRET_ACCESS_KEY=minioadmin
-      - AWS_DEFAULT_REGION=us-east-1
-      - AWS_BUCKET=aktiv-media
-      - AWS_ENDPOINT=http://minio:9000
-      - AWS_URL=http://localhost:8080/minio/aktiv-media
-      - AWS_USE_PATH_STYLE_ENDPOINT=true
+      - ./backend/.env:/var/www/.env
     command: php artisan queue:work --sleep=3 --tries=3
     depends_on:
       db:
@@ -202,44 +111,7 @@ services:
     working_dir: /var/www
     volumes:
       - ./backend:/var/www
-    environment:
-      - APP_ENV=local
-      - APP_KEY=${APP_KEY}
-      - APP_DEBUG=true
-      - APP_URL=http://localhost:8080
-      - FILESYSTEM_DISK=s3
-      - DB_CONNECTION=pgsql
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_DATABASE=${DB_DATABASE:-aktiv}
-      - DB_USERNAME=${DB_USERNAME:-aktiv_user}
-      - DB_PASSWORD=${DB_PASSWORD:-secret}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - CACHE_DRIVER=redis
-      - QUEUE_CONNECTION=redis
-      - BROADCAST_CONNECTION=reverb
-      - REVERB_APP_ID=${REVERB_APP_ID}
-      - REVERB_APP_KEY=${REVERB_APP_KEY}
-      - REVERB_APP_SECRET=${REVERB_APP_SECRET}
-      - REVERB_HOST=reverb
-      - REVERB_PORT=8080
-      - REVERB_SCHEME=http
-      - MAIL_MAILER=smtp
-      - MAIL_HOST=mailpit
-      - MAIL_PORT=1025
-      - MAIL_USERNAME=null
-      - MAIL_PASSWORD=null
-      - MAIL_ENCRYPTION=null
-      - MAIL_FROM_ADDRESS=hello@aktiv.local
-      - MAIL_FROM_NAME=Aktiv
-      - AWS_ACCESS_KEY_ID=minioadmin
-      - AWS_SECRET_ACCESS_KEY=minioadmin
-      - AWS_DEFAULT_REGION=us-east-1
-      - AWS_BUCKET=aktiv-media
-      - AWS_ENDPOINT=http://minio:9000
-      - AWS_URL=http://localhost:8080/minio/aktiv-media
-      - AWS_USE_PATH_STYLE_ENDPOINT=true
+      - ./backend/.env:/var/www/.env
     command: php artisan schedule:work
     depends_on:
       db:
@@ -253,7 +125,7 @@ services:
     image: postgres:16-alpine
     container_name: aktiv_db
     ports:
-      - "5433:5432"           # Using 5433 on host to avoid conflict with other projects on 5432
+      - "5433:5432"
     environment:
       - POSTGRES_DB=${DB_DATABASE:-aktiv}
       - POSTGRES_USER=${DB_USERNAME:-aktiv_user}
@@ -272,21 +144,18 @@ services:
     image: redis:alpine
     container_name: aktiv_redis
     ports:
-      - "6379:6379"           # Exposed for local debugging
+      - "6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
 
   # ─── Mailpit (local email catcher) ────────────────────────────────────────
-  # Catches all outgoing mail from Laravel in dev.
-  # View caught emails at http://localhost:8025
-  # No emails are actually sent during local development.
   mailpit:
     image: axllent/mailpit
     container_name: aktiv_mailpit
     ports:
-      - "8025:8025"           # Web UI
-      - "1025:1025"           # SMTP (Laravel points here)
+      - "8025:8025"
+      - "1025:1025"
     restart: unless-stopped
 
   # ─── MinIO (S3-compatible object storage) ────────────────────────────────
@@ -304,7 +173,7 @@ services:
       - minio_data:/data
     restart: unless-stopped
 
-  # Initializes MinIO bucket for media uploads
+  # ─── MinIO bucket init ────────────────────────────────────────────────────
   minio-init:
     image: minio/mc:latest
     container_name: aktiv_minio_init

@@ -49,7 +49,7 @@ const menuItems = computed(() => {
       class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#3a4a5c] transition hover:bg-[#f0f4f8] hover:text-[#004e89]"
     >
       <UAvatar
-        :src="user?.avatar_url ?? undefined"
+        :src="user?.avatar_thumb_url ?? undefined"
         :alt="user?.name"
         icon="i-heroicons-user"
         size="sm"
@@ -71,7 +71,7 @@ const menuItems = computed(() => {
     >
       <span class="hidden text-sm font-medium sm:block">{{ user?.name }}</span>
       <UAvatar
-        :src="user?.avatar_url ?? undefined"
+        :src="user?.avatar_thumb_url ?? undefined"
         :alt="user?.name"
         icon="i-heroicons-user"
       />

@@ -12,6 +12,46 @@ class ImageUploadService
     private const MAX_TARGET_BYTES = 512000; // 500KB
 
     /**
+     * Upload an avatar, returning a full-size (400×400) and thumb (80×80) variant.
+     *
+     * @return array{
+     *     avatar: array{path: string, url: string},
+     *     thumb:  array{path: string, url: string},
+     * }
+     */
+    public function uploadAvatar(UploadedFile $file): array
+    {
+        $manager = new ImageManager(new Driver());
+
+        $avatarImage = $manager->read($file->getRealPath());
+        $avatarImage->cover(400, 400);
+        $avatarPath = 'avatars/'.(string) str()->uuid().'.jpg';
+        Storage::disk('s3')->put($avatarPath, $avatarImage->toJpeg(85)->toString(), [
+            'visibility' => 'public',
+            'ContentType' => 'image/jpeg',
+        ]);
+
+        $thumbImage = $manager->read($file->getRealPath());
+        $thumbImage->cover(80, 80);
+        $thumbPath = 'avatars/thumbs/'.(string) str()->uuid().'.jpg';
+        Storage::disk('s3')->put($thumbPath, $thumbImage->toJpeg(85)->toString(), [
+            'visibility' => 'public',
+            'ContentType' => 'image/jpeg',
+        ]);
+
+        return [
+            'avatar' => [
+                'path' => $avatarPath,
+                'url'  => Storage::disk('s3')->url($avatarPath),
+            ],
+            'thumb' => [
+                'path' => $thumbPath,
+                'url'  => Storage::disk('s3')->url($thumbPath),
+            ],
+        ];
+    }
+
+    /**
      * @return array{path: string, url: string}
      */
     public function upload(UploadedFile $file, string $folder): array

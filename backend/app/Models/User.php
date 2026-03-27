@@ -29,7 +29,12 @@ class User extends Authenticatable implements MustVerifyEmail
         'email',
         'password',
         'avatar_url',
+        'avatar_thumb_url',
+        'banner_url',
         'phone',
+        'bio',
+        'social_links',
+        'profile_privacy',
         'google_id',
         'role',
         'email_notifications_enabled',
@@ -61,6 +66,8 @@ class User extends Authenticatable implements MustVerifyEmail
             'inapp_notifications_enabled' => 'boolean',
             'strikes_reset_at'            => 'datetime',
             'booking_banned_until'        => 'datetime',
+            'social_links'                => 'array',
+            'profile_privacy'             => 'array',
         ];
     }
 
@@ -92,5 +99,32 @@ class User extends Authenticatable implements MustVerifyEmail
     public function hubs(): HasMany
     {
         return $this->hasMany(Hub::class, 'owner_id');
+    }
+
+    public function heartsReceived(): HasMany
+    {
+        return $this->hasMany(UserHeart::class, 'to_user_id');
+    }
+
+    public function heartsSent(): HasMany
+    {
+        return $this->hasMany(UserHeart::class, 'from_user_id');
+    }
+
+    public function defaultPrivacy(): array
+    {
+        return [
+            'show_visited_hubs'    => true,
+            'show_leaderboard'     => true,
+            'show_hearts'          => true,
+            'show_tournaments'     => true,
+            'show_open_play'       => true,
+            'show_favorite_sports' => true,
+        ];
+    }
+
+    public function resolvedPrivacy(): array
+    {
+        return array_merge($this->defaultPrivacy(), $this->profile_privacy ?? []);
     }
 }

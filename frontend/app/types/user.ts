@@ -1,15 +1,61 @@
 export type UserRole = 'user' | 'admin' | 'super_admin';
 
+export type SocialPlatform = 'facebook' | 'instagram' | 'x' | 'youtube' | 'threads' | 'other';
+
+export interface SocialLink {
+  platform: SocialPlatform;
+  url: string;
+}
+
+export interface SocialLinks {
+  facebook?: string | null;
+  instagram?: string | null;
+  x?: string | null;
+  youtube?: string | null;
+  threads?: string | null;
+  other?: string | null;
+}
+
+export interface ProfilePrivacy {
+  show_visited_hubs: boolean;
+  show_leaderboard: boolean;
+  show_hearts: boolean;
+  show_tournaments: boolean;
+  show_open_play: boolean;
+  show_favorite_sports: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
   avatar_url: string | null;
+  avatar_thumb_url: string | null;
+  banner_url: string | null;
   phone: string | null;
+  bio: string | null;
+  social_links: SocialLinks;
+  profile_privacy: ProfilePrivacy;
   google_id: string | null;
   role: UserRole;
   email_verified_at: string | null;
   expired_booking_strikes: number;
   booking_banned_until: string | null;
+  is_hub_owner: boolean;
+  hearts_count: number;
+  created_at: string;
+}
+
+export interface PublicUser {
+  id: string;
+  name: string;
+  avatar_url: string | null;
+  banner_url: string | null;
+  bio: string | null;
+  social_links: SocialLinks;
+  is_hub_owner: boolean;
+  hearts_count: number | null;
+  has_hearted: boolean;
+  privacy: ProfilePrivacy;
   created_at: string;
 }

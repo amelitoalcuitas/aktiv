@@ -12,7 +12,9 @@ use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OAuthController;
 use App\Http\Controllers\Api\OwnerBookingController;
 use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\UserBookingController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
 
@@ -59,6 +61,9 @@ Route::get('/guest-bookings/{token}', [GuestBookingTrackingController::class, 's
 Route::post('/guest-bookings/{token}/receipt', [GuestBookingTrackingController::class, 'uploadReceipt'])->name('api.guest-bookings.receipt');
 Route::post('/guest-bookings/{token}/cancel', [GuestBookingTrackingController::class, 'cancel'])->name('api.guest-bookings.cancel');
 
+// Public user profiles
+Route::get('/users/{user}', [UserController::class, 'show'])->name('api.users.show');
+
 // Authenticated routes (any logged-in user)
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'store'])->name('api.hubs.courts.bookings.store');
@@ -70,6 +75,15 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/user/pending-review', [UserBookingController::class, 'pendingReview'])->name('api.user.pending-review');
     Route::post('/user/booking-review-skip', [UserBookingController::class, 'skipReview'])->name('api.user.booking-review-skip');
     Route::post('/user/bookings/{booking}/cancel', [UserBookingController::class, 'cancel'])->name('api.user.bookings.cancel');
+
+    // Profile
+    Route::get('/profile', [ProfileController::class, 'show'])->name('api.profile.show');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('api.profile.update');
+    Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('api.profile.avatar');
+    Route::post('/profile/banner', [ProfileController::class, 'uploadBanner'])->name('api.profile.banner');
+
+    // Hearts
+    Route::post('/users/{user}/heart', [UserController::class, 'toggleHeart'])->name('api.users.heart');
 
     // Hub ratings
     Route::post('/hubs/{hub}/ratings', [HubRatingController::class, 'store'])->name('api.hubs.ratings.store');

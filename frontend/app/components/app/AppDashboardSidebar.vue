@@ -11,30 +11,33 @@ const isVerifyModalOpen = ref(false);
 
 const verifyHub = computed(() => hubStore.myHubs[0] ?? null);
 
-const navLinks = [
-  { label: 'Overview', icon: 'i-heroicons-home', to: '/dashboard' },
-  { label: 'My Hubs', icon: 'i-heroicons-building-office-2', to: '/dashboard/hubs' },
-  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: '/dashboard/courts' },
+const navGroups = [
   {
-    label: 'Bookings',
-    icon: 'i-heroicons-calendar-days',
-    to: '/dashboard/bookings'
+    items: [
+      { label: 'Overview', icon: 'i-heroicons-home', to: '/dashboard' },
+    ]
   },
   {
-    label: 'Events',
-    icon: 'i-heroicons-megaphone',
-    to: '/dashboard/events'
+    label: 'Hub Management',
+    items: [
+      { label: 'My Hubs', icon: 'i-heroicons-building-office-2', to: '/dashboard/hubs' },
+      { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: '/dashboard/courts' },
+    ]
   },
   {
-    label: 'Reviews',
-    icon: 'i-heroicons-star',
-    to: '/dashboard/reviews'
+    label: 'Operations',
+    items: [
+      { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: '/dashboard/bookings' },
+      { label: 'Events', icon: 'i-heroicons-megaphone', to: '/dashboard/events' },
+      { label: 'Reviews', icon: 'i-heroicons-star', to: '/dashboard/reviews' },
+    ]
   },
   {
-    label: 'Settings',
-    icon: 'i-heroicons-cog-6-tooth',
-    to: '/dashboard/settings'
-  }
+    label: 'Account',
+    items: [
+      { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: '/dashboard/settings' },
+    ]
+  },
 ];
 
 const isActive = (to: string) => {
@@ -93,22 +96,34 @@ watch(() => route.path, close);
 
     <!-- Nav -->
     <nav class="flex-1 overflow-y-auto px-3 py-4">
-      <ul class="space-y-0.5">
-        <li v-for="link in navLinks" :key="link.to">
-          <NuxtLink
-            :to="link.to"
-            :class="[
-              'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
-              isActive(link.to)
-                ? 'bg-[#e8f0f8] text-[#004e89]'
-                : 'text-[#3a4a5c] hover:bg-[#f0f4f8] hover:text-[#004e89]'
-            ]"
-          >
-            <UIcon :name="link.icon" class="h-5 w-5 flex-shrink-0" />
-            {{ link.label }}
-          </NuxtLink>
-        </li>
-      </ul>
+      <div
+        v-for="(group, gi) in navGroups"
+        :key="gi"
+        :class="gi > 0 ? 'mt-4' : ''"
+      >
+        <p
+          v-if="group.label"
+          class="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-[#94a3b8]"
+        >
+          {{ group.label }}
+        </p>
+        <ul class="space-y-0.5">
+          <li v-for="link in group.items" :key="link.to">
+            <NuxtLink
+              :to="link.to"
+              :class="[
+                'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
+                isActive(link.to)
+                  ? 'bg-[#e8f0f8] text-[#004e89]'
+                  : 'text-[#3a4a5c] hover:bg-[#f0f4f8] hover:text-[#004e89]'
+              ]"
+            >
+              <UIcon :name="link.icon" class="h-5 w-5 flex-shrink-0" />
+              {{ link.label }}
+            </NuxtLink>
+          </li>
+        </ul>
+      </div>
     </nav>
 
   </aside>

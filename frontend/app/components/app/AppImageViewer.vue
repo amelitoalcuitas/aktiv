@@ -5,6 +5,8 @@ const props = withDefaults(
     alt?: string;
     imageClass?: string;
     wrapperClass?: string;
+    images?: { id: string; url: string; order: number }[];
+    index?: number;
   }>(),
   {
     alt: 'Image preview',
@@ -13,7 +15,40 @@ const props = withDefaults(
   }
 );
 
+const currentIndex = ref(props.index ?? 0);
+const isGallery = computed(() => !!props.images?.length);
+const activeSrc = computed(
+  () => props.images?.[currentIndex.value]?.url ?? props.src
+);
+
+function prev() {
+  if (!props.images?.length) return;
+  currentIndex.value =
+    (currentIndex.value - 1 + props.images.length) % props.images.length;
+  resetView();
+}
+
+function next() {
+  if (!props.images?.length) return;
+  currentIndex.value = (currentIndex.value + 1) % props.images.length;
+  resetView();
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'ArrowLeft') prev();
+  else if (e.key === 'ArrowRight') next();
+}
+
 const isOpen = ref(false);
+
+watch(isOpen, (open) => {
+  if (open) {
+    currentIndex.value = props.index ?? 0;
+    window.addEventListener('keydown', onKeydown);
+  } else {
+    window.removeEventListener('keydown', onKeydown);
+  }
+});
 const zoom = ref(1);
 const minZoom = 1;
 const maxZoom = 12;
@@ -261,6 +296,7 @@ onBeforeUnmount(() => {
     <img :src="props.src" :alt="props.alt" :class="props.imageClass" />
   </div>
 
+
   <UModal
     v-model:open="isOpen"
     fullscreen
@@ -284,7 +320,7 @@ onBeforeUnmount(() => {
         >
           <img
             ref="imageRef"
-            :src="props.src"
+            :src="activeSrc"
             :alt="props.alt"
             class="max-h-full max-w-full select-none rounded-md object-contain"
             :class="
@@ -309,6 +345,29 @@ onBeforeUnmount(() => {
             @touchcancel="onTouchEnd"
           />
         </div>
+
+        <!-- Gallery prev/next overlays -->
+        <template v-if="isGallery">
+          <button
+            type="button"
+            aria-label="Previous image"
+            class="absolute left-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition"
+            @click.stop="prev"
+          >
+            <UIcon name="i-heroicons-chevron-left" class="h-6 w-6" />
+          </button>
+          <button
+            type="button"
+            aria-label="Next image"
+            class="absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70 transition"
+            @click.stop="next"
+          >
+            <UIcon name="i-heroicons-chevron-right" class="h-6 w-6" />
+          </button>
+          <span class="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-xs text-white">
+            {{ currentIndex + 1 }} / {{ props.images!.length }}
+          </span>
+        </template>
       </div>
     </template>
 

@@ -3,14 +3,34 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'Aktiv',
-      link: [
-        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }
-      ],
+      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
       meta: [
         {
+          name: 'viewport',
+          content:
+            'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no'
+        },
+        {
           name: 'description',
-          content: 'Aktiv - Find and join local activity groups'
-        }
+          content:
+            'Aktiv is a sports hub discovery and scheduling platform. Users explore local sports hubs, book courts, join open play sessions, compete in tournaments, and track rankings.'
+        },
+        { property: 'og:title', content: 'Aktiv Hub' },
+        {
+          property: 'og:description',
+          content:
+            'Aktiv is a sports hub discovery and scheduling platform. Users explore local sports hubs, book courts, join open play sessions, compete in tournaments, and track rankings.'
+        },
+        { property: 'og:image', content: '/aktiv/aktiv_brand.png' },
+        { property: 'og:type', content: 'website' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:title', content: 'Aktiv Hub' },
+        {
+          name: 'twitter:description',
+          content:
+            'Aktiv is a sports hub discovery and scheduling platform. Users explore local sports hubs, book courts, join open play sessions, compete in tournaments, and track rankings.'
+        },
+        { name: 'twitter:image', content: '/aktiv/aktiv_brand.png' }
       ]
     }
   },
@@ -24,7 +44,7 @@ export default defineNuxtConfig({
       reverbKey: process.env.NUXT_PUBLIC_REVERB_KEY ?? '',
       reverbHost: process.env.NUXT_PUBLIC_REVERB_HOST ?? 'localhost',
       reverbPort: parseInt(process.env.NUXT_PUBLIC_REVERB_PORT ?? '8081'),
-      reverbScheme: process.env.NUXT_PUBLIC_REVERB_SCHEME ?? 'http',
+      reverbScheme: process.env.NUXT_PUBLIC_REVERB_SCHEME ?? 'http'
     }
   },
   modules: [

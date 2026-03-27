@@ -63,6 +63,8 @@ watch(
             :alt="`${hubName ?? 'Hub'} gallery image ${index + 1}`"
             wrapper-class="h-full w-full"
             image-class="h-full w-full object-contain"
+            :images="images"
+            :index="index"
           />
         </template>
       </UCarousel>

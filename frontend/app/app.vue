@@ -11,6 +11,33 @@ const userBookingStore = useUserBookingStore();
 const toaster = { position: 'bottom-left' };
 const { fetchPendingReview } = useHubs();
 
+// Cookie consent
+const consent = useCookie<boolean | null>('aktiv_consent', {
+  maxAge: 60 * 60 * 24 * 365,
+  sameSite: 'lax'
+});
+const showConsent = ref(false);
+
+function handleAccept() {
+  consent.value = true;
+  clarityConsent(true);
+  showConsent.value = false;
+}
+
+function handleDecline() {
+  consent.value = false;
+  clarityConsent(false);
+  showConsent.value = false;
+}
+
+onMounted(() => {
+  if (consent.value === undefined || consent.value === null) {
+    showConsent.value = true;
+  } else {
+    clarityConsent(consent.value === true);
+  }
+});
+
 // Rehydrate auth state from cookie on every page load
 await init();
 
@@ -29,7 +56,9 @@ async function checkPendingReview(testBookingId?: number) {
     const res = await fetchPendingReview(testBookingId);
     if (res.bookings?.length) {
       reviewQueue.value = res.bookings;
-      setTimeout(() => { reviewPopupOpen.value = true; }, 1500);
+      setTimeout(() => {
+        reviewPopupOpen.value = true;
+      }, 1500);
     }
   } catch {
     // Silently ignore — non-critical
@@ -72,6 +101,13 @@ if (import.meta.client) {
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>
+
+    <!-- Cookie consent -->
+    <AppCookieConsentModal
+      v-if="showConsent"
+      @accept="handleAccept"
+      @decline="handleDecline"
+    />
 
     <!-- Post-booking review popup -->
     <AppBookingReviewPopup

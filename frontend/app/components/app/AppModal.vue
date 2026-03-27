@@ -23,12 +23,14 @@ const props = withDefaults(
     confirmLoading?: boolean;
     confirmDisabled?: boolean;
     cancelVariant?: 'ghost' | 'link' | 'solid' | 'outline' | 'soft' | 'subtle';
+    handle?: boolean;
   }>(),
   {
     dismissible: true,
     cancel: 'Cancel',
     confirmColor: 'primary',
-    cancelVariant: 'ghost'
+    cancelVariant: 'ghost',
+    handle: true
   }
 );
 
@@ -97,6 +99,7 @@ const drawerUi = computed(() => {
     :title
     :description
     :dismissible
+    :handle
     :ui="drawerUi"
   >
     <template v-for="(_, name) in nonFooterSlots" #[name]="slotData">

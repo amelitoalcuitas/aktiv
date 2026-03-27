@@ -15,7 +15,9 @@ class DevSeeder extends Seeder
         $user = User::query()->updateOrCreate(
             ['email' => 'user@user.com'],
             [
-                'name'              => 'Test User',
+                'first_name'        => 'Test',
+                'last_name'         => 'User',
+                'username'          => 'testuser',
                 'password'          => Hash::make('Test123!'),
                 'email_verified_at' => now(),
             ]
@@ -24,7 +26,9 @@ class DevSeeder extends Seeder
         $admin = User::query()->updateOrCreate(
             ['email' => 'admin@admin.com'],
             [
-                'name'              => 'Test Admin',
+                'first_name'        => 'Test',
+                'last_name'         => 'Admin',
+                'username'          => 'testadmin',
                 'password'          => Hash::make('Test123!'),
                 'email_verified_at' => now(),
             ]

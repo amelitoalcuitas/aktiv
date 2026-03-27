@@ -12,8 +12,10 @@ export function useProfile() {
   }
 
   async function updateProfile(payload: {
-    name?: string;
-    phone?: string | null;
+    first_name?: string;
+    last_name?: string;
+    username?: string | null;
+    contact_number?: string | null;
     bio?: string | null;
     social_links?: SocialLinks;
     profile_privacy?: Partial<ProfilePrivacy>;
@@ -53,6 +55,11 @@ export function useProfile() {
     return res.data;
   }
 
+  async function resolveUsername(username: string): Promise<string> {
+    const res = await apiFetch<{ data: { id: string } }>(`/users/resolve/${username}`);
+    return res.data.id;
+  }
+
   async function toggleHeart(userId: string): Promise<{ hearted: boolean; hearts_count: number }> {
     const res = await apiFetch<{ data: { hearted: boolean; hearts_count: number } }>(
       `/users/${userId}/heart`,
@@ -61,12 +68,41 @@ export function useProfile() {
     return res.data;
   }
 
+  function canChangeName(user: User): boolean {
+    if (!user.name_changed_at) return true;
+    return new Date(user.name_changed_at) <= new Date(Date.now() - 3 * 30 * 24 * 60 * 60 * 1000);
+  }
+
+  function nextNameChangeDate(user: User): Date | null {
+    if (!user.name_changed_at) return null;
+    const d = new Date(user.name_changed_at);
+    d.setMonth(d.getMonth() + 3);
+    return d;
+  }
+
+  function canChangeUsername(user: User): boolean {
+    if (!user.username_changed_at) return true;
+    return new Date(user.username_changed_at) <= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  }
+
+  function nextUsernameChangeDate(user: User): Date | null {
+    if (!user.username_changed_at) return null;
+    const d = new Date(user.username_changed_at);
+    d.setMonth(d.getMonth() + 1);
+    return d;
+  }
+
   return {
     fetchOwnProfile,
     updateProfile,
     uploadAvatar,
     uploadBanner,
     fetchPublicProfile,
+    resolveUsername,
     toggleHeart,
+    canChangeName,
+    nextNameChangeDate,
+    canChangeUsername,
+    nextUsernameChangeDate,
   };
 }

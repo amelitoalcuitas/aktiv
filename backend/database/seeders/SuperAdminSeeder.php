@@ -20,7 +20,9 @@ class SuperAdminSeeder extends Seeder
         User::query()->updateOrCreate(
             ['email' => 'admin@aktivhub.app'],
             [
-                'name'              => 'Super Admin',
+                'first_name'        => 'Super',
+                'last_name'         => 'Admin',
+                'username'          => 'superadmin',
                 'password'          => $password,
                 'role'              => UserRole::SuperAdmin->value,
                 'email_verified_at' => now(),

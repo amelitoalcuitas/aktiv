@@ -23,9 +23,10 @@ class ProfileTest extends TestCase
             ->assertJsonPath('data.id', $user->id)
             ->assertJsonPath('data.bio', 'Test bio')
             ->assertJsonStructure(['data' => [
-                'id', 'name', 'email', 'avatar_url', 'avatar_thumb_url', 'banner_url',
+                'id', 'first_name', 'last_name', 'username', 'email',
+                'avatar_url', 'avatar_thumb_url', 'banner_url',
                 'bio', 'social_links', 'profile_privacy', 'hearts_count',
-                'is_hub_owner', 'created_at',
+                'is_hub_owner', 'created_at', 'username_changed_at', 'name_changed_at',
             ]]);
     }
 
@@ -40,20 +41,133 @@ class ProfileTest extends TestCase
 
         $this->actingAs($user)
             ->putJson('/api/profile', [
-                'name'         => 'New Name',
-                'bio'          => 'My bio',
-                'phone'        => '+63 912 345 6789',
-                'social_links' => ['facebook' => 'fb.com/test', 'instagram' => 'ig.com/test'],
+                'first_name'     => 'New',
+                'last_name'      => 'Name',
+                'bio'            => 'My bio',
+                'contact_number' => '+63 912 345 6789',
+                'social_links'   => ['facebook' => 'fb.com/test', 'instagram' => 'ig.com/test'],
             ])
             ->assertOk()
-            ->assertJsonPath('data.name', 'New Name')
+            ->assertJsonPath('data.first_name', 'New')
+            ->assertJsonPath('data.last_name', 'Name')
             ->assertJsonPath('data.bio', 'My bio');
 
         $this->assertDatabaseHas('users', [
-            'id'   => $user->id,
-            'name' => 'New Name',
-            'bio'  => 'My bio',
+            'id'         => $user->id,
+            'first_name' => 'New',
+            'last_name'  => 'Name',
+            'bio'        => 'My bio',
         ]);
+    }
+
+    public function test_user_can_update_username(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->putJson('/api/profile', ['username' => 'mynewhandle'])
+            ->assertOk()
+            ->assertJsonPath('data.username', 'mynewhandle');
+
+        $this->assertDatabaseHas('users', ['id' => $user->id, 'username' => 'mynewhandle']);
+    }
+
+    public function test_username_must_be_unique(): void
+    {
+        $existing = User::factory()->create(['username' => 'takenhandle']);
+        $user     = User::factory()->create();
+
+        $this->actingAs($user)
+            ->putJson('/api/profile', ['username' => 'takenhandle'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['username']);
+    }
+
+    public function test_name_change_is_rate_limited_to_once_per_three_months(): void
+    {
+        $user = User::factory()->create([
+            'name_changed_at' => now()->subMonths(2),
+        ]);
+
+        $this->actingAs($user)
+            ->putJson('/api/profile', ['first_name' => 'Blocked'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['first_name']);
+    }
+
+    public function test_name_change_is_allowed_after_three_months(): void
+    {
+        $user = User::factory()->create([
+            'name_changed_at' => now()->subMonths(4),
+        ]);
+
+        $this->actingAs($user)
+            ->putJson('/api/profile', ['first_name' => 'Allowed'])
+            ->assertOk()
+            ->assertJsonPath('data.first_name', 'Allowed');
+    }
+
+    public function test_name_change_is_allowed_on_first_change(): void
+    {
+        $user = User::factory()->create(['name_changed_at' => null]);
+
+        $this->actingAs($user)
+            ->putJson('/api/profile', ['first_name' => 'FirstChange'])
+            ->assertOk()
+            ->assertJsonPath('data.first_name', 'FirstChange');
+    }
+
+    public function test_username_change_is_rate_limited_to_once_per_month(): void
+    {
+        $user = User::factory()->create([
+            'username'            => 'oldhandle',
+            'username_changed_at' => now()->subWeeks(2),
+        ]);
+
+        $this->actingAs($user)
+            ->putJson('/api/profile', ['username' => 'newhandle'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['username']);
+    }
+
+    public function test_username_change_is_allowed_after_one_month(): void
+    {
+        $user = User::factory()->create([
+            'username'            => 'oldhandle',
+            'username_changed_at' => now()->subMonths(2),
+        ]);
+
+        $this->actingAs($user)
+            ->putJson('/api/profile', ['username' => 'newhandle'])
+            ->assertOk()
+            ->assertJsonPath('data.username', 'newhandle');
+    }
+
+    public function test_username_change_is_allowed_on_first_manual_change(): void
+    {
+        // username_changed_at is null when auto-generated at registration
+        $user = User::factory()->create([
+            'username'            => 'johndoe',
+            'username_changed_at' => null,
+        ]);
+
+        $this->actingAs($user)
+            ->putJson('/api/profile', ['username' => 'myrealhandle'])
+            ->assertOk()
+            ->assertJsonPath('data.username', 'myrealhandle');
+    }
+
+    public function test_username_not_rate_limited_when_unchanged(): void
+    {
+        $user = User::factory()->create([
+            'username'            => 'samehandle',
+            'username_changed_at' => now()->subDays(1),
+        ]);
+
+        // Sending same username value — not a real change, should not be rate-limited
+        $this->actingAs($user)
+            ->putJson('/api/profile', ['username' => 'samehandle', 'bio' => 'Updated bio'])
+            ->assertOk();
     }
 
     public function test_user_can_update_privacy_settings(): void
@@ -81,7 +195,49 @@ class ProfileTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $user->id)
             ->assertJsonPath('data.bio', 'Hello there')
-            ->assertJsonMissing(['email', 'phone']);
+            ->assertJsonMissing(['email', 'contact_number']);
+    }
+
+    public function test_resolve_username_returns_uuid(): void
+    {
+        $user = User::factory()->create(['username' => 'findme']);
+
+        $this->getJson('/api/users/resolve/findme')
+            ->assertOk()
+            ->assertJsonPath('data.id', $user->id);
+    }
+
+    public function test_resolve_username_returns_404_for_unknown(): void
+    {
+        $this->getJson('/api/users/resolve/doesnotexist')->assertNotFound();
+    }
+
+    public function test_registration_generates_username_from_name(): void
+    {
+        $this->postJson('/api/auth/register', [
+            'first_name'            => 'John',
+            'last_name'             => 'Doe',
+            'email'                 => 'john@example.com',
+            'password'              => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('users', ['username' => 'johndoe', 'email' => 'john@example.com']);
+    }
+
+    public function test_registration_resolves_username_collision(): void
+    {
+        User::factory()->create(['username' => 'johndoe']);
+
+        $this->postJson('/api/auth/register', [
+            'first_name'            => 'John',
+            'last_name'             => 'Doe',
+            'email'                 => 'john2@example.com',
+            'password'              => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('users', ['username' => 'johndoe1', 'email' => 'john2@example.com']);
     }
 
     public function test_authenticated_user_can_heart_another_user(): void

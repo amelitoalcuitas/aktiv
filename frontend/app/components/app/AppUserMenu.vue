@@ -5,6 +5,14 @@ const props = defineProps<{ variant?: 'sidebar' | 'header' }>();
 
 const { user, logout, isAdmin } = useAuth();
 
+const fullName = computed(() =>
+  user.value ? `${user.value.first_name} ${user.value.last_name}`.trim() : ''
+);
+
+const profileLink = computed(() =>
+  user.value?.username ? `/profile/${user.value.username}` : '/profile'
+);
+
 const menuItems = computed(() => {
   const items = [];
 
@@ -21,7 +29,7 @@ const menuItems = computed(() => {
       icon: 'i-heroicons-calendar-days',
       to: '/bookings'
     },
-    { label: 'Profile', icon: 'i-heroicons-user', to: '/profile' }
+    { label: 'Profile', icon: 'i-heroicons-user', to: profileLink.value }
   ]);
 
   items.push([
@@ -50,12 +58,12 @@ const menuItems = computed(() => {
     >
       <UAvatar
         :src="user?.avatar_thumb_url ?? undefined"
-        :alt="user?.name"
+        :alt="fullName"
         icon="i-heroicons-user"
         size="sm"
         class="flex-shrink-0"
       />
-      <span class="min-w-0 flex-1 truncate text-left">{{ user?.name }}</span>
+      <span class="min-w-0 flex-1 truncate text-left">{{ fullName }}</span>
       <UIcon
         name="i-heroicons-ellipsis-horizontal"
         class="h-4 w-4 flex-shrink-0"
@@ -69,10 +77,10 @@ const menuItems = computed(() => {
       color="neutral"
       class="flex items-center gap-2 rounded-full"
     >
-      <span class="hidden text-sm font-medium sm:block">{{ user?.name }}</span>
+      <span class="hidden text-sm font-medium sm:block">{{ fullName }}</span>
       <UAvatar
         :src="user?.avatar_thumb_url ?? undefined"
-        :alt="user?.name"
+        :alt="fullName"
         icon="i-heroicons-user"
       />
     </UButton>

@@ -20,6 +20,7 @@ class AuthController extends Controller
     public function register(RegisterRequest $request): JsonResponse
     {
         $user = User::query()->create(array_merge($request->validated(), ['role' => UserRole::User]));
+        $user->update(['username' => User::generateUsername($user->first_name, $user->last_name)]);
         $user->sendEmailVerificationNotification();
         $token = $user->createToken('auth_token')->plainTextToken;
 

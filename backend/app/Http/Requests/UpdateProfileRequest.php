@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateProfileRequest extends FormRequest
 {
@@ -14,8 +15,17 @@ class UpdateProfileRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'                              => ['sometimes', 'string', 'max:255'],
-            'phone'                             => ['sometimes', 'nullable', 'string', 'max:30'],
+            'first_name'                        => ['sometimes', 'string', 'max:100'],
+            'last_name'                         => ['sometimes', 'string', 'max:100'],
+            'username'                          => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:30',
+                'alpha_dash',
+                Rule::unique('users', 'username')->ignore($this->user()->id),
+            ],
+            'contact_number'                    => ['sometimes', 'nullable', 'string', 'max:30'],
             'bio'                               => ['sometimes', 'nullable', 'string', 'max:500'],
             'social_links'                      => ['sometimes', 'nullable', 'array'],
             'social_links.facebook'             => ['sometimes', 'nullable', 'string', 'max:255'],

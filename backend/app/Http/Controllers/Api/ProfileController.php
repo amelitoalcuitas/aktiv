@@ -25,17 +25,48 @@ class ProfileController extends Controller
     public function update(UpdateProfileRequest $request): JsonResponse
     {
         $data = $request->validated();
+        $user = $request->user();
+
+        // Rate-limit: name (first_name or last_name) — once every 3 months
+        $changingName = isset($data['first_name']) || isset($data['last_name']);
+        if ($changingName && $user->name_changed_at && $user->name_changed_at->addMonths(3)->isFuture()) {
+            throw ValidationException::withMessages([
+                'first_name' => [
+                    'You can only change your name once every 3 months. Next allowed: '
+                    . $user->name_changed_at->addMonths(3)->toFormattedDateString() . '.',
+                ],
+            ]);
+        }
+
+        // Rate-limit: username — once every 1 month (only if actually changing to a different value)
+        $changingUsername = isset($data['username']) && $data['username'] !== $user->username;
+        if ($changingUsername && $user->username_changed_at && $user->username_changed_at->addMonth()->isFuture()) {
+            throw ValidationException::withMessages([
+                'username' => [
+                    'You can only change your username once a month. Next allowed: '
+                    . $user->username_changed_at->addMonth()->toFormattedDateString() . '.',
+                ],
+            ]);
+        }
 
         if (isset($data['profile_privacy'])) {
             $data['profile_privacy'] = array_merge(
-                $request->user()->profile_privacy ?? [],
+                $user->profile_privacy ?? [],
                 $data['profile_privacy']
             );
         }
 
-        $request->user()->update($data);
+        if ($changingName) {
+            $data['name_changed_at'] = now();
+        }
 
-        return response()->json(['data' => new ProfileResource($request->user()->fresh())]);
+        if ($changingUsername) {
+            $data['username_changed_at'] = now();
+        }
+
+        $user->update($data);
+
+        return response()->json(['data' => new ProfileResource($user->fresh())]);
     }
 
     public function uploadAvatar(Request $request): JsonResponse

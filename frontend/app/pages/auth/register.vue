@@ -7,7 +7,8 @@ definePageMeta({ layout: 'auth' });
 const { register } = useAuth();
 
 const form = reactive({
-  name: '',
+  first_name: '',
+  last_name: '',
   email: '',
   password: '',
   password_confirmation: ''
@@ -19,7 +20,8 @@ const loading = ref(false);
 
 const registerSchema = z
   .object({
-    name: z.string().trim().min(1, 'Name is required.'),
+    first_name: z.string().trim().min(1, 'First name is required.'),
+    last_name: z.string().trim().min(1, 'Last name is required.'),
     email: z
       .string()
       .trim()
@@ -52,7 +54,8 @@ async function handleSubmit() {
   loading.value = true;
   try {
     await register(
-      parsed.data.name,
+      parsed.data.first_name,
+      parsed.data.last_name,
       parsed.data.email,
       parsed.data.password,
       parsed.data.password_confirmation
@@ -103,15 +106,27 @@ function fieldError(field: string) {
     />
 
     <form class="space-y-4" @submit.prevent="handleSubmit">
-      <UFormField label="Name" name="name" :error="fieldError('name')">
-        <UInput
-          v-model="form.name"
-          placeholder="Your full name"
-          autocomplete="name"
-          required
-          class="w-full"
-        />
-      </UFormField>
+      <div class="grid grid-cols-2 gap-3">
+        <UFormField label="First Name" name="first_name" :error="fieldError('first_name')">
+          <UInput
+            v-model="form.first_name"
+            placeholder="Juan"
+            autocomplete="given-name"
+            required
+            class="w-full"
+          />
+        </UFormField>
+
+        <UFormField label="Last Name" name="last_name" :error="fieldError('last_name')">
+          <UInput
+            v-model="form.last_name"
+            placeholder="dela Cruz"
+            autocomplete="family-name"
+            required
+            class="w-full"
+          />
+        </UFormField>
+      </div>
 
       <UFormField label="Email" name="email" :error="fieldError('email')">
         <UInput

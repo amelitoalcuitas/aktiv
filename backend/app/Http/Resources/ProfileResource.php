@@ -11,12 +11,16 @@ class ProfileResource extends JsonResource
     {
         return [
             'id'                      => $this->id,
-            'name'                    => $this->name,
+            'first_name'              => $this->first_name,
+            'last_name'               => $this->last_name,
+            'username'                => $this->username,
+            'username_changed_at'     => $this->username_changed_at?->toIso8601String(),
+            'name_changed_at'         => $this->name_changed_at?->toIso8601String(),
             'email'                   => $this->email,
             'avatar_url'              => $this->avatar_url,
             'avatar_thumb_url'        => $this->avatar_thumb_url,
             'banner_url'              => $this->banner_url,
-            'phone'                   => $this->phone,
+            'contact_number'          => $this->contact_number,
             'bio'                     => $this->bio,
             'social_links'            => $this->social_links ?? [],
             'profile_privacy'         => $this->resolvedPrivacy(),

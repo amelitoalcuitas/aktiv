@@ -73,12 +73,12 @@ const memberSince = computed(() => {
 });
 
 const PLATFORM_ICONS: Record<string, string> = {
-  facebook:  'i-simple-icons-facebook',
+  facebook: 'i-simple-icons-facebook',
   instagram: 'i-simple-icons-instagram',
-  x:         'i-simple-icons-x',
-  youtube:   'i-simple-icons-youtube',
-  threads:   'i-simple-icons-threads',
-  other:     'i-heroicons-globe-alt',
+  x: 'i-simple-icons-x',
+  youtube: 'i-simple-icons-youtube',
+  threads: 'i-simple-icons-threads',
+  other: 'i-heroicons-globe-alt'
 };
 
 const socialPlatforms = computed(() => {
@@ -89,7 +89,7 @@ const socialPlatforms = computed(() => {
       key: platform,
       icon: PLATFORM_ICONS[platform] ?? 'i-heroicons-globe-alt',
       label: platform.charAt(0).toUpperCase() + platform.slice(1),
-      href: url!,
+      href: url!
     }));
 });
 
@@ -112,6 +112,12 @@ const showHearts = computed(() => {
     (props.profile as User).profile_privacy;
   return priv?.show_hearts !== false;
 });
+
+const name = computed(
+  () =>
+    props.profile.first_name +
+    (props.profile.last_name ? ` ${props.profile.last_name}` : '')
+);
 </script>
 
 <template>
@@ -164,14 +170,14 @@ const showHearts = computed(() => {
             <img
               v-if="profile.avatar_url"
               :src="profile.avatar_url"
-              :alt="profile.name"
+              :alt="name"
               class="h-full w-full object-cover"
             />
             <span
               v-else
               class="text-3xl font-black text-[var(--aktiv-muted)] select-none uppercase"
             >
-              {{ profile.name?.charAt(0) ?? '?' }}
+              {{ name?.charAt(0) ?? '?' }}
             </span>
           </div>
           <button
@@ -199,7 +205,7 @@ const showHearts = computed(() => {
         <!-- Name + pencil -->
         <div class="relative flex flex-wrap items-center justify-center gap-2">
           <h1 class="text-xl font-black text-[var(--aktiv-ink)]">
-            {{ profile.name }}
+            {{ name }}
           </h1>
           <button
             v-if="isOwn && editing"
@@ -213,7 +219,10 @@ const showHearts = computed(() => {
 
         <!-- Badges (Hub Owner, hearts) -->
         <div
-          v-if="profile.is_hub_owner || (isOwn && showHearts && heartsCount !== null)"
+          v-if="
+            profile.is_hub_owner ||
+            (isOwn && showHearts && heartsCount !== null)
+          "
           class="mt-1.5 flex flex-wrap items-center justify-center gap-2"
         >
           <UBadge
@@ -236,7 +245,10 @@ const showHearts = computed(() => {
         </div>
 
         <!-- Social link icons -->
-        <div v-if="socialPlatforms.length" class="mt-2 flex items-center justify-center gap-3">
+        <div
+          v-if="socialPlatforms.length"
+          class="mt-2 flex items-center justify-center gap-3"
+        >
           <a
             v-for="social in socialPlatforms"
             :key="social.key"
@@ -259,7 +271,9 @@ const showHearts = computed(() => {
         </div>
 
         <!-- Member since -->
-        <div class="mt-2 flex items-center justify-center gap-1.5 text-xs text-[var(--aktiv-muted)]">
+        <div
+          class="mt-2 flex items-center justify-center gap-1.5 text-xs text-[var(--aktiv-muted)]"
+        >
           <UIcon name="i-heroicons-calendar" class="h-3.5 w-3.5 shrink-0" />
           <span>Member since {{ memberSince }}</span>
         </div>
@@ -292,6 +306,10 @@ const showHearts = computed(() => {
     :aspect-ratio="cropperAspectRatio"
     :stencil-shape="cropperStencilShape"
     @confirm="onCropConfirm"
-    @update:open="(v) => { if (!v) onCropCancel(); }"
+    @update:open="
+      (v) => {
+        if (!v) onCropCancel();
+      }
+    "
   />
 </template>

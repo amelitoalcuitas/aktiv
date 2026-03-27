@@ -27,12 +27,16 @@ export interface ProfilePrivacy {
 
 export interface User {
   id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
+  username: string | null;
+  username_changed_at: string | null;
+  name_changed_at: string | null;
   email: string;
   avatar_url: string | null;
   avatar_thumb_url: string | null;
   banner_url: string | null;
-  phone: string | null;
+  contact_number: string | null;
   bio: string | null;
   social_links: SocialLinks;
   profile_privacy: ProfilePrivacy;
@@ -48,7 +52,9 @@ export interface User {
 
 export interface PublicUser {
   id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
+  username: string | null;
   avatar_url: string | null;
   banner_url: string | null;
   bio: string | null;

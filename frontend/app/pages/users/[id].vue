@@ -17,7 +17,11 @@ if (error.value) {
   throw createError({ statusCode: 404, statusMessage: 'User not found', fatal: true });
 }
 
-useHead(() => ({ title: profile.value ? `${profile.value.name}'s Profile` : 'Profile' }));
+useHead(() => ({
+  title: profile.value
+    ? `${profile.value.first_name} ${profile.value.last_name}'s Profile`
+    : 'Profile',
+}));
 
 const privacy = computed(() => profile.value?.privacy ?? {
   show_visited_hubs: true,

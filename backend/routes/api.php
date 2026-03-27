@@ -62,6 +62,7 @@ Route::post('/guest-bookings/{token}/receipt', [GuestBookingTrackingController::
 Route::post('/guest-bookings/{token}/cancel', [GuestBookingTrackingController::class, 'cancel'])->name('api.guest-bookings.cancel');
 
 // Public user profiles
+Route::get('/users/resolve/{username}', [UserController::class, 'resolveUsername'])->name('api.users.resolve');
 Route::get('/users/{user}', [UserController::class, 'show'])->name('api.users.show');
 
 // Authenticated routes (any logged-in user)

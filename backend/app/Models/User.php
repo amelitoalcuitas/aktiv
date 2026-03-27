@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
@@ -25,13 +26,17 @@ class User extends Authenticatable implements MustVerifyEmail
      * @var list<string>
      */
     protected $fillable = [
-        'name',
+        'first_name',
+        'last_name',
+        'username',
+        'username_changed_at',
+        'name_changed_at',
         'email',
         'password',
         'avatar_url',
         'avatar_thumb_url',
         'banner_url',
-        'phone',
+        'contact_number',
         'bio',
         'social_links',
         'profile_privacy',
@@ -66,9 +71,41 @@ class User extends Authenticatable implements MustVerifyEmail
             'inapp_notifications_enabled' => 'boolean',
             'strikes_reset_at'            => 'datetime',
             'booking_banned_until'        => 'datetime',
+            'username_changed_at'         => 'datetime',
+            'name_changed_at'             => 'datetime',
             'social_links'                => 'array',
             'profile_privacy'             => 'array',
         ];
+    }
+
+    /**
+     * Computed full name for convenience.
+     */
+    public function getNameAttribute(): string
+    {
+        return trim(($this->first_name ?? '') . ' ' . ($this->last_name ?? ''));
+    }
+
+    /**
+     * Generate a unique username from first and last name.
+     * Slugifies the combined name and appends an incrementing number on collision.
+     */
+    public static function generateUsername(string $firstName, string $lastName): string
+    {
+        $base = strtolower(preg_replace('/[^a-z0-9]/i', '', Str::ascii($firstName . $lastName)));
+
+        if ($base === '') {
+            $base = 'user';
+        }
+
+        $username = $base;
+        $counter  = 1;
+
+        while (static::query()->where('username', $username)->exists()) {
+            $username = $base . $counter++;
+        }
+
+        return $username;
     }
 
     public function isBookingBanned(): bool

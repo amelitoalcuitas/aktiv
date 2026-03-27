@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\UserRole;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -24,8 +25,13 @@ class UserFactory extends Factory
      */
     public function definition(): array
     {
+        $firstName = fake()->firstName();
+        $lastName  = fake()->lastName();
+
         return [
-            'name'              => fake()->name(),
+            'first_name'        => $firstName,
+            'last_name'         => $lastName,
+            'username'          => User::generateUsername($firstName, $lastName),
             'email'             => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password'          => static::$password ??= Hash::make('password'),

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { User } from '~/types/user';
 import { useAuthStore } from '~/stores/auth';
+import { ca } from 'zod/v4/locales';
 
 definePageMeta({ middleware: 'auth' });
 
@@ -9,6 +10,7 @@ useHead({ title: 'My Profile' });
 const authStore = useAuthStore();
 const { fetchOwnProfile, uploadAvatar, uploadBanner, updateProfile } =
   useProfile();
+const toast = useToast();
 
 const { data: profile, refresh } = await useAsyncData<User>('own-profile', () =>
   fetchOwnProfile()
@@ -29,16 +31,31 @@ const privacy = computed(() => ({
 }));
 
 async function onUploadAvatar(file: File) {
-  await uploadAvatar(file);
+  try {
+    await uploadAvatar(file);
+  } catch (e) {
+    toast.add({ title: 'Failed to upload avatar', color: 'error' });
+    return;
+  }
+
+  toast.add({ title: 'Avatar updated', color: 'success' });
   await refresh();
 }
 
 async function onUploadBanner(file: File) {
-  await uploadBanner(file);
+  try {
+    await uploadBanner(file);
+  } catch (e) {
+    toast.add({ title: 'Failed to upload banner', color: 'error' });
+    return;
+  }
+
+  toast.add({ title: 'Banner updated', color: 'success' });
   await refresh();
 }
 
 function onProfileSaved(updated: User) {
+  toast.add({ title: 'Profile updated', color: 'success' });
   authStore.setUser(updated);
   refresh();
 }
@@ -139,7 +156,9 @@ async function togglePrivacy(key: string, val: boolean) {
           class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4 md:p-6"
         >
           <div class="flex items-center justify-between gap-2">
-            <h3 class="mb-1 text-lg font-bold text-[var(--aktiv-ink)]">About</h3>
+            <h3 class="mb-1 text-lg font-bold text-[var(--aktiv-ink)]">
+              About
+            </h3>
             <button
               type="button"
               v-if="editing"

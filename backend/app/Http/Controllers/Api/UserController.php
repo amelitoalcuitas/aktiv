@@ -16,6 +16,13 @@ class UserController extends Controller
         return response()->json(['data' => new PublicUserResource($user)]);
     }
 
+    public function resolveUsername(string $username): JsonResponse
+    {
+        $user = User::query()->where('username', $username)->firstOrFail();
+
+        return response()->json(['data' => ['id' => $user->id]]);
+    }
+
     public function toggleHeart(Request $request, User $user): JsonResponse
     {
         $authUser = $request->user();

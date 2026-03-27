@@ -19,7 +19,8 @@ export function useAuth() {
   }
 
   async function register(
-    name: string,
+    first_name: string,
+    last_name: string,
     email: string,
     password: string,
     password_confirmation: string
@@ -28,7 +29,7 @@ export function useAuth() {
       '/api/auth/register',
       {
         method: 'POST',
-        body: { name, email, password, password_confirmation }
+        body: { first_name, last_name, email, password, password_confirmation }
       }
     );
     authStore.setToken(res.token);

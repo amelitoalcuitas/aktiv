@@ -11,7 +11,7 @@ const FORM_SECTIONS = [
   { id: 'section-status', label: 'Visibility' }
 ];
 
-definePageMeta({ middleware: 'auth', layout: 'page' });
+definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
 
 const { isAuthenticated } = useAuth();
 const { createHub } = useHubs();
@@ -71,16 +71,15 @@ if (!isAuthenticated.value) {
 
 <template>
   <div>
-    <!-- Back link -->
-    <NuxtLink
-      to="/dashboard"
-      class="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--aktiv-primary)] hover:underline"
-    >
-      <UIcon name="i-heroicons-arrow-left" class="h-4 w-4" />
-      Back to Dashboard
-    </NuxtLink>
+    <div class="mx-auto w-full max-w-3xl px-4 py-8 md:px-6">
+      <NuxtLink
+        to="/dashboard/hubs"
+        class="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--aktiv-primary)] hover:underline"
+      >
+        <UIcon name="i-heroicons-arrow-left" class="h-4 w-4" />
+        Back to Hubs
+      </NuxtLink>
 
-    <div class="mx-auto max-w-lg lg:max-w-lg xl:max-w-full">
       <h1 class="mb-1 text-2xl font-bold text-[var(--aktiv-ink)]">
         Create a Hub
       </h1>

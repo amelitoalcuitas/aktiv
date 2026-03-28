@@ -22,37 +22,6 @@ const navGroups = [
         label: 'My Hubs',
         icon: 'i-heroicons-building-office-2',
         to: '/dashboard/hubs'
-      },
-      {
-        label: 'Courts',
-        icon: 'i-heroicons-squares-2x2',
-        to: '/dashboard/courts'
-      }
-    ]
-  },
-  {
-    label: 'Operations',
-    items: [
-      {
-        label: 'Bookings',
-        icon: 'i-heroicons-calendar-days',
-        to: '/dashboard/bookings'
-      },
-      {
-        label: 'Events',
-        icon: 'i-heroicons-megaphone',
-        to: '/dashboard/events'
-      },
-      { label: 'Reviews', icon: 'i-heroicons-star', to: '/dashboard/reviews' }
-    ]
-  },
-  {
-    label: 'Settings',
-    items: [
-      {
-        label: 'Settings',
-        icon: 'i-heroicons-cog-6-tooth',
-        to: '/dashboard/settings'
       }
     ]
   }

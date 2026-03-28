@@ -12,7 +12,7 @@ const FORM_SECTIONS = [
   { id: 'section-status', label: 'Visibility' }
 ];
 
-definePageMeta({ middleware: 'auth', layout: 'page' });
+definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
 
 const route = useRoute();
 const { isAuthenticated } = useAuth();
@@ -20,6 +20,15 @@ const { fetchHub, updateHub, deleteHub } = useHubs();
 const toast = useToast();
 
 const hubId = computed(() => String(route.params.id));
+
+const manageTabs = computed(() => [
+  { label: 'Hub', icon: 'i-heroicons-building-storefront', to: `/hubs/${hubId.value}/edit` },
+  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: `/hubs/${hubId.value}/courts` },
+  { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: `/hubs/${hubId.value}/bookings` },
+  { label: 'Events', icon: 'i-heroicons-megaphone', to: `/hubs/${hubId.value}/events` },
+  { label: 'Reviews', icon: 'i-heroicons-star', to: `/hubs/${hubId.value}/reviews` },
+  { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: `/hubs/${hubId.value}/settings` }
+]);
 const loading = ref(false);
 const loadingHub = ref(true);
 const isDeleteOpen = ref(false);
@@ -101,15 +110,17 @@ if (!isAuthenticated.value) {
 
 <template>
   <div>
-    <NuxtLink
-      to="/dashboard"
-      class="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--aktiv-primary)] hover:underline"
-    >
-      <UIcon name="i-heroicons-arrow-left" class="h-4 w-4" />
-      Back to Dashboard
-    </NuxtLink>
+    <HubTabNav :tabs="manageTabs" />
 
-    <div class="mx-auto max-w-lg lg:max-w-lg xl:max-w-full">
+    <div class="mx-auto w-full max-w-3xl px-4 py-8 md:px-6">
+      <NuxtLink
+        to="/dashboard/hubs"
+        class="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--aktiv-primary)] hover:underline"
+      >
+        <UIcon name="i-heroicons-arrow-left" class="h-4 w-4" />
+        Back to Hubs
+      </NuxtLink>
+
       <h1 class="mb-1 text-2xl font-bold text-[var(--aktiv-ink)]">Edit Hub</h1>
       <p class="mb-6 text-sm text-[var(--aktiv-muted)]">
         Update your sports hub details.

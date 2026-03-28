@@ -1,25 +1,33 @@
 <script setup lang="ts">
-import type { Hub, Court } from '~/types/hub';
+import type { Court } from '~/types/hub';
 import type { BookingDetail, BookingStatus } from '~/types/booking';
-import { useHubStore } from '~/stores/hub';
 import { useHubs } from '~/composables/useHubs';
 import { useOwnerBookings } from '~/composables/useOwnerBookings';
 
-definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] });
+definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
 
-const hubStore = useHubStore();
-const { fetchCourts } = useHubs();
+const route = useRoute();
+const { fetchCourts, fetchHub } = useHubs();
 const {
   fetchHubBookings,
   confirmBooking,
   rejectBooking,
   cancelBooking,
   createWalkIn,
-  updateBooking,
-  searchUsers
+  updateBooking
 } = useOwnerBookings();
 const toast = useToast();
-const route = useRoute();
+
+const hubId = computed(() => String(route.params.id));
+
+const manageTabs = computed(() => [
+  { label: 'Hub', icon: 'i-heroicons-building-storefront', to: `/hubs/${hubId.value}/edit` },
+  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: `/hubs/${hubId.value}/courts` },
+  { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: `/hubs/${hubId.value}/bookings` },
+  { label: 'Events', icon: 'i-heroicons-megaphone', to: `/hubs/${hubId.value}/events` },
+  { label: 'Reviews', icon: 'i-heroicons-star', to: `/hubs/${hubId.value}/reviews` },
+  { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: `/hubs/${hubId.value}/settings` }
+]);
 
 // ── View mode ─────────────────────────────────────────────────
 const viewMode = ref<'table' | 'calendar'>('calendar');
@@ -30,20 +38,12 @@ const calendarSlot = ref<{
   courtId?: string;
 } | null>(null);
 
-// ── Hub selector ──────────────────────────────────────────────
-
-const selectedHubId = ref<string | undefined>(undefined);
-
-const hubOptions = computed(() =>
-  hubStore.myHubs.map((h: Hub) => ({ label: h.name, value: h.id }))
-);
-
-const selectedHub = computed<Hub | undefined>(() =>
-  hubStore.myHubs.find((h: Hub) => h.id === selectedHubId.value)
-);
+// ── Hub data ──────────────────────────────────────────────────
+import type { Hub } from '~/types/hub';
+const hubData = ref<Hub | null>(null);
 
 const gridMinTime = computed(() => {
-  const oh = selectedHub.value?.operating_hours;
+  const oh = hubData.value?.operating_hours;
   if (!oh?.length) return '06:00';
   const open = oh.filter((e) => !e.is_closed);
   if (!open.length) return '06:00';
@@ -54,7 +54,7 @@ const gridMinTime = computed(() => {
 });
 
 const gridMaxTime = computed(() => {
-  const oh = selectedHub.value?.operating_hours;
+  const oh = hubData.value?.operating_hours;
   if (!oh?.length) return '23:00';
   const open = oh.filter((e) => !e.is_closed);
   if (!open.length) return '23:00';
@@ -64,21 +64,18 @@ const gridMaxTime = computed(() => {
   );
 });
 
-// ── Courts for this hub ─────────────────────────────────────
-
+// ── Courts ─────────────────────────────────────────────────
 const hubCourts = ref<Court[]>([]);
 
 async function loadCourts() {
-  if (!selectedHubId.value) return;
   try {
-    hubCourts.value = await fetchCourts(selectedHubId.value);
+    hubCourts.value = await fetchCourts(hubId.value);
   } catch {
     hubCourts.value = [];
   }
 }
 
 // ── Bookings ──────────────────────────────────────────────────
-
 const bookingsLoading = ref(false);
 const allBookings = ref<BookingDetail[]>([]);
 const tableDate = ref(new Date());
@@ -101,13 +98,12 @@ const tableDateLabel = computed(() =>
 );
 
 async function loadBookings() {
-  if (!selectedHubId.value) return;
   bookingsLoading.value = true;
   try {
     const date =
       viewMode.value === 'table' ? tableDate.value : selectedDate.value;
     const dayStr = formatDateString(date);
-    allBookings.value = await fetchHubBookings(selectedHubId.value, {
+    allBookings.value = await fetchHubBookings(hubId.value, {
       date_from: dayStr,
       date_to: dayStr
     });
@@ -119,7 +115,6 @@ async function loadBookings() {
 }
 
 // ── Filters ───────────────────────────────────────────────────
-
 const statusFilter = ref<(BookingStatus | 'expired')[]>([]);
 const courtFilter = ref<string[]>([]);
 
@@ -155,32 +150,22 @@ const filteredCourts = computed(() => {
 });
 
 // ── Init ──────────────────────────────────────────────────────
-
 const { apiFetch } = useApi();
 
 onMounted(async () => {
-  await hubStore.fetchMyHubs();
-  if (hubStore.myHubs.length) {
-    const qRaw = Array.isArray(route.query.hubId)
-      ? route.query.hubId[0]
-      : route.query.hubId;
-    const qId = String(qRaw);
-    const match = hubStore.myHubs.find((h: Hub) => h.id === qId);
-    selectedHubId.value = match ? qId : hubStore.myHubs[0]?.id;
-    await Promise.all([loadBookings(), loadCourts()]);
+  await Promise.all([loadBookings(), loadCourts(), fetchHub(hubId.value).then(h => { hubData.value = h; })]);
 
-    const bookingIdRaw = Array.isArray(route.query.bookingId)
-      ? route.query.bookingId[0]
-      : route.query.bookingId;
-    if (bookingIdRaw && selectedHubId.value) {
-      try {
-        const res = await apiFetch<{ data: BookingDetail }>(
-          `/dashboard/hubs/${selectedHubId.value}/bookings/${bookingIdRaw}`
-        );
-        openDetails(res.data);
-      } catch {
-        // booking not found or not accessible — silently ignore
-      }
+  const bookingIdRaw = Array.isArray(route.query.bookingId)
+    ? route.query.bookingId[0]
+    : route.query.bookingId;
+  if (bookingIdRaw) {
+    try {
+      const res = await apiFetch<{ data: BookingDetail }>(
+        `/dashboard/hubs/${hubId.value}/bookings/${bookingIdRaw}`
+      );
+      openDetails(res.data);
+    } catch {
+      // booking not found or not accessible — silently ignore
     }
   }
 });
@@ -188,10 +173,10 @@ onMounted(async () => {
 watch(
   () => route.query.bookingId,
   async (bookingIdRaw) => {
-    if (!bookingIdRaw || !selectedHubId.value) return;
+    if (!bookingIdRaw) return;
     try {
       const res = await apiFetch<{ data: BookingDetail }>(
-        `/dashboard/hubs/${selectedHubId.value}/bookings/${bookingIdRaw}`
+        `/dashboard/hubs/${hubId.value}/bookings/${bookingIdRaw}`
       );
       openDetails(res.data);
     } catch {
@@ -199,12 +184,6 @@ watch(
     }
   }
 );
-
-watch(selectedHubId, async () => {
-  allBookings.value = [];
-  hubCourts.value = [];
-  await Promise.all([loadBookings(), loadCourts()]);
-});
 
 watch(selectedDate, async () => {
   if (viewMode.value === 'calendar') {
@@ -227,37 +206,25 @@ const { $echo } = useNuxtApp();
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let hubChannel: any = null;
 
-function subscribeToHubChannel(hubId: string) {
-  if (hubChannel) {
-    ($echo as any).leaveChannel(`hub.${hubId}`);
-    hubChannel = null;
-  }
-  hubChannel = ($echo as any).channel(`hub.${hubId}`);
+onMounted(() => {
+  hubChannel = ($echo as any).channel(`hub.${hubId.value}`);
   hubChannel.listen('.booking.slot.updated', () => {
     loadBookings();
   });
-}
-
-watch(selectedHubId, (id) => {
-  if (id) subscribeToHubChannel(id);
 });
 
 onUnmounted(() => {
-  if (selectedHubId.value) {
-    ($echo as any).leaveChannel(`hub.${selectedHubId.value}`);
-    hubChannel = null;
-  }
+  ($echo as any).leaveChannel(`hub.${hubId.value}`);
+  hubChannel = null;
 });
 
 // ── Confirm ───────────────────────────────────────────────────
-
 const confirmingId = ref<string | null>(null);
 
 async function handleConfirm(booking: BookingDetail) {
-  if (!selectedHubId.value) return;
   confirmingId.value = booking.id;
   try {
-    const updated = await confirmBooking(selectedHubId.value, booking.id);
+    const updated = await confirmBooking(hubId.value, booking.id);
     replaceBookingInList(updated);
     toast.add({ title: 'Booking confirmed', color: 'success' });
   } catch {
@@ -268,7 +235,6 @@ async function handleConfirm(booking: BookingDetail) {
 }
 
 // ── Reject ────────────────────────────────────────────────────
-
 const isRejectOpen = ref(false);
 const rejectTargetBooking = ref<BookingDetail | null>(null);
 const rejectNote = ref('');
@@ -283,7 +249,7 @@ function openReject(booking: BookingDetail) {
 }
 
 async function submitReject() {
-  if (!selectedHubId.value || !rejectTargetBooking.value) return;
+  if (!rejectTargetBooking.value) return;
   if (!rejectNote.value.trim()) {
     rejectError.value = 'Please provide a rejection reason.';
     return;
@@ -291,7 +257,7 @@ async function submitReject() {
   rejectingId.value = rejectTargetBooking.value.id;
   try {
     const updated = await rejectBooking(
-      selectedHubId.value,
+      hubId.value,
       rejectTargetBooking.value.id,
       rejectNote.value.trim()
     );
@@ -309,7 +275,6 @@ async function submitReject() {
 }
 
 // ── Cancel ────────────────────────────────────────────────────
-
 const isCancelOpen = ref(false);
 const cancelTargetBooking = ref<BookingDetail | null>(null);
 const cancellingId = ref<string | null>(null);
@@ -320,11 +285,11 @@ function openCancel(booking: BookingDetail) {
 }
 
 async function submitCancel() {
-  if (!selectedHubId.value || !cancelTargetBooking.value) return;
+  if (!cancelTargetBooking.value) return;
   cancellingId.value = cancelTargetBooking.value.id;
   try {
     const updated = await cancelBooking(
-      selectedHubId.value,
+      hubId.value,
       cancelTargetBooking.value.id
     );
     replaceBookingInList(updated);
@@ -338,7 +303,6 @@ async function submitCancel() {
 }
 
 // ── Walk-in modal ─────────────────────────────────────────────
-
 const isWalkInOpen = ref(false);
 
 function openWalkIn(slot?: { court: Court; date: Date; hour: number }) {
@@ -362,7 +326,6 @@ function onWalkInCreated(booking: BookingDetail) {
 }
 
 // ── Booking details modal ───────────────────────────────────────
-
 const isDetailsOpen = ref(false);
 const selectedBooking = ref<BookingDetail | null>(null);
 const updatingId = ref<string | null>(null);
@@ -388,10 +351,9 @@ function onModalCancel(booking: BookingDetail) {
 }
 
 async function onModalUpdate({ id, data }: { id: string; data: any }) {
-  if (!selectedHubId.value) return;
   updatingId.value = id;
   try {
-    const updated = await updateBooking(selectedHubId.value, id, data);
+    const updated = await updateBooking(hubId.value, id, data);
     replaceBookingInList(updated);
     toast.add({ title: 'Booking updated successfully', color: 'success' });
     isDetailsOpen.value = false;
@@ -421,18 +383,6 @@ function customerLabel(b: BookingDetail): string {
   if (b.booked_by_user) return `${b.booked_by_user.first_name} ${b.booked_by_user.last_name}`.trim();
   if (b.guest_name) return `${b.guest_name} (guest)`;
   return 'Unknown';
-}
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString('en-PH', {
-    timeZone: 'Asia/Manila',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  });
 }
 
 function formatDateRange(start: string, end: string): string {
@@ -566,77 +516,41 @@ function bookingDropdownItems(booking: BookingDetail) {
 
 <template>
   <div class="flex flex-col min-w-0 w-full max-w-full">
-    <!-- Page header -->
+    <HubTabNav :tabs="manageTabs" />
 
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-[#0f1728]">Bookings</h1>
-        <p class="mt-1 text-sm text-[#64748b]">
-          Manage court bookings and walk-in reservations.
-        </p>
-      </div>
-      <UFieldGroup>
-        <div class="flex rounded-lg border border-[#dbe4ef] p-0.5">
-          <UButton
-            size="sm"
-            :variant="viewMode === 'calendar' ? 'solid' : 'ghost'"
-            :color="viewMode === 'calendar' ? 'primary' : 'neutral'"
-            icon="i-heroicons-calendar-days"
-            class="rounded-md px-3"
-            @click="viewMode = 'calendar'"
-          >
-            Calendar
-          </UButton>
-          <UButton
-            size="sm"
-            :variant="viewMode === 'table' ? 'solid' : 'ghost'"
-            :color="viewMode === 'table' ? 'primary' : 'neutral'"
-            icon="i-heroicons-table-cells"
-            class="rounded-md px-3"
-            @click="viewMode = 'table'"
-          >
-            Table
-          </UButton>
+    <div class="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-6">
+      <!-- Page header -->
+      <div class="mb-6 flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-[#0f1728]">Bookings</h1>
+          <p class="mt-1 text-sm text-[#64748b]">
+            Manage court bookings and walk-in reservations.
+          </p>
         </div>
-      </UFieldGroup>
-    </div>
-
-    <!-- Hubs loading -->
-    <div
-      v-if="!hubStore.initialized || hubStore.loading"
-      class="flex items-center gap-2 text-[#64748b]"
-    >
-      <UIcon name="i-heroicons-arrow-path" class="h-5 w-5 animate-spin" />
-      <span class="text-sm">Loading…</span>
-    </div>
-
-    <!-- No hubs state -->
-    <div
-      v-else-if="!hubStore.myHubs.length"
-      class="rounded-2xl border border-dashed border-[#dbe4ef] bg-white p-12 text-center"
-    >
-      <UIcon
-        name="i-heroicons-building-office-2"
-        class="mx-auto h-12 w-12 text-[#c8d5e0]"
-      />
-      <h3 class="mt-4 text-base font-semibold text-[#0f1728]">No hubs yet</h3>
-      <p class="mt-1 text-sm text-[#64748b]">
-        Create a hub first to manage its bookings.
-      </p>
-      <UButton
-        to="/hubs/create"
-        icon="i-heroicons-plus"
-        class="mt-5 bg-[#004e89] hover:bg-[#003d6b]"
-      >
-        Create Hub
-      </UButton>
-    </div>
-
-    <template v-else>
-      <!-- Hub selector -->
-      <div class="mb-6 flex items-center gap-3">
-        <label class="text-sm font-medium text-[#0f1728]">Hub:</label>
-        <USelect v-model="selectedHubId" :items="hubOptions" class="w-64" />
+        <UFieldGroup>
+          <div class="flex rounded-lg border border-[#dbe4ef] p-0.5">
+            <UButton
+              size="sm"
+              :variant="viewMode === 'calendar' ? 'solid' : 'ghost'"
+              :color="viewMode === 'calendar' ? 'primary' : 'neutral'"
+              icon="i-heroicons-calendar-days"
+              class="rounded-md px-3"
+              @click="viewMode = 'calendar'"
+            >
+              Calendar
+            </UButton>
+            <UButton
+              size="sm"
+              :variant="viewMode === 'table' ? 'solid' : 'ghost'"
+              :color="viewMode === 'table' ? 'primary' : 'neutral'"
+              icon="i-heroicons-table-cells"
+              class="rounded-md px-3"
+              @click="viewMode = 'table'"
+            >
+              Table
+            </UButton>
+          </div>
+        </UFieldGroup>
       </div>
 
       <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -706,7 +620,7 @@ function bookingDropdownItems(booking: BookingDetail) {
           />
         </div>
         <UButton
-          v-if="viewMode === 'table' && selectedHubId && hubCourts.length"
+          v-if="viewMode === 'table' && hubCourts.length"
           icon="i-heroicons-plus"
           class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
           @click="() => openWalkIn()"
@@ -827,7 +741,7 @@ function bookingDropdownItems(booking: BookingDetail) {
           :bookings="filteredBookings"
           :min-time="gridMinTime"
           :max-time="gridMaxTime"
-          :operating-hours="selectedHub?.operating_hours ?? []"
+          :operating-hours="hubData?.operating_hours ?? []"
           @book-slot="openWalkIn"
           @action-confirm="handleConfirm"
           @action-reject="openReject"
@@ -835,7 +749,8 @@ function bookingDropdownItems(booking: BookingDetail) {
           @view-booking="openDetails"
         />
       </div>
-    </template>
+    </div>
+
     <!-- ── Reject modal ──────────────────────────────────────────── -->
     <AppModal
       v-model:open="isRejectOpen"
@@ -902,12 +817,12 @@ function bookingDropdownItems(booking: BookingDetail) {
     <!-- ── Walk-in modal ─────────────────────────────────────────────── -->
     <BookingWalkInModal
       v-model:open="isWalkInOpen"
-      :hub-id="selectedHubId"
+      :hub-id="hubId"
       :courts="hubCourts"
       :initial-date="calendarSlot?.date"
       :initial-hour="calendarSlot?.hour"
       :initial-court-id="calendarSlot?.courtId"
-      :operating-hours="selectedHub?.operating_hours ?? []"
+      :operating-hours="hubData?.operating_hours ?? []"
       @created="onWalkInCreated"
     />
 

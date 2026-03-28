@@ -1,35 +1,33 @@
 <script setup lang="ts">
 import type { Hub } from '~/types/hub';
-import { useHubStore } from '~/stores/hub';
 import { useHubs } from '~/composables/useHubs';
 
-definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] });
+definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
 
-const hubStore = useHubStore();
-const { updateHub } = useHubs();
+const route = useRoute();
+const { fetchHub, updateHub } = useHubs();
 const toast = useToast();
 
-// ── Hub selector ──────────────────────────────────────────────
+const hubId = computed(() => String(route.params.id));
 
-const selectedHubId = ref<string | undefined>(undefined);
+const manageTabs = computed(() => [
+  { label: 'Hub', icon: 'i-heroicons-building-storefront', to: `/hubs/${hubId.value}/edit` },
+  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: `/hubs/${hubId.value}/courts` },
+  { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: `/hubs/${hubId.value}/bookings` },
+  { label: 'Events', icon: 'i-heroicons-megaphone', to: `/hubs/${hubId.value}/events` },
+  { label: 'Reviews', icon: 'i-heroicons-star', to: `/hubs/${hubId.value}/reviews` },
+  { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: `/hubs/${hubId.value}/settings` }
+]);
 
-const hubOptions = computed(() =>
-  hubStore.myHubs.map((h: Hub) => ({ label: h.name, value: h.id }))
-);
-
-const selectedHub = computed<Hub | undefined>(() =>
-  hubStore.myHubs.find((h: Hub) => h.id === selectedHubId.value)
-);
+const hubData = ref<Hub | null>(null);
+const loadingHub = ref(true);
 
 // ── Booking settings ──────────────────────────────────────────
-
-// true = require account (default), false = allow guests
 const requireAccount = ref(true);
 const guestBookingLimit = ref(1);
 const guestMaxHours = ref(2);
 
 // ── Payment settings ──────────────────────────────────────────
-
 const payOnSite = ref(true);
 const digitalBank = ref(false);
 const paymentQrFile = ref<File | null>(null);
@@ -38,19 +36,30 @@ const removePaymentQr = ref(false);
 const digitalBankName = ref('');
 const digitalBankAccount = ref('');
 
-watch(selectedHub, (hub) => {
-  if (hub) {
-    requireAccount.value = hub.require_account_to_book;
-    guestBookingLimit.value = hub.guest_booking_limit ?? 1;
-    guestMaxHours.value = hub.guest_max_hours ?? 2;
-    const methods = hub.payment_methods ?? ['pay_on_site'];
-    payOnSite.value = methods.includes('pay_on_site');
-    digitalBank.value = methods.includes('digital_bank');
-    paymentQrPreview.value = hub.payment_qr_url ?? null;
-    paymentQrFile.value = null;
-    removePaymentQr.value = false;
-    digitalBankName.value = hub.digital_bank_name ?? '';
-    digitalBankAccount.value = hub.digital_bank_account ?? '';
+function applyHubToForm(hub: Hub) {
+  requireAccount.value = hub.require_account_to_book;
+  guestBookingLimit.value = hub.guest_booking_limit ?? 1;
+  guestMaxHours.value = hub.guest_max_hours ?? 2;
+  const methods = hub.payment_methods ?? ['pay_on_site'];
+  payOnSite.value = methods.includes('pay_on_site');
+  digitalBank.value = methods.includes('digital_bank');
+  paymentQrPreview.value = hub.payment_qr_url ?? null;
+  paymentQrFile.value = null;
+  removePaymentQr.value = false;
+  digitalBankName.value = hub.digital_bank_name ?? '';
+  digitalBankAccount.value = hub.digital_bank_account ?? '';
+}
+
+onMounted(async () => {
+  loadingHub.value = true;
+  try {
+    const hub = await fetchHub(hubId.value);
+    hubData.value = hub;
+    applyHubToForm(hub);
+  } catch {
+    toast.add({ title: 'Failed to load hub', color: 'error' });
+  } finally {
+    loadingHub.value = false;
   }
 });
 
@@ -66,110 +75,11 @@ function clearPaymentQr() {
   removePaymentQr.value = true;
 }
 
-// ── Init ─────────────────────────────────────────────────────
-
-onMounted(async () => {
-  await hubStore.fetchMyHubs();
-  if (hubStore.myHubs.length > 0) {
-    selectedHubId.value = hubStore.myHubs[0]!.id;
-  }
-});
-
-// ── Apply to all hubs ─────────────────────────────────────────
-
-const showApplyAllModal = ref(false);
-const isApplyingAll = ref(false);
-
-async function applyToAllHubs() {
-  const otherHubs = hubStore.myHubs.filter(
-    (h: Hub) => h.id !== selectedHubId.value
-  );
-  if (otherHubs.length === 0) return;
-
-  if (!payOnSite.value && !digitalBank.value) {
-    toast.add({
-      title: 'Select a payment method',
-      description: 'At least one payment method must be enabled.',
-      color: 'error'
-    });
-    showApplyAllModal.value = false;
-    return;
-  }
-
-  if (digitalBank.value && !paymentQrPreview.value && !paymentQrFile.value) {
-    toast.add({
-      title: 'Payment QR code required',
-      description: 'Upload a QR code for Digital Bank payments.',
-      color: 'error'
-    });
-    showApplyAllModal.value = false;
-    return;
-  }
-
-  isApplyingAll.value = true;
-  try {
-    const paymentMethods: Array<'pay_on_site' | 'digital_bank'> = [];
-    if (payOnSite.value) paymentMethods.push('pay_on_site');
-    if (digitalBank.value) paymentMethods.push('digital_bank');
-
-    // If there's an existing QR from the server (no new file selected), fetch it as a File
-    let qrFile = paymentQrFile.value;
-    if (
-      digitalBank.value &&
-      !qrFile &&
-      paymentQrPreview.value &&
-      !removePaymentQr.value
-    ) {
-      const res = await fetch(paymentQrPreview.value);
-      const blob = await res.blob();
-      qrFile = new File([blob], 'payment_qr.jpg', { type: blob.type });
-    }
-
-    await Promise.all(
-      otherHubs.map((h: Hub) =>
-        updateHub(h.id, {
-          require_account_to_book: requireAccount.value,
-          guest_booking_limit: requireAccount.value
-            ? undefined
-            : guestBookingLimit.value,
-          guest_max_hours: requireAccount.value
-            ? undefined
-            : guestMaxHours.value,
-          payment_methods: paymentMethods,
-          payment_qr_image: qrFile,
-          ...(removePaymentQr.value ? { remove_payment_qr: true } : {}),
-          digital_bank_name: digitalBankName.value || null,
-          digital_bank_account: digitalBankAccount.value || null
-        })
-      )
-    );
-
-    await hubStore.fetchMyHubs();
-
-    toast.add({
-      title: 'Applied to all hubs',
-      description: 'Settings have been applied to all your hubs.',
-      color: 'success'
-    });
-  } catch {
-    toast.add({
-      title: 'Failed to apply',
-      description: 'Something went wrong. Please try again.',
-      color: 'error'
-    });
-  } finally {
-    isApplyingAll.value = false;
-    showApplyAllModal.value = false;
-  }
-}
-
 // ── Save ─────────────────────────────────────────────────────
 
 const isSaving = ref(false);
 
 async function saveSettings() {
-  if (!selectedHubId.value) return;
-
   if (!payOnSite.value && !digitalBank.value) {
     toast.add({
       title: 'Select a payment method',
@@ -194,11 +104,9 @@ async function saveSettings() {
     if (payOnSite.value) paymentMethods.push('pay_on_site');
     if (digitalBank.value) paymentMethods.push('digital_bank');
 
-    await updateHub(selectedHubId.value, {
+    await updateHub(hubId.value, {
       require_account_to_book: requireAccount.value,
-      guest_booking_limit: requireAccount.value
-        ? undefined
-        : guestBookingLimit.value,
+      guest_booking_limit: requireAccount.value ? undefined : guestBookingLimit.value,
       guest_max_hours: requireAccount.value ? undefined : guestMaxHours.value,
       payment_methods: paymentMethods,
       payment_qr_image: paymentQrFile.value,
@@ -206,9 +114,6 @@ async function saveSettings() {
       digital_bank_name: digitalBankName.value || null,
       digital_bank_account: digitalBankAccount.value || null
     });
-
-    // Update local store
-    await hubStore.fetchMyHubs();
 
     toast.add({
       title: 'Settings saved',
@@ -229,39 +134,22 @@ async function saveSettings() {
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold text-[#0f1728]">Settings</h1>
-      <p class="mt-1 text-sm text-[#64748b]">Configure your hub preferences.</p>
-    </div>
+    <HubTabNav :tabs="manageTabs" />
 
-    <!-- No hubs state -->
-    <div
-      v-if="hubStore.myHubs.length === 0"
-      class="rounded-xl border border-[#dbe4ef] bg-white p-8 text-center text-sm text-[#64748b]"
-    >
-      You don't have any hubs yet.
-      <NuxtLink
-        to="/hubs/create"
-        class="ml-1 font-semibold text-[#004e89] hover:underline"
-        >Create one.</NuxtLink
-      >
-    </div>
-
-    <template v-else>
-      <!-- Hub selector -->
-      <div class="mb-6 flex items-center gap-3">
-        <label class="text-sm font-medium text-[#0f1728]">Hub:</label>
-        <USelect
-          v-model="selectedHubId"
-          :items="hubOptions"
-          option-attribute="label"
-          value-attribute="value"
-          placeholder="Select a hub"
-        />
+    <div class="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-6">
+      <!-- Header -->
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-[#0f1728]">Settings</h1>
+        <p class="mt-1 text-sm text-[#64748b]">Configure hub preferences.</p>
       </div>
 
-      <div v-if="selectedHub" class="max-w-2xl space-y-6">
+      <!-- Loading -->
+      <div v-if="loadingHub" class="flex items-center gap-2 text-[#64748b]">
+        <UIcon name="i-heroicons-arrow-path" class="h-5 w-5 animate-spin" />
+        <span class="text-sm">Loading settings…</span>
+      </div>
+
+      <div v-else class="space-y-6">
         <!-- Booking section -->
         <div class="rounded-xl border border-[#dbe4ef] bg-white p-6">
           <h2 class="mb-4 text-base font-semibold text-[#0f1728]">Booking</h2>
@@ -447,17 +335,7 @@ async function saveSettings() {
         </div>
 
         <!-- Save -->
-        <div class="flex items-center justify-between">
-          <UButton
-            v-if="hubStore.myHubs.length > 1"
-            variant="solid"
-            color="primary"
-            icon="i-heroicons-squares-2x2"
-            @click="showApplyAllModal = true"
-          >
-            Apply to all Hubs
-          </UButton>
-          <div v-else />
+        <div class="flex justify-end">
           <UButton
             :loading="isSaving"
             class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
@@ -466,26 +344,7 @@ async function saveSettings() {
             Save Settings
           </UButton>
         </div>
-
-        <!-- Apply to all hubs confirmation modal -->
-        <AppModal
-          v-model:open="showApplyAllModal"
-          title="Apply to all Hubs"
-          confirm="Apply to all Hubs"
-          :confirm-loading="isApplyingAll"
-          @confirm="applyToAllHubs"
-        >
-          <template #body>
-            <p class="text-sm">
-              This will overwrite the booking and payment settings for all your
-              other hubs with the current values, including the payment QR code.
-            </p>
-            <p class="mt-2 text-sm text-muted">
-              Are you sure you want to continue?
-            </p>
-          </template>
-        </AppModal>
       </div>
-    </template>
+    </div>
   </div>
 </template>

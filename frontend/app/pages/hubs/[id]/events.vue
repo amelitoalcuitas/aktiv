@@ -1,63 +1,51 @@
 <script setup lang="ts">
-import { useHubStore } from '~/stores/hub';
 import { useHubEvents } from '~/composables/useHubEvents';
-import type { Hub, HubEvent, EventType, DiscountType } from '~/types/hub';
+import type { HubEvent, EventType, DiscountType } from '~/types/hub';
 
-definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] });
+definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
 
-const hubStore = useHubStore();
+const route = useRoute();
 const { fetchEvents, createEvent, updateEvent, deleteEvent, toggleEvent } =
   useHubEvents();
 const { fetchCourts } = useHubs();
 const toast = useToast();
 
-// ── Hub selector ──────────────────────────────────────────────────────────────
+const hubId = computed(() => String(route.params.id));
 
-const selectedHubId = ref<string | undefined>(undefined);
+const manageTabs = computed(() => [
+  { label: 'Hub', icon: 'i-heroicons-building-storefront', to: `/hubs/${hubId.value}/edit` },
+  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: `/hubs/${hubId.value}/courts` },
+  { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: `/hubs/${hubId.value}/bookings` },
+  { label: 'Events', icon: 'i-heroicons-megaphone', to: `/hubs/${hubId.value}/events` },
+  { label: 'Reviews', icon: 'i-heroicons-star', to: `/hubs/${hubId.value}/reviews` },
+  { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: `/hubs/${hubId.value}/settings` }
+]);
+
 const events = ref<HubEvent[]>([]);
 const eventsLoading = ref(false);
 
-const hubOptions = computed(() =>
-  hubStore.myHubs.map((h: Hub) => ({ label: h.name, value: h.id }))
-);
-
 onMounted(async () => {
-  await hubStore.fetchMyHubs();
-  if (hubStore.myHubs.length) {
-    selectedHubId.value = hubStore.myHubs[0]?.id;
-    await Promise.all([loadEvents(), loadCourts()]);
-  }
-});
-
-watch(selectedHubId, async () => {
-  events.value = [];
-  hubCourts.value = [];
-  if (selectedHubId.value) await Promise.all([loadEvents(), loadCourts()]);
+  await Promise.all([loadEvents(), loadCourts()]);
 });
 
 async function loadEvents() {
-  if (!selectedHubId.value) return;
   eventsLoading.value = true;
   try {
-    events.value = await fetchEvents(selectedHubId.value);
+    events.value = await fetchEvents(hubId.value);
   } finally {
     eventsLoading.value = false;
   }
 }
 
-// ── Courts for the selected hub (for affected_courts picker) ──────────────────
+// ── Courts for the hub (for affected_courts picker) ──────────────────
 
 const hubCourts = ref<
   Array<{ id: string; name: string; price_per_hour: string }>
 >([]);
 
 async function loadCourts() {
-  if (!selectedHubId.value) {
-    hubCourts.value = [];
-    return;
-  }
   try {
-    hubCourts.value = await fetchCourts(selectedHubId.value);
+    hubCourts.value = await fetchCourts(hubId.value);
   } catch {
     hubCourts.value = [];
   }
@@ -286,7 +274,6 @@ function openEdit(event: HubEvent) {
 }
 
 async function submitForm() {
-  if (!selectedHubId.value) return;
   if (!validateForm()) return;
 
   formLoading.value = true;
@@ -322,10 +309,10 @@ async function submitForm() {
     };
 
     if (editingEvent.value) {
-      await updateEvent(selectedHubId.value, editingEvent.value.id, payload);
+      await updateEvent(hubId.value, editingEvent.value.id, payload);
       toast.add({ title: 'Event updated', color: 'success' });
     } else {
-      await createEvent(selectedHubId.value, payload);
+      await createEvent(hubId.value, payload);
       toast.add({ title: 'Event created', color: 'success' });
     }
     isFormOpen.value = false;
@@ -349,10 +336,10 @@ function openDelete(event: HubEvent) {
 }
 
 async function confirmDelete() {
-  if (!selectedHubId.value || !deletingEvent.value) return;
+  if (!deletingEvent.value) return;
   deleteLoading.value = true;
   try {
-    await deleteEvent(selectedHubId.value, deletingEvent.value.id);
+    await deleteEvent(hubId.value, deletingEvent.value.id);
     toast.add({ title: 'Event deleted', color: 'success' });
     isDeleteOpen.value = false;
     await loadEvents();
@@ -368,10 +355,9 @@ async function confirmDelete() {
 const togglingEventId = ref<string | null>(null);
 
 async function handleToggle(event: HubEvent) {
-  if (!selectedHubId.value) return;
   togglingEventId.value = event.id;
   try {
-    const updated = await toggleEvent(selectedHubId.value, event.id);
+    const updated = await toggleEvent(hubId.value, event.id);
     const idx = events.value.findIndex((e) => e.id === event.id);
     if (idx !== -1) events.value[idx] = updated;
   } catch {
@@ -430,60 +416,24 @@ function formatDiscount(event: HubEvent): string {
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-[#0f1728]">Events</h1>
-        <p class="mt-1 text-sm text-[#64748b]">
-          Manage closures, promos, and announcements for your hubs.
-        </p>
-      </div>
-      <UButton
-        v-if="selectedHubId"
-        icon="i-heroicons-plus"
-        class="bg-[#004e89] font-semibold hover:bg-[#003d6b] shrink-0 whitespace-nowrap"
-        @click="openAdd"
-      >
-        Add Event
-      </UButton>
-    </div>
+    <HubTabNav :tabs="manageTabs" />
 
-    <!-- Hubs loading -->
-    <div
-      v-if="!hubStore.initialized || hubStore.loading"
-      class="flex items-center gap-2 text-[#64748b]"
-    >
-      <UIcon name="i-heroicons-arrow-path" class="h-5 w-5 animate-spin" />
-      <span class="text-sm">Loading...</span>
-    </div>
-
-    <!-- No hubs -->
-    <div
-      v-else-if="!hubStore.myHubs.length"
-      class="rounded-2xl border border-dashed border-[#dbe4ef] bg-white p-12 text-center"
-    >
-      <UIcon
-        name="i-heroicons-building-office-2"
-        class="mx-auto h-12 w-12 text-[#c8d5e0]"
-      />
-      <h3 class="mt-4 text-base font-semibold text-[#0f1728]">No hubs yet</h3>
-      <p class="mt-1 text-sm text-[#64748b]">
-        Create a hub first before adding events.
-      </p>
-      <UButton
-        to="/hubs/create"
-        icon="i-heroicons-plus"
-        class="mt-5 bg-[#004e89] hover:bg-[#003d6b]"
-      >
-        Create Hub
-      </UButton>
-    </div>
-
-    <template v-else>
-      <!-- Hub selector -->
-      <div class="mb-6 flex items-center gap-3">
-        <label class="text-sm font-medium text-[#0f1728]">Hub:</label>
-        <USelect v-model="selectedHubId" :items="hubOptions" class="w-64" />
+    <div class="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-6">
+      <!-- Header -->
+      <div class="mb-6 flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-[#0f1728]">Events</h1>
+          <p class="mt-1 text-sm text-[#64748b]">
+            Manage closures, promos, and announcements.
+          </p>
+        </div>
+        <UButton
+          icon="i-heroicons-plus"
+          class="bg-[#004e89] font-semibold hover:bg-[#003d6b] shrink-0 whitespace-nowrap"
+          @click="openAdd"
+        >
+          Add Event
+        </UButton>
       </div>
 
       <!-- Events loading -->
@@ -602,7 +552,7 @@ function formatDiscount(event: HubEvent): string {
           </div>
         </div>
       </div>
-    </template>
+    </div>
 
     <!-- Event Form Modal -->
     <AppModal
@@ -671,14 +621,22 @@ function formatDiscount(event: HubEvent): string {
               required
               :error="formErrors.date_from || undefined"
             >
-              <AppDatePicker v-model="dateFromObj" class="w-full" />
+              <AppDatePicker
+                v-model="dateFromObj"
+                variant="nav"
+                :label="dateFromObj.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })"
+              />
             </UFormField>
             <UFormField
               label="End Date"
               required
               :error="formErrors.date_to || undefined"
             >
-              <AppDatePicker v-model="dateToObj" class="w-full" />
+              <AppDatePicker
+                v-model="dateToObj"
+                variant="nav"
+                :label="dateToObj.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })"
+              />
             </UFormField>
           </div>
 

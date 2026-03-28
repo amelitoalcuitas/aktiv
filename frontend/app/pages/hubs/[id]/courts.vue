@@ -1,55 +1,36 @@
 <script setup lang="ts">
 import { z } from 'zod';
 import { useHubs } from '~/composables/useHubs';
-import { useHubStore } from '~/stores/hub';
-import type { Court, Hub } from '~/types/hub';
+import type { Court } from '~/types/hub';
 
-definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] });
+definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
 
-const hubStore = useHubStore();
+const route = useRoute();
 const { fetchCourts, createCourt, updateCourt, deleteCourt } = useHubs();
 const toast = useToast();
-const route = useRoute();
 
-// ── Hub selector ──────────────────────────────────────────────────────────────
+const hubId = computed(() => String(route.params.id));
 
-const selectedHubId = ref<string | undefined>(undefined);
+const manageTabs = computed(() => [
+  { label: 'Hub', icon: 'i-heroicons-building-storefront', to: `/hubs/${hubId.value}/edit` },
+  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: `/hubs/${hubId.value}/courts` },
+  { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: `/hubs/${hubId.value}/bookings` },
+  { label: 'Events', icon: 'i-heroicons-megaphone', to: `/hubs/${hubId.value}/events` },
+  { label: 'Reviews', icon: 'i-heroicons-star', to: `/hubs/${hubId.value}/reviews` },
+  { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: `/hubs/${hubId.value}/settings` }
+]);
+
 const courts = ref<Court[]>([]);
 const courtsLoading = ref(false);
 
-const hubOptions = computed(() =>
-  hubStore.myHubs.map((h: Hub) => ({ label: h.name, value: h.id }))
-);
-const selectedHub = computed<Hub | undefined>(() =>
-  hubStore.myHubs.find((h: Hub) => h.id === selectedHubId.value)
-);
-
 onMounted(async () => {
-  await hubStore.fetchMyHubs();
-  if (hubStore.myHubs.length) {
-    const queryHubIdRaw = Array.isArray(route.query.hubId)
-      ? route.query.hubId[0]
-      : route.query.hubId;
-    const queryHubId = queryHubIdRaw ?? undefined;
-    const hasMatchingHub = hubStore.myHubs.some(
-      (h: Hub) => h.id === queryHubId
-    );
-
-    selectedHubId.value = hasMatchingHub ? queryHubId : hubStore.myHubs[0]?.id;
-    await loadCourts();
-  }
-});
-
-watch(selectedHubId, async () => {
-  courts.value = [];
-  if (selectedHubId.value) await loadCourts();
+  await loadCourts();
 });
 
 async function loadCourts() {
-  if (selectedHubId.value === undefined) return;
   courtsLoading.value = true;
   try {
-    courts.value = await fetchCourts(selectedHubId.value);
+    courts.value = await fetchCourts(hubId.value);
   } finally {
     courtsLoading.value = false;
   }
@@ -297,8 +278,6 @@ function openEdit(court: Court) {
 }
 
 async function submitForm() {
-  if (selectedHubId.value === undefined) return;
-
   formSubmitted.value = true;
 
   if (!validateCourtForm()) {
@@ -329,18 +308,17 @@ async function submitForm() {
     };
 
     if (editingCourt.value) {
-      await updateCourt(selectedHubId.value, editingCourt.value.id, {
+      await updateCourt(hubId.value, editingCourt.value.id, {
         ...payload,
         remove_court_image: removeCourtImage.value || undefined
       });
       toast.add({ title: 'Court updated', color: 'success' });
     } else {
-      await createCourt(selectedHubId.value, payload);
+      await createCourt(hubId.value, payload);
       toast.add({ title: 'Court created', color: 'success' });
     }
     isFormOpen.value = false;
     await loadCourts();
-    await hubStore.fetchMyHubs(); // refresh hub sports
   } catch {
     toast.add({ title: 'Failed to save court', color: 'error' });
   } finally {
@@ -360,14 +338,13 @@ function openDelete(court: Court) {
 }
 
 async function confirmDelete() {
-  if (selectedHubId.value === undefined || !deletingCourt.value) return;
+  if (!deletingCourt.value) return;
   deleteLoading.value = true;
   try {
-    await deleteCourt(selectedHubId.value, deletingCourt.value.id);
+    await deleteCourt(hubId.value, deletingCourt.value.id);
     toast.add({ title: 'Court deleted', color: 'success' });
     isDeleteOpen.value = false;
     await loadCourts();
-    await hubStore.fetchMyHubs();
   } catch {
     toast.add({ title: 'Failed to delete court', color: 'error' });
   } finally {
@@ -380,10 +357,9 @@ async function confirmDelete() {
 const togglingCourtId = ref<string | null>(null);
 
 async function toggleActive(court: Court) {
-  if (!selectedHubId.value) return;
   togglingCourtId.value = court.id;
   try {
-    await updateCourt(selectedHubId.value, court.id, {
+    await updateCourt(hubId.value, court.id, {
       is_active: !court.is_active
     });
     court.is_active = !court.is_active;
@@ -418,58 +394,22 @@ function formatPrice(price: string) {
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="mb-6 flex items-center justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-[#0f1728]">Courts</h1>
-        <p class="mt-1 text-sm text-[#64748b]">Manage courts for your hubs.</p>
-      </div>
-      <UButton
-        v-if="selectedHubId"
-        icon="i-heroicons-plus"
-        class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
-        @click="openAdd"
-      >
-        Add Court
-      </UButton>
-    </div>
+    <HubTabNav :tabs="manageTabs" />
 
-    <!-- Hubs loading -->
-    <div
-      v-if="!hubStore.initialized || hubStore.loading"
-      class="flex items-center gap-2 text-[#64748b]"
-    >
-      <UIcon name="i-heroicons-arrow-path" class="h-5 w-5 animate-spin" />
-      <span class="text-sm">Loading courts...</span>
-    </div>
-
-    <!-- No hubs state -->
-    <div
-      v-else-if="!hubStore.myHubs.length"
-      class="rounded-2xl border border-dashed border-[#dbe4ef] bg-white p-12 text-center"
-    >
-      <UIcon
-        name="i-heroicons-building-office-2"
-        class="mx-auto h-12 w-12 text-[#c8d5e0]"
-      />
-      <h3 class="mt-4 text-base font-semibold text-[#0f1728]">No hubs yet</h3>
-      <p class="mt-1 text-sm text-[#64748b]">
-        Create a hub first before adding courts.
-      </p>
-      <UButton
-        to="/hubs/create"
-        icon="i-heroicons-plus"
-        class="mt-5 bg-[#004e89] hover:bg-[#003d6b]"
-      >
-        Create Hub
-      </UButton>
-    </div>
-
-    <template v-else>
-      <!-- Hub selector -->
-      <div class="mb-6 flex items-center gap-3">
-        <label class="text-sm font-medium text-[#0f1728]">Hub:</label>
-        <USelect v-model="selectedHubId" :items="hubOptions" class="w-64" />
+    <div class="mx-auto w-full max-w-[1400px] px-4 py-8 md:px-6">
+      <!-- Header -->
+      <div class="mb-6 flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-[#0f1728]">Courts</h1>
+          <p class="mt-1 text-sm text-[#64748b]">Manage courts for this hub.</p>
+        </div>
+        <UButton
+          icon="i-heroicons-plus"
+          class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
+          @click="openAdd"
+        >
+          Add Court
+        </UButton>
       </div>
 
       <!-- Courts loading -->
@@ -610,7 +550,7 @@ function formatPrice(price: string) {
           </tbody>
         </table>
       </div>
-    </template>
+    </div>
 
     <!-- Court Form Modal -->
     <AppModal

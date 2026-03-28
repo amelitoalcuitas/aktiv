@@ -12,12 +12,36 @@ const toast = useToast();
 const hubId = computed(() => String(route.params.id));
 
 const manageTabs = computed(() => [
-  { label: 'Hub', icon: 'i-heroicons-building-storefront', to: `/hubs/${hubId.value}/edit` },
-  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: `/hubs/${hubId.value}/courts` },
-  { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: `/hubs/${hubId.value}/bookings` },
-  { label: 'Events', icon: 'i-heroicons-megaphone', to: `/hubs/${hubId.value}/events` },
-  { label: 'Reviews', icon: 'i-heroicons-star', to: `/hubs/${hubId.value}/reviews` },
-  { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: `/hubs/${hubId.value}/settings` }
+  {
+    label: 'Hub',
+    icon: 'i-heroicons-building-storefront',
+    to: `/hubs/${hubId.value}/edit`
+  },
+  {
+    label: 'Courts',
+    icon: 'i-heroicons-squares-2x2',
+    to: `/hubs/${hubId.value}/courts`
+  },
+  {
+    label: 'Bookings',
+    icon: 'i-heroicons-calendar-days',
+    to: `/hubs/${hubId.value}/bookings`
+  },
+  {
+    label: 'Events',
+    icon: 'i-heroicons-megaphone',
+    to: `/hubs/${hubId.value}/events`
+  },
+  {
+    label: 'Reviews',
+    icon: 'i-heroicons-star',
+    to: `/hubs/${hubId.value}/reviews`
+  },
+  {
+    label: 'Settings',
+    icon: 'i-heroicons-cog-6-tooth',
+    to: `/hubs/${hubId.value}/settings`
+  }
 ]);
 
 const courts = ref<Court[]>([]);
@@ -61,10 +85,12 @@ const SURFACE_OPTIONS = [
   { label: 'Synthetic', value: 'synthetic' },
   { label: 'Grass', value: 'grass' },
   { label: 'Wood', value: 'wood' },
-  { label: 'Others', value: 'others' }
+  { label: 'Other', value: 'other' }
 ];
 
-const KNOWN_SURFACE_VALUES = SURFACE_OPTIONS.filter(o => o.value !== 'others').map(o => o.value);
+const KNOWN_SURFACE_VALUES = SURFACE_OPTIONS.filter(
+  (o) => o.value !== 'other'
+).map((o) => o.value);
 
 const courtForm = reactive({
   name: '',
@@ -147,7 +173,7 @@ const courtFormSchema = z
     is_active: z.boolean()
   })
   .superRefine((data, ctx) => {
-    if (data.surface === 'others' && !data.surface_custom) {
+    if (data.surface === 'other' && !data.surface_custom) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['surface_custom'],
@@ -261,11 +287,7 @@ function openEdit(court: Court) {
     : true;
   Object.assign(courtForm, {
     name: court.name,
-    surface: court.surface
-      ? isKnownSurface
-        ? court.surface
-        : 'others'
-      : '',
+    surface: court.surface ? (isKnownSurface ? court.surface : 'other') : '',
     surface_custom: court.surface && !isKnownSurface ? court.surface : '',
     indoor: court.indoor,
     price_per_hour: court.price_per_hour
@@ -293,7 +315,7 @@ async function submitForm() {
     const pricePerHour = normalizeTextValue(courtForm.price_per_hour);
 
     const resolvedSurface =
-      courtForm.surface === 'others'
+      courtForm.surface === 'other'
         ? courtForm.surface_custom.trim() || undefined
         : courtForm.surface || undefined;
 
@@ -470,7 +492,10 @@ function formatPrice(price: string) {
               :key="court.id"
               class="hover:bg-[#fafcff]"
             >
-              <td class="max-w-[200px] truncate px-4 py-3 font-medium text-[#0f1728]" :title="court.name">
+              <td
+                class="max-w-[200px] truncate px-4 py-3 font-medium text-[#0f1728]"
+                :title="court.name"
+              >
                 {{ court.name }}
               </td>
               <td
@@ -576,7 +601,9 @@ function formatPrice(price: string) {
               class="w-full"
               maxlength="36"
             />
-            <p class="mt-1 text-xs text-[var(--aktiv-muted)]">Max 36 characters</p>
+            <p class="mt-1 text-xs text-[var(--aktiv-muted)]">
+              Max 36 characters
+            </p>
           </UFormField>
 
           <UFormField
@@ -593,7 +620,7 @@ function formatPrice(price: string) {
               :items="[SURFACE_OPTIONS]"
               class="w-full"
             />
-            <template v-if="courtForm.surface === 'others'">
+            <template v-if="courtForm.surface === 'other'">
               <UInput
                 v-model="courtForm.surface_custom"
                 placeholder="Specify surface"
@@ -606,7 +633,9 @@ function formatPrice(price: string) {
               >
                 {{ formErrors.surface_custom }}
               </p>
-              <p class="mt-1 text-xs text-[var(--aktiv-muted)]">Max 16 characters</p>
+              <p class="mt-1 text-xs text-[var(--aktiv-muted)]">
+                Max 16 characters
+              </p>
             </template>
           </UFormField>
 
@@ -650,7 +679,10 @@ function formatPrice(price: string) {
             :preview-url="courtImagePreview"
             label="Court Image (optional)"
             hint="Add a photo of the court. JPG, PNG or WebP, max 10 MB."
-            @clear="removeCourtImage = true; courtImagePreview = null"
+            @clear="
+              removeCourtImage = true;
+              courtImagePreview = null;
+            "
           />
 
           <UFormField label="Sports" :required="courtForm.is_active">
@@ -688,7 +720,9 @@ function formatPrice(price: string) {
                 :key="custom"
                 class="flex cursor-pointer items-center gap-1.5 rounded-full border border-[#004e89] bg-[#e8f0f8] px-3 py-1 text-sm font-medium text-[#004e89] transition"
                 @click="
-                  courtForm.sports = courtForm.sports.filter((s) => s !== custom)
+                  courtForm.sports = courtForm.sports.filter(
+                    (s) => s !== custom
+                  )
                 "
               >
                 {{ sportLabel(custom) }}
@@ -720,7 +754,6 @@ function formatPrice(price: string) {
               {{ formErrors.sports }}
             </p>
           </UFormField>
-
         </form>
       </template>
     </AppModal>

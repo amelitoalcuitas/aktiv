@@ -8,6 +8,7 @@ use App\Notifications\VerifyEmailNotification;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -143,6 +144,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Hub::class, 'owner_id');
     }
 
+    public function joinedHubs(): BelongsToMany
+    {
+        return $this->belongsToMany(Hub::class, 'hub_members', 'user_id', 'hub_id')->withPivot('created_at');
+    }
+
     public function heartsReceived(): HasMany
     {
         return $this->hasMany(UserHeart::class, 'to_user_id');
@@ -163,6 +169,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'show_tournaments'     => true,
             'show_open_play'       => true,
             'show_favorite_sports' => true,
+            'show_joined_hubs'     => true,
         ];
     }
 

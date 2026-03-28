@@ -29,6 +29,14 @@ export interface OperatingHoursEntry {
   is_closed: boolean;
 }
 
+export interface HubMember {
+  id: string;
+  name: string;
+  username: string;
+  avatar_thumb_url: string | null;
+  is_premium: boolean;
+}
+
 /** Matches the Hub object returned by the API */
 export interface Hub {
   id: string;
@@ -69,6 +77,11 @@ export interface Hub {
   rating: number | null;
   reviews_count: number;
   rating_breakdown?: Record<number, number> | null;
+
+  // Membership
+  members_count: number;
+  member_preview: HubMember[];
+  is_member: boolean;
 
   // Event flags (from API)
   has_active_promo: boolean;

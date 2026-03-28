@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Hub } from '~/types/hub';
+import type { Hub, HubMember } from '~/types/hub';
 import { useAuthStore } from '~/stores/auth';
 
 const route = useRoute();
@@ -14,7 +14,7 @@ const { data: activeHub, error: hubError } = await useAsyncData<Hub>(
   {
     default: () =>
       ({
-        id: 0,
+        id: '',
         name: '',
         description: null,
         city: '',
@@ -31,12 +31,14 @@ const { data: activeHub, error: hubError } = await useAsyncData<Hub>(
         is_approved: true,
         is_verified: false,
         is_active: true,
-        owner_id: 0,
+        owner_id: '',
         sports: [],
         operating_hours: [],
         courts_count: 0,
         lowest_price_per_hour: null,
         require_account_to_book: false,
+        guest_booking_limit: 0,
+        guest_max_hours: 0,
         payment_methods: [],
         payment_qr_url: null,
         digital_bank_name: null,
@@ -46,6 +48,11 @@ const { data: activeHub, error: hubError } = await useAsyncData<Hub>(
         rating: null,
         reviews_count: 0,
         rating_breakdown: null,
+        members_count: 0,
+        member_preview: [],
+        is_member: false,
+        has_active_promo: false,
+        has_active_announcement: false,
         created_at: ''
       }) as Hub
   }
@@ -95,15 +102,14 @@ const tabs = computed(() => {
   ];
 });
 
-
 const isCurrentlyOpen = computed(() => {
   const hours = activeHub.value?.operating_hours;
   if (!hours?.length) return false;
   const now = new Date();
   const todayHours = hours.find((oh) => oh.day_of_week === now.getDay());
   if (!todayHours || todayHours.is_closed) return false;
-  const [openH, openM] = todayHours.opens_at.split(':').map(Number);
-  const [closeH, closeM] = todayHours.closes_at.split(':').map(Number);
+  const [openH = 0, openM = 0] = todayHours.opens_at.split(':').map(Number);
+  const [closeH = 0, closeM = 0] = todayHours.closes_at.split(':').map(Number);
   const nowMins = now.getHours() * 60 + now.getMinutes();
   return nowMins >= openH * 60 + openM && nowMins < closeH * 60 + closeM;
 });
@@ -117,7 +123,91 @@ function onCoverImgError() {
 }
 
 const ratingsModalOpen = ref(false);
+const membersModalOpen = ref(false);
 
+const { joinHub, leaveHub } = useHubs();
+const joiningHub = ref(false);
+
+const isOwner = computed(
+  () => !!authStore.user && authStore.user.id === activeHub.value?.owner_id
+);
+
+const localIsMember = ref(activeHub.value?.is_member ?? false);
+const localMembersCount = ref(activeHub.value?.members_count ?? 0);
+const localMemberPreview = ref<HubMember[]>([
+  ...(activeHub.value?.member_preview ?? [])
+]);
+
+watch(
+  () => activeHub.value?.is_member,
+  (val) => {
+    localIsMember.value = val ?? false;
+  }
+);
+watch(
+  () => activeHub.value?.members_count,
+  (val) => {
+    localMembersCount.value = val ?? 0;
+  }
+);
+watch(
+  () => activeHub.value?.member_preview,
+  (val) => {
+    localMemberPreview.value = [...(val ?? [])];
+  }
+);
+
+function onLeftFromModal() {
+  localIsMember.value = false;
+  localMembersCount.value = Math.max(0, localMembersCount.value - 1);
+  localMemberPreview.value = localMemberPreview.value.filter(
+    (m) => m.id !== authStore.user?.id
+  );
+}
+
+const toast = useToast();
+
+async function toggleMembership() {
+  if (!authStore.isAuthenticated || isOwner.value || joiningHub.value) return;
+  joiningHub.value = true;
+  try {
+    if (localIsMember.value) {
+      await leaveHub(activeHub.value!.id);
+      localIsMember.value = false;
+      localMembersCount.value = Math.max(0, localMembersCount.value - 1);
+      localMemberPreview.value = localMemberPreview.value.filter(
+        (m) => m.id !== authStore.user?.id
+      );
+    } else {
+      await joinHub(activeHub.value!.id);
+      localIsMember.value = true;
+      localMembersCount.value += 1;
+      if (authStore.user) {
+        localMemberPreview.value = [
+          {
+            id: authStore.user.id,
+            name: authStore.user.first_name + ' ' + authStore.user.last_name,
+            username: authStore.user.username ?? '',
+            avatar_thumb_url: authStore.user.avatar_thumb_url ?? null,
+            is_premium: authStore.user.is_premium
+          },
+          ...localMemberPreview.value.slice(0, 4)
+        ];
+      }
+
+      toast.add({
+        title: `Joined ${activeHub.value?.name}`,
+        description: 'You are now a member of this hub.',
+        color: 'success'
+      });
+    }
+    await refreshNuxtData(`hub-${hubId.value}`);
+  } catch {
+    await refreshNuxtData(`hub-${hubId.value}`);
+  } finally {
+    joiningHub.value = false;
+  }
+}
 </script>
 
 <template>
@@ -158,7 +248,7 @@ const ratingsModalOpen = ref(false);
         class="mx-auto flex w-full max-w-[1400px] items-end justify-between px-4 pb-4 md:px-6"
       >
         <!-- Left: name + meta -->
-        <div class="min-w-0 flex-1 pr-4">
+        <div class="min-w-0 flex-1 pr-3">
           <h1
             class="text-2xl font-black leading-tight text-white drop-shadow-md md:text-4xl"
           >
@@ -169,7 +259,9 @@ const ratingsModalOpen = ref(false);
             v-if="activeHub?.address || activeHub?.city"
             class="mt-1 text-sm text-white/70 drop-shadow"
           >
-            {{ [activeHub?.address, activeHub?.city].filter(Boolean).join(', ') }}
+            {{
+              [activeHub?.address, activeHub?.city].filter(Boolean).join(', ')
+            }}
           </p>
 
           <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -231,6 +323,48 @@ const ratingsModalOpen = ref(false);
           </div>
         </div>
 
+        <!-- Right: members card + join -->
+        <div class="flex shrink-0 flex-col items-end gap-2">
+          <!-- Members card -->
+          <div
+            v-if="localMembersCount > 0"
+            class="cursor-pointer rounded-xl bg-white/20 px-3 py-2 transition hover:bg-white/30"
+            @click="membersModalOpen = true"
+          >
+            <p class="mb-1.5 text-xs font-bold text-white">
+              Members · {{ localMembersCount }}
+            </p>
+            <div class="flex gap-1.5">
+              <AppAvatar
+                v-for="member in localMemberPreview.slice(0, 5)"
+                :key="member.id"
+                :src="member.avatar_thumb_url"
+                :alt="member.name"
+                size="sm"
+                :premium="member.is_premium"
+              />
+            </div>
+          </div>
+
+          <!-- Join button — only shown when not yet a member -->
+          <button
+            v-if="authStore.isAuthenticated && !isOwner && !localIsMember"
+            type="button"
+            :disabled="joiningHub"
+            class="inline-flex items-center gap-1.5 rounded-full bg-success/80 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-success/90 disabled:opacity-60"
+            @click="toggleMembership"
+          >
+            <UIcon name="i-heroicons-plus-circle" class="h-4 w-4" />
+            Join Hub
+          </button>
+        </div>
+
+        <HubMembersModal
+          v-if="activeHub?.id"
+          v-model:open="membersModalOpen"
+          :hub="activeHub"
+          @left="onLeftFromModal"
+        />
       </div>
     </div>
   </section>
@@ -253,5 +387,4 @@ const ratingsModalOpen = ref(false);
 
   <!-- Tab navigation -->
   <HubTabNav :tabs="tabs" />
-
 </template>

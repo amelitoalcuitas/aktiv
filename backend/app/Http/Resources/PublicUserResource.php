@@ -37,6 +37,14 @@ class PublicUserResource extends JsonResource
                             : null,
                     ])
                 : [],
+            'joined_hubs'    => $privacy['show_joined_hubs']
+                ? $this->joinedHubs()->select(['hubs.id', 'hubs.name', 'hubs.city', 'hubs.cover_image_url'])->get()->map(fn ($h) => [
+                    'id'              => $h->id,
+                    'name'            => $h->name,
+                    'city'            => $h->city,
+                    'cover_image_url' => $h->cover_image_url,
+                ])
+                : [],
             'hearts_count'   => $privacy['show_hearts'] ? $this->heartsReceived()->count() : null,
             'has_hearted'    => ($viewer = Auth::guard('sanctum')->user())
                 ? $this->heartsReceived()->where('from_user_id', $viewer->id)->exists()

@@ -40,6 +40,12 @@ class ProfileResource extends JsonResource
                     : null,
             ]),
             'hub_display_order'       => $this->hub_display_order ?? [],
+            'joined_hubs'             => $this->joinedHubs()->select(['hubs.id', 'hubs.name', 'hubs.city', 'hubs.cover_image_url'])->get()->map(fn ($h) => [
+                'id'              => $h->id,
+                'name'            => $h->name,
+                'city'            => $h->city,
+                'cover_image_url' => $h->cover_image_url,
+            ]),
             'hearts_count'            => $this->heartsReceived()->count(),
             'created_at'              => $this->created_at,
             'expired_booking_strikes' => $this->expired_booking_strikes ?? 0,

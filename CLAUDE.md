@@ -147,6 +147,7 @@ new Date(iso).toLocaleString('en-PH', { ... })
 - **Always use Nuxt UI components first** — build custom components only when Nuxt UI doesn't cover the use case
 - No hardcoded colors — use Nuxt theme tokens or CSS variables from `frontend/app/assets/css/main.css`
 - Style is flat and minimal: no gradients, glassmorphism, or heavy shadows
+- Any operation that makes an API call must always show a Nuxt UI toast on both success and error — no exceptions
 - Check `frontend/app/components/` for existing components before creating new ones
 - Primary color: `#004e89` · Background: `#ecf4fc`
 

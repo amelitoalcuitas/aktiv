@@ -66,11 +66,12 @@ const menuItems = computed(() => {
       v-if="variant === 'sidebar'"
       class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#3a4a5c] transition hover:bg-[#f0f4f8] hover:text-[#004e89]"
     >
-      <UAvatar
-        :src="user?.avatar_thumb_url ?? undefined"
+      <AppAvatar
+        :src="user?.avatar_thumb_url"
+        :name="fullName"
         :alt="fullName"
-        icon="i-heroicons-user"
         size="sm"
+        :premium="user?.is_premium ?? false"
         class="flex-shrink-0"
       />
       <span class="min-w-0 flex-1 truncate text-left">{{ fullName }}</span>
@@ -88,10 +89,11 @@ const menuItems = computed(() => {
       class="flex items-center gap-2 rounded-full"
     >
       <span class="hidden text-sm font-medium sm:block">{{ fullName }}</span>
-      <UAvatar
-        :src="user?.avatar_thumb_url ?? undefined"
+      <AppAvatar
+        :src="user?.avatar_thumb_url"
+        :name="fullName"
         :alt="fullName"
-        icon="i-heroicons-user"
+        :premium="user?.is_premium ?? false"
       />
     </UButton>
   </UDropdownMenu>

@@ -24,6 +24,14 @@ export interface ProfilePrivacy {
   show_tournaments: boolean;
   show_open_play: boolean;
   show_favorite_sports: boolean;
+  show_joined_hubs: boolean;
+}
+
+export interface JoinedHub {
+  id: string;
+  name: string;
+  city: string;
+  cover_image_url: string | null;
 }
 
 export interface OwnedHub {
@@ -57,7 +65,9 @@ export interface User {
   expired_booking_strikes: number;
   booking_banned_until: string | null;
   is_hub_owner: boolean;
+  is_premium: boolean;
   owned_hubs: OwnedHub[];
+  joined_hubs: JoinedHub[];
   hub_display_order: string[];
   hearts_count: number;
   created_at: string;
@@ -73,7 +83,9 @@ export interface PublicUser {
   bio: string | null;
   social_links: SocialLinks;
   is_hub_owner: boolean;
+  is_premium: boolean;
   owned_hubs: OwnedHub[];
+  joined_hubs: JoinedHub[];
   hearts_count: number | null;
   has_hearted: boolean;
   privacy: ProfilePrivacy;

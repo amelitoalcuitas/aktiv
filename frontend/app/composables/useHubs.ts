@@ -1,6 +1,7 @@
 import type {
   Hub,
   Court,
+  HubMember,
   HubRating,
   HubContactNumber,
   HubWebsite,
@@ -457,6 +458,31 @@ export function useHubs() {
     });
   }
 
+  async function fetchHubMembersList(
+    hubId: number | string,
+    cursor?: string,
+    perPage = 50
+  ): Promise<{ data: HubMember[]; next_cursor: string | null }> {
+    const params = new URLSearchParams();
+    if (cursor) params.set('cursor', cursor);
+    params.set('per_page', String(perPage));
+    const qs = params.toString();
+    return apiFetch<{ data: HubMember[]; next_cursor: string | null }>(
+      `/hubs/${hubId}/members/list${qs ? `?${qs}` : ''}`
+    );
+  }
+
+  async function joinHub(hubId: number | string): Promise<HubMember> {
+    const res = await apiFetch<{ data: HubMember }>(`/hubs/${hubId}/members`, {
+      method: 'POST'
+    });
+    return res.data;
+  }
+
+  async function leaveHub(hubId: number | string): Promise<void> {
+    await apiFetch(`/hubs/${hubId}/members`, { method: 'DELETE' });
+  }
+
   return {
     fetchHubs,
     fetchHubsPaginated,
@@ -473,6 +499,9 @@ export function useHubs() {
     fetchHubRatingCourts,
     submitHubRating,
     fetchPendingReview,
-    skipBookingReview
+    skipBookingReview,
+    fetchHubMembersList,
+    joinHub,
+    leaveHub
   };
 }

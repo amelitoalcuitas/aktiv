@@ -102,6 +102,11 @@ class Hub extends Model
         return $this->hasMany(HubEvent::class);
     }
 
+    public function members(): HasMany
+    {
+        return $this->hasMany(HubMember::class)->latest('created_at');
+    }
+
     public function activeEvents(): HasMany
     {
         $today = now('Asia/Manila')->toDateString();

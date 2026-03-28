@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\HubMemberController;
 use App\Http\Controllers\Api\SuperAdminController;
 use App\Http\Controllers\Api\HubEventController;
 use App\Http\Controllers\Api\BookingController;
@@ -48,6 +49,8 @@ Route::get('/hubs', [HubController::class, 'index'])->name('api.hubs.index');
 Route::get('/hubs/{hub}', [HubController::class, 'show'])->name('api.hubs.show');
 Route::get('/hubs/{hub}/ratings', [HubRatingController::class, 'index'])->name('api.hubs.ratings.index');
 Route::get('/hubs/{hub}/ratings/courts', [HubRatingController::class, 'courts'])->name('api.hubs.ratings.courts');
+Route::get('/hubs/{hub}/members', [HubMemberController::class, 'index'])->name('api.hubs.members.index');
+Route::get('/hubs/{hub}/members/list', [HubMemberController::class, 'list'])->name('api.hubs.members.list');
 Route::get('/hubs/{hub}/courts', [CourtController::class, 'index'])->name('api.hubs.courts.index');
 Route::get('/hubs/{hub}/bookings', [BookingController::class, 'hubIndex'])->name('api.hubs.bookings.index');
 Route::get('/bookings/{code}/qr', [BookingController::class, 'qrCode'])->name('api.bookings.qr');
@@ -87,6 +90,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     // Hearts
     Route::post('/users/{user}/heart', [UserController::class, 'toggleHeart'])->name('api.users.heart');
+
+    // Hub membership
+    Route::post('/hubs/{hub}/members', [HubMemberController::class, 'join'])->name('api.hubs.members.join');
+    Route::delete('/hubs/{hub}/members', [HubMemberController::class, 'leave'])->name('api.hubs.members.leave');
 
     // Hub ratings
     Route::post('/hubs/{hub}/ratings', [HubRatingController::class, 'store'])->name('api.hubs.ratings.store');

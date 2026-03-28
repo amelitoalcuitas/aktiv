@@ -42,6 +42,7 @@ class UpdateProfileRequest extends FormRequest
             'profile_privacy.show_tournaments'     => ['sometimes', 'boolean'],
             'profile_privacy.show_open_play'       => ['sometimes', 'boolean'],
             'profile_privacy.show_favorite_sports' => ['sometimes', 'boolean'],
+            'profile_privacy.show_joined_hubs'     => ['sometimes', 'boolean'],
             'hub_display_order'                    => ['sometimes', 'nullable', 'array'],
             'hub_display_order.*'                  => ['uuid'],
         ];

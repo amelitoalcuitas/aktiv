@@ -4,27 +4,42 @@ import { useAuthStore } from '~/stores/auth';
 
 const route = useRoute();
 const authStore = useAuthStore();
-const { fetchPublicProfile, fetchOwnProfile, resolveUsername, toggleHeart, uploadAvatar, uploadBanner, updateProfile, updateHubShowOnProfile } = useProfile();
+const {
+  fetchPublicProfile,
+  fetchOwnProfile,
+  resolveUsername,
+  toggleHeart,
+  uploadAvatar,
+  uploadBanner,
+  updateProfile,
+  updateHubShowOnProfile
+} = useProfile();
 const toast = useToast();
 
 const param = computed(() => String(route.params.username));
 
 // Resolve username to UUID (fall back to treating param as UUID for old users)
-const { data: resolvedId } = await useAsyncData(
-  `resolve-${param.value}`,
-  () => resolveUsername(param.value).catch(() => null),
+const { data: resolvedId } = await useAsyncData(`resolve-${param.value}`, () =>
+  resolveUsername(param.value).catch(() => null)
 );
 
 const userId = resolvedId.value ? String(resolvedId.value) : param.value;
 
 // Always fetch public profile first (used for ownership check + public view)
-const { data: publicProfile, error, refresh: refreshPublic } = await useAsyncData<PublicUser>(
-  `user-profile-${userId}`,
-  () => fetchPublicProfile(userId),
+const {
+  data: publicProfile,
+  error,
+  refresh: refreshPublic
+} = await useAsyncData<PublicUser>(`user-profile-${userId}`, () =>
+  fetchPublicProfile(userId)
 );
 
 if (error.value || !publicProfile.value) {
-  throw createError({ statusCode: 404, statusMessage: 'Profile not found', fatal: true });
+  throw createError({
+    statusCode: 404,
+    statusMessage: 'Profile not found',
+    fatal: true
+  });
 }
 
 // Re-fetch client-side to get auth-aware data (has_hearted).
@@ -33,12 +48,14 @@ onMounted(() => {
   if (authStore.isAuthenticated) refreshPublic();
 });
 
-const isOwnProfile = computed(() => authStore.user?.id === publicProfile.value?.id);
+const isOwnProfile = computed(
+  () => authStore.user?.id === publicProfile.value?.id
+);
 
 useHead(() => ({
   title: publicProfile.value
     ? `${publicProfile.value.first_name} ${publicProfile.value.last_name}'s Profile`
-    : 'Profile',
+    : 'Profile'
 }));
 
 // ── Own profile ──────────────────────────────────────────────────────────────
@@ -59,7 +76,8 @@ const privacy = computed(() => ({
   show_tournaments: true,
   show_open_play: true,
   show_favorite_sports: true,
-  ...ownProfile.value?.profile_privacy,
+  show_joined_hubs: true,
+  ...ownProfile.value?.profile_privacy
 }));
 
 async function saveHubOrder(ids: string[]) {
@@ -114,15 +132,19 @@ async function togglePrivacy(key: string, val: boolean) {
 
 // ── Public profile ────────────────────────────────────────────────────────────
 
-const publicPrivacy = computed(() => publicProfile.value?.privacy ?? {
-  show_owned_hubs: true,
-  show_visited_hubs: true,
-  show_leaderboard: true,
-  show_hearts: true,
-  show_tournaments: true,
-  show_open_play: true,
-  show_favorite_sports: true,
-});
+const publicPrivacy = computed(
+  () =>
+    publicProfile.value?.privacy ?? {
+      show_owned_hubs: true,
+      show_visited_hubs: true,
+      show_leaderboard: true,
+      show_hearts: true,
+      show_tournaments: true,
+      show_open_play: true,
+      show_favorite_sports: true,
+      show_joined_hubs: true
+    }
+);
 
 async function onToggleHeart() {
   if (!authStore.isAuthenticated) {
@@ -131,14 +153,21 @@ async function onToggleHeart() {
   }
   const result = await toggleHeart(userId);
   if (publicProfile.value) {
-    publicProfile.value = { ...publicProfile.value, has_hearted: result.hearted, hearts_count: result.hearts_count };
+    publicProfile.value = {
+      ...publicProfile.value,
+      has_hearted: result.hearted,
+      hearts_count: result.hearts_count
+    };
   }
 }
 </script>
 
 <template>
   <!-- Own profile (editable) -->
-  <div v-if="isOwnProfile && ownProfile" class="min-h-screen bg-[var(--aktiv-background)]">
+  <div
+    v-if="isOwnProfile && ownProfile"
+    class="min-h-screen bg-[var(--aktiv-background)]"
+  >
     <ProfileHeader
       :profile="ownProfile"
       :is-own="true"
@@ -148,100 +177,153 @@ async function onToggleHeart() {
       @edit-info="editModalOpen = true"
     />
 
-    <div class="mx-auto max-w-4xl px-4 pb-12 md:px-6">
+    <div class="mx-auto max-w-5xl px-4 pb-12 md:px-6">
       <div class="mb-5 flex items-center justify-end gap-2">
-        <UButton v-if="editing" icon="i-heroicons-check" size="sm" @click="editing = false">
+        <UButton
+          v-if="editing"
+          icon="i-heroicons-check"
+          size="sm"
+          @click="editing = false"
+        >
           Done
         </UButton>
-        <UButton v-else variant="ghost" color="neutral" size="sm" @click="editing = true">
+        <UButton
+          v-else
+          variant="ghost"
+          color="neutral"
+          size="sm"
+          @click="editing = true"
+        >
           Edit Profile
         </UButton>
       </div>
 
-      <div class="space-y-4">
-        <div
-          v-if="editing"
-          class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4"
-        >
-          <h3 class="mb-3 text-lg font-bold text-[var(--aktiv-ink)]">More Visibility Settings</h3>
-          <div class="space-y-3">
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <p class="text-sm font-medium text-[var(--aktiv-ink)]">Hearts</p>
-                <p class="text-xs text-[var(--aktiv-muted)]">Show your heart count on your public profile</p>
-              </div>
-              <USwitch
-                :model-value="privacy.show_hearts"
-                :disabled="savingPrivacy"
-                @update:model-value="(val) => togglePrivacy('show_hearts', val)"
-              />
+      <div class="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
+        <!-- Left column (sticky) -->
+        <div class="space-y-4 lg:sticky lg:top-6 lg:self-start">
+          <!-- About -->
+          <div
+            class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4 md:p-6"
+          >
+            <div class="flex items-center justify-between gap-2">
+              <h3 class="mb-1 text-lg font-bold text-[var(--aktiv-ink)]">
+                About
+              </h3>
+              <button
+                v-if="editing"
+                type="button"
+                class="flex h-7 w-7 items-center justify-center rounded-full text-[var(--aktiv-muted)] hover:bg-[var(--aktiv-border)] hover:text-[var(--aktiv-ink)]"
+                @click="editModalOpen = true"
+              >
+                <UIcon name="i-heroicons-pencil" class="h-3.5 w-3.5" />
+              </button>
             </div>
-            <div class="flex items-center justify-between gap-3">
-              <div>
-                <p class="text-sm font-medium text-[var(--aktiv-ink)]">Favorite Sports</p>
-                <p class="text-xs text-[var(--aktiv-muted)]">Show your most-played sports</p>
-              </div>
-              <USwitch
-                :model-value="privacy.show_favorite_sports"
-                :disabled="savingPrivacy"
-                @update:model-value="(val) => togglePrivacy('show_favorite_sports', val)"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4 md:p-6">
-          <div class="flex items-center justify-between gap-2">
-            <h3 class="mb-1 text-lg font-bold text-[var(--aktiv-ink)]">About</h3>
-            <button
-              v-if="editing"
-              type="button"
-              class="flex h-7 w-7 items-center justify-center rounded-full text-[var(--aktiv-muted)] hover:bg-[var(--aktiv-border)] hover:text-[var(--aktiv-ink)]"
-              @click="editModalOpen = true"
+            <p
+              v-if="ownProfile.bio"
+              class="mt-1 whitespace-pre-wrap text-base leading-relaxed text-[var(--aktiv-muted)]"
             >
-              <UIcon name="i-heroicons-pencil" class="h-3.5 w-3.5" />
-            </button>
+              {{ ownProfile.bio }}
+            </p>
+            <p v-else class="mt-1 text-sm italic text-[var(--aktiv-muted)]">
+              No bio yet.
+            </p>
           </div>
-          <p v-if="ownProfile.bio" class="mt-1 whitespace-pre-wrap text-base leading-relaxed text-[var(--aktiv-muted)]">
-            {{ ownProfile.bio }}
-          </p>
-          <p v-else class="mt-1 text-sm italic text-[var(--aktiv-muted)]">No bio yet.</p>
+
+          <!-- Joined Hubs -->
+          <ProfileJoinedHubsCard
+            :hubs="ownProfile.joined_hubs"
+            :hidden="!privacy.show_joined_hubs"
+            :editing="editing"
+            :show-eye="true"
+            @toggle-privacy="(val) => togglePrivacy('show_joined_hubs', val)"
+          />
+
+          <!-- Hubs Owned -->
+          <ProfileOwnedHubsCard
+            v-if="ownProfile.is_hub_owner"
+            :hubs="ownProfile.owned_hubs"
+            :hidden="!privacy.show_owned_hubs"
+            :editing="editing"
+            :show-eye="true"
+            @toggle-privacy="(val) => togglePrivacy('show_owned_hubs', val)"
+            @reorder="saveHubOrder"
+            @toggle-hub-visibility="toggleHubVisibility"
+          />
         </div>
 
-        <ProfileOwnedHubsCard
-          v-if="ownProfile.is_hub_owner"
-          :hubs="ownProfile.owned_hubs"
-          :hidden="!privacy.show_owned_hubs"
-          :editing="editing"
-          :show-eye="true"
-          @toggle-privacy="(val) => togglePrivacy('show_owned_hubs', val)"
-          @reorder="saveHubOrder"
-          @toggle-hub-visibility="toggleHubVisibility"
-        />
-        <ProfileVisitedHubs
-          :hidden="!privacy.show_visited_hubs"
-          :editing="editing"
-          :show-eye="true"
-          @toggle-privacy="(val) => togglePrivacy('show_visited_hubs', val)"
-        />
-        <ProfileStatsCard
-          :hidden="!privacy.show_leaderboard"
-          :editing="editing"
-          :show-eye="true"
-          @toggle-privacy="(val) => togglePrivacy('show_leaderboard', val)"
-        />
-        <ProfileTournamentsCard
-          :hidden="!privacy.show_tournaments"
-          :editing="editing"
-          :show-eye="true"
-          @toggle-privacy="(val) => togglePrivacy('show_tournaments', val)"
-        />
-        <ProfileOpenPlayCard
-          :hidden="!privacy.show_open_play"
-          :editing="editing"
-          :show-eye="true"
-          @toggle-privacy="(val) => togglePrivacy('show_open_play', val)"
-        />
+        <!-- Right column -->
+        <div class="space-y-4">
+          <!-- Visibility Settings (edit mode) -->
+          <div
+            v-if="editing"
+            class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4"
+          >
+            <h3 class="mb-3 text-lg font-bold text-[var(--aktiv-ink)]">
+              More Visibility Settings
+            </h3>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-sm font-medium text-[var(--aktiv-ink)]">
+                    Hearts
+                  </p>
+                  <p class="text-xs text-[var(--aktiv-muted)]">
+                    Show your heart count on your public profile
+                  </p>
+                </div>
+                <USwitch
+                  :model-value="privacy.show_hearts"
+                  :disabled="savingPrivacy"
+                  @update:model-value="
+                    (val) => togglePrivacy('show_hearts', val)
+                  "
+                />
+              </div>
+              <div class="flex items-center justify-between gap-3">
+                <div>
+                  <p class="text-sm font-medium text-[var(--aktiv-ink)]">
+                    Favorite Sports
+                  </p>
+                  <p class="text-xs text-[var(--aktiv-muted)]">
+                    Show your most-played sports
+                  </p>
+                </div>
+                <USwitch
+                  :model-value="privacy.show_favorite_sports"
+                  :disabled="savingPrivacy"
+                  @update:model-value="
+                    (val) => togglePrivacy('show_favorite_sports', val)
+                  "
+                />
+              </div>
+            </div>
+          </div>
+
+          <ProfileVisitedHubs
+            :hidden="!privacy.show_visited_hubs"
+            :editing="editing"
+            :show-eye="true"
+            @toggle-privacy="(val) => togglePrivacy('show_visited_hubs', val)"
+          />
+          <ProfileStatsCard
+            :hidden="!privacy.show_leaderboard"
+            :editing="editing"
+            :show-eye="true"
+            @toggle-privacy="(val) => togglePrivacy('show_leaderboard', val)"
+          />
+          <ProfileTournamentsCard
+            :hidden="!privacy.show_tournaments"
+            :editing="editing"
+            :show-eye="true"
+            @toggle-privacy="(val) => togglePrivacy('show_tournaments', val)"
+          />
+          <ProfileOpenPlayCard
+            :hidden="!privacy.show_open_play"
+            :editing="editing"
+            :show-eye="true"
+            @toggle-privacy="(val) => togglePrivacy('show_open_play', val)"
+          />
+        </div>
       </div>
     </div>
 
@@ -253,7 +335,10 @@ async function onToggleHeart() {
   </div>
 
   <!-- Public profile (read-only) -->
-  <div v-else-if="publicProfile" class="min-h-screen bg-[var(--aktiv-background)]">
+  <div
+    v-else-if="publicProfile"
+    class="min-h-screen bg-[var(--aktiv-background)]"
+  >
     <ProfileHeader
       :profile="publicProfile"
       :is-own="false"
@@ -261,32 +346,78 @@ async function onToggleHeart() {
       @toggle-heart="onToggleHeart"
     />
 
-    <div class="mx-auto max-w-4xl px-4 pb-12 md:px-6">
-      <div class="mt-6 grid grid-cols-1 gap-5">
-        <div class="space-y-5">
-          <div class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4 md:p-6">
-            <h3 class="mb-1 text-lg font-bold text-[var(--aktiv-ink)]">About</h3>
-            <p v-if="publicProfile.bio" class="mt-1 whitespace-pre-wrap text-base leading-relaxed text-[var(--aktiv-muted)]">
+    <div class="mx-auto max-w-5xl px-4 pb-12 md:px-6">
+      <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
+        <!-- Left column (sticky) -->
+        <div class="space-y-4 lg:sticky lg:top-6 lg:self-start">
+          <!-- About -->
+          <div
+            class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4 md:p-6"
+          >
+            <h3 class="mb-1 text-lg font-bold text-[var(--aktiv-ink)]">
+              About
+            </h3>
+            <p
+              v-if="publicProfile.bio"
+              class="mt-1 whitespace-pre-wrap text-base leading-relaxed text-[var(--aktiv-muted)]"
+            >
               {{ publicProfile.bio }}
             </p>
-            <p v-else class="mt-1 text-sm italic text-[var(--aktiv-muted)]">No bio yet.</p>
+            <p v-else class="mt-1 text-sm italic text-[var(--aktiv-muted)]">
+              No bio yet.
+            </p>
           </div>
+
+          <!-- Joined Hubs -->
+          <ProfileJoinedHubsCard
+            v-if="publicPrivacy.show_joined_hubs"
+            :hubs="publicProfile.joined_hubs"
+            :hidden="false"
+          />
+
+          <!-- Hubs Owned -->
           <ProfileOwnedHubsCard
             v-if="publicProfile.is_hub_owner && publicPrivacy.show_owned_hubs"
             :hubs="publicProfile.owned_hubs"
             :hidden="false"
           />
-          <ProfileVisitedHubs v-if="publicPrivacy.show_visited_hubs" :hidden="false" />
-          <ProfileStatsCard v-if="publicPrivacy.show_leaderboard" :hidden="false" />
-          <ProfileTournamentsCard v-if="publicPrivacy.show_tournaments" :hidden="false" />
-          <ProfileOpenPlayCard v-if="publicPrivacy.show_open_play" :hidden="false" />
+        </div>
+
+        <!-- Right column -->
+        <div class="space-y-4">
+          <ProfileVisitedHubs
+            v-if="publicPrivacy.show_visited_hubs"
+            :hidden="false"
+          />
+          <ProfileStatsCard
+            v-if="publicPrivacy.show_leaderboard"
+            :hidden="false"
+          />
+          <ProfileTournamentsCard
+            v-if="publicPrivacy.show_tournaments"
+            :hidden="false"
+          />
+          <ProfileOpenPlayCard
+            v-if="publicPrivacy.show_open_play"
+            :hidden="false"
+          />
 
           <div
-            v-if="!publicPrivacy.show_visited_hubs && !publicPrivacy.show_leaderboard && !publicPrivacy.show_tournaments && !publicPrivacy.show_open_play"
+            v-if="
+              !publicPrivacy.show_visited_hubs &&
+              !publicPrivacy.show_leaderboard &&
+              !publicPrivacy.show_tournaments &&
+              !publicPrivacy.show_open_play
+            "
             class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-6 py-10 text-center"
           >
-            <UIcon name="i-heroicons-lock-closed" class="mx-auto mb-3 h-8 w-8 text-[var(--aktiv-muted)] opacity-40" />
-            <p class="text-sm text-[var(--aktiv-muted)]">This user's stats are private.</p>
+            <UIcon
+              name="i-heroicons-lock-closed"
+              class="mx-auto mb-3 h-8 w-8 text-[var(--aktiv-muted)] opacity-40"
+            />
+            <p class="text-sm text-[var(--aktiv-muted)]">
+              This user's stats are private.
+            </p>
           </div>
         </div>
       </div>

@@ -1,5 +1,12 @@
 <script setup lang="ts">
+import { useHubStore } from '~/stores/hub';
+
 const sidebarOpen = ref(false);
+const hubStore = useHubStore();
+
+if (!hubStore.initialized) {
+  await hubStore.fetchMyHubs();
+}
 const scrolled = ref(false);
 
 onMounted(() => {

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hub\StoreHubRequest;
 use App\Http\Requests\Hub\UpdateHubRequest;
+use App\Http\Resources\HubMemberResource;
 use App\Models\Hub;
 use App\Models\HubContactNumber;
 use App\Models\HubEvent;
@@ -150,7 +151,23 @@ class HubController extends Controller
             ->where('date_to', '>=', $todayStart)
             ->get();
 
-        return response()->json(['data' => $this->formatHub($hub, withBreakdown: true, activeEvents: $activeEvents)]);
+        $membersCount = $hub->members()->count();
+        $memberPreview = $hub->members()
+            ->with('user:id,first_name,last_name,username,avatar_thumb_url')
+            ->limit(5)
+            ->get();
+        $isMember = auth('sanctum')->id()
+            ? $hub->members()->where('user_id', auth('sanctum')->id())->exists()
+            : false;
+
+        return response()->json(['data' => $this->formatHub(
+            $hub,
+            withBreakdown: true,
+            activeEvents: $activeEvents,
+            membersCount: $membersCount,
+            memberPreview: $memberPreview,
+            isMember: $isMember,
+        )]);
     }
 
     /**
@@ -573,7 +590,7 @@ class HubController extends Controller
             ->all();
     }
 
-    private function formatHub(Hub $hub, bool $withBreakdown = false, ?\Illuminate\Support\Collection $activeEvents = null): array
+    private function formatHub(Hub $hub, bool $withBreakdown = false, ?\Illuminate\Support\Collection $activeEvents = null, int $membersCount = 0, ?\Illuminate\Support\Collection $memberPreview = null, bool $isMember = false): array
     {
         return [
             'id'                   => $hub->id,
@@ -644,6 +661,11 @@ class HubController extends Controller
             'has_active_announcement'  => $activeEvents
                 ? $activeEvents->contains('event_type', 'announcement')
                 : false,
+            'members_count'  => $membersCount,
+            'member_preview' => $memberPreview !== null
+                ? HubMemberResource::collection($memberPreview)->resolve()
+                : [],
+            'is_member'      => $isMember,
             'active_events'            => $withBreakdown && $activeEvents !== null
                 ? $activeEvents->values()->map(fn (HubEvent $e): array => [
                     'id'               => $e->id,

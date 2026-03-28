@@ -164,23 +164,13 @@ const name = computed(
       <!-- Centered avatar (outside overflow-hidden banner, overlapping its bottom edge) -->
       <div class="absolute bottom-0 left-1/2 translate-y-1/2 -translate-x-1/2">
         <div class="relative">
-          <!-- Custom avatar — UAvatar max size is too small -->
-          <div
-            class="h-28 w-28 rounded-full ring-4 ring-[var(--aktiv-surface)] overflow-hidden bg-[var(--aktiv-border)] flex items-center justify-center shrink-0"
-          >
-            <img
-              v-if="profile.avatar_url"
-              :src="profile.avatar_url"
-              :alt="name"
-              class="h-full w-full object-cover"
-            />
-            <span
-              v-else
-              class="text-3xl font-black text-[var(--aktiv-muted)] select-none uppercase"
-            >
-              {{ name?.charAt(0) ?? '?' }}
-            </span>
-          </div>
+          <AppAvatar
+            size="full"
+            :src="profile.avatar_url"
+            :name="name"
+            :alt="name"
+            :premium="profile.is_premium"
+          />
           <button
             v-if="isOwn && editing"
             type="button"

@@ -114,7 +114,7 @@ function formatDate(iso: string) {
           <!-- Booking summary -->
           <div
             v-if="booking"
-            class="mb-4 rounded-lg border border-[#dbe4ef] bg-[#f9fdf2] px-4 py-3 text-sm"
+            class="mb-4 rounded-lg border border-[#dbe4ef] bg-[var(--aktiv-background)] px-4 py-3 text-sm"
           >
             <div v-if="courtName" class="font-medium text-[#0f1728]">
               {{ courtName }}

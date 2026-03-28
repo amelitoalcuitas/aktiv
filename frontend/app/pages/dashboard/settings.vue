@@ -11,7 +11,7 @@ const toast = useToast();
 
 // ── Hub selector ──────────────────────────────────────────────
 
-const selectedHubId = ref<number | undefined>(undefined);
+const selectedHubId = ref<string | undefined>(undefined);
 
 const hubOptions = computed(() =>
   hubStore.myHubs.map((h: Hub) => ({ label: h.name, value: h.id }))
@@ -389,6 +389,10 @@ async function saveSettings() {
                     Customers send payment digitally before arriving. Upload
                     your payment QR code so customers know where to send their
                     payment.
+                    <strong>
+                      Take note that you have to manually confirm their
+                      payment.</strong
+                    >
                   </p>
 
                   <!-- Digital bank account info -->

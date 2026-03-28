@@ -84,16 +84,18 @@ const userSearchQuery = ref('');
 const userSearchResults = ref<
   {
     id: string;
-    name: string;
+    first_name: string;
+    last_name: string;
     email: string;
-    phone: string | null;
+    contact_number: string | null;
     avatar_url: string | null;
   }[]
 >([]);
 const userSearchLoading = ref(false);
 const selectedUser = ref<{
   id: string;
-  name: string;
+  first_name: string;
+  last_name: string;
   email: string;
 } | null>(null);
 
@@ -119,7 +121,7 @@ watch(userSearchQuery, (q) => {
 
 const userSelectItems = computed(() =>
   userSearchResults.value.map((u) => ({
-    label: u.name,
+    label: `${u.first_name} ${u.last_name}`.trim(),
     value: u.id,
     email: u.email
   }))
@@ -133,7 +135,8 @@ function onUserSelect(
     walkInForm.bookedBy = undefined;
     return;
   }
-  selectedUser.value = { id: item.value, name: item.label, email: item.email };
+  const found = userSearchResults.value.find((u) => u.id === item.value);
+  selectedUser.value = { id: item.value, first_name: found?.first_name ?? item.label, last_name: found?.last_name ?? '', email: item.email };
   walkInForm.bookedBy = item.value;
   userSearchQuery.value = '';
 }
@@ -436,7 +439,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             >
               <div>
                 <p class="text-sm font-medium text-[#0f1728]">
-                  {{ selectedUser.name }}
+                  {{ `${selectedUser.first_name} ${selectedUser.last_name}`.trim() }}
                 </p>
                 <p class="text-sm text-[#64748b]">{{ selectedUser.email }}</p>
               </div>

@@ -40,7 +40,9 @@ class OAuthController extends Controller
         ]);
 
         if (! $user->exists) {
-            $user->name = $socialiteUser->getName() ?: 'Google User';
+            $parts = explode(' ', $socialiteUser->getName() ?: 'Google User', 2);
+            $user->first_name = $parts[0];
+            $user->last_name = $parts[1] ?? '';
             $user->role = UserRole::User;
         }
 

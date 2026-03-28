@@ -33,7 +33,7 @@ class OwnerBookingController extends Controller
         $query = Booking::whereIn('court_id', $courtIds)
             ->with([
                 'court:id,name,hub_id',
-                'bookedBy:id,name,email,phone,avatar_url',
+                'bookedBy:id,first_name,last_name,email,contact_number,avatar_url',
             ])
             ->orderByDesc('created_at');
 
@@ -317,12 +317,13 @@ class OwnerBookingController extends Controller
         $q = '%'.trim($request->q).'%';
 
         $users = User::where(function ($query) use ($q) {
-            $query->where('name', 'ilike', $q)
+            $query->where('first_name', 'ilike', $q)
+                ->orWhere('last_name', 'ilike', $q)
                 ->orWhere('email', 'ilike', $q)
-                ->orWhere('phone', 'ilike', $q);
+                ->orWhere('contact_number', 'ilike', $q);
         })
             ->limit(20)
-            ->get(['id', 'name', 'email', 'phone', 'avatar_url']);
+            ->get(['id', 'first_name', 'last_name', 'email', 'contact_number', 'avatar_url']);
 
         return response()->json(['data' => $users]);
     }
@@ -340,7 +341,7 @@ class OwnerBookingController extends Controller
         $booking = Booking::query()
             ->whereIn('court_id', $courtIds)
             ->where('booking_code', strtoupper(trim($code)))
-            ->with(['court:id,name,hub_id', 'bookedBy:id,name,email,phone,avatar_url'])
+            ->with(['court:id,name,hub_id', 'bookedBy:id,first_name,last_name,email,contact_number,avatar_url'])
             ->first();
 
         if (! $booking) {
@@ -372,9 +373,10 @@ class OwnerBookingController extends Controller
             'booked_by' => $booking->booked_by,
             'booked_by_user' => $booking->bookedBy ? [
                 'id' => $booking->bookedBy->id,
-                'name' => $booking->bookedBy->name,
+                'first_name' => $booking->bookedBy->first_name,
+                'last_name' => $booking->bookedBy->last_name,
                 'email' => $booking->bookedBy->email,
-                'phone' => $booking->bookedBy->phone,
+                'contact_number' => $booking->bookedBy->contact_number,
                 'avatar_url' => $booking->bookedBy->avatar_url,
             ] : null,
             'guest_name' => $booking->guest_name,

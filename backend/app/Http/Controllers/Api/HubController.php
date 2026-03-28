@@ -133,7 +133,7 @@ class HubController extends Controller
             abort(404);
         }
 
-        $hub->load(['sports', 'courts.sports', 'owner:id,name,avatar_url', 'images', 'contactNumbers', 'websites', 'operatingHours', 'settings']);
+        $hub->load(['sports', 'courts.sports', 'owner:id,first_name,last_name,avatar_url', 'images', 'contactNumbers', 'websites', 'operatingHours', 'settings']);
         $hub->loadCount('courts');
         $hub->loadAggregate('courts', 'min(price_per_hour)');
         $hub->loadAvg('ratings', 'rating');

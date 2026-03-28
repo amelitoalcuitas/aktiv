@@ -162,7 +162,7 @@ defineExpose({ clear });
         :class="[
           isDragging
             ? 'border-[#004e89] bg-[#e8f0f8]'
-            : 'border-[var(--aktiv-border,#dbe4ef)] bg-[var(--aktiv-bg,#f9fdf2)] hover:border-[#004e89] hover:bg-[#e8f0f8]',
+            : 'border-[var(--aktiv-border,#dbe4ef)] bg-[var(--aktiv-background)] hover:border-[#004e89] hover:bg-[#e8f0f8]',
           previewItems.length > 0 ? 'h-48 border-solid p-0' : 'border-dashed px-6 py-6 text-center'
         ]"
         @click="previewItems.length === 0 ? fileInput?.click() : null"
@@ -228,7 +228,7 @@ defineExpose({ clear });
         :class="
           isDragging
             ? 'border-[#004e89] bg-[#e8f0f8]'
-            : 'border-[var(--aktiv-border,#dbe4ef)] bg-[var(--aktiv-bg,#f9fdf2)] hover:border-[#004e89] hover:bg-[#e8f0f8]'
+            : 'border-[var(--aktiv-border,#dbe4ef)] bg-[var(--aktiv-background)] hover:border-[#004e89] hover:bg-[#e8f0f8]'
         "
         @click="fileInput?.click()"
         @dragover.prevent="isDragging = true"

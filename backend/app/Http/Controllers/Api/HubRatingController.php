@@ -27,7 +27,7 @@ class HubRatingController extends Controller
     public function index(Hub $hub, Request $request): AnonymousResourceCollection
     {
         $query = $hub->ratings()
-            ->with(['user:id,name,avatar_url', 'booking.court:id,name', 'images']);
+            ->with(['user:id,first_name,last_name,avatar_url', 'booking.court:id,name', 'images']);
 
         if ($request->filled('court')) {
             $query->whereHas('booking.court', fn ($q) =>
@@ -118,7 +118,7 @@ class HubRatingController extends Controller
             return $rating;
         });
 
-        $rating->load(['user:id,name,avatar_url', 'booking.court:id,name', 'images']);
+        $rating->load(['user:id,first_name,last_name,avatar_url', 'booking.court:id,name', 'images']);
 
         return response()->json(['data' => new HubRatingResource($rating)], 201);
     }

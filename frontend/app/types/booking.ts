@@ -46,9 +46,10 @@ export interface BookingDetail extends Booking {
   court: { id: string; name: string; hub_id: string } | null;
   booked_by_user: {
     id: string;
-    name: string;
+    first_name: string;
+    last_name: string;
     email: string;
-    phone: string | null;
+    contact_number: string | null;
     avatar_url: string | null;
   } | null;
 }

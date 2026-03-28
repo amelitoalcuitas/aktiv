@@ -13,31 +13,49 @@ const verifyHub = computed(() => hubStore.myHubs[0] ?? null);
 
 const navGroups = [
   {
-    items: [
-      { label: 'Overview', icon: 'i-heroicons-home', to: '/dashboard' },
-    ]
+    items: [{ label: 'Overview', icon: 'i-heroicons-home', to: '/dashboard' }]
   },
   {
     label: 'Hub Management',
     items: [
-      { label: 'My Hubs', icon: 'i-heroicons-building-office-2', to: '/dashboard/hubs' },
-      { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: '/dashboard/courts' },
+      {
+        label: 'My Hubs',
+        icon: 'i-heroicons-building-office-2',
+        to: '/dashboard/hubs'
+      },
+      {
+        label: 'Courts',
+        icon: 'i-heroicons-squares-2x2',
+        to: '/dashboard/courts'
+      }
     ]
   },
   {
     label: 'Operations',
     items: [
-      { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: '/dashboard/bookings' },
-      { label: 'Events', icon: 'i-heroicons-megaphone', to: '/dashboard/events' },
-      { label: 'Reviews', icon: 'i-heroicons-star', to: '/dashboard/reviews' },
+      {
+        label: 'Bookings',
+        icon: 'i-heroicons-calendar-days',
+        to: '/dashboard/bookings'
+      },
+      {
+        label: 'Events',
+        icon: 'i-heroicons-megaphone',
+        to: '/dashboard/events'
+      },
+      { label: 'Reviews', icon: 'i-heroicons-star', to: '/dashboard/reviews' }
     ]
   },
   {
-    label: 'Account',
+    label: 'Settings',
     items: [
-      { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: '/dashboard/settings' },
+      {
+        label: 'Settings',
+        icon: 'i-heroicons-cog-6-tooth',
+        to: '/dashboard/settings'
+      }
     ]
-  },
+  }
 ];
 
 const isActive = (to: string) => {
@@ -125,13 +143,9 @@ watch(() => route.path, close);
         </ul>
       </div>
     </nav>
-
   </aside>
 
-  <BookingVerifyModal
-    v-model:open="isVerifyModalOpen"
-    :hub="verifyHub"
-  />
+  <BookingVerifyModal v-model:open="isVerifyModalOpen" :hub="verifyHub" />
 </template>
 
 <style scoped>

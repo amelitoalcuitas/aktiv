@@ -12,7 +12,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-[#f9fdf2]">
+  <div class="flex min-h-screen bg-[var(--aktiv-background)]">
     <AppDashboardSidebar v-model:open="sidebarOpen" />
     <div class="flex min-h-screen flex-1 flex-col min-w-0 md:ml-60">
       <!-- Top bar (mobile + desktop) -->

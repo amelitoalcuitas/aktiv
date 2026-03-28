@@ -441,7 +441,7 @@ onUnmounted(() => {
               <div
                 v-for="court in courts"
                 :key="court.id"
-                class="flex flex-col overflow-hidden rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-bg)]"
+                class="flex flex-col overflow-hidden rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-background)]"
               >
                 <!-- Court image banner -->
                 <div

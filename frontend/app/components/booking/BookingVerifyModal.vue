@@ -231,7 +231,7 @@ const statusLabels: Record<string, string> = {
         <div v-if="foundBooking" class="space-y-4">
           <!-- Customer info -->
           <div
-            class="rounded-xl border border-[#dbe4ef] bg-[#f9fdf2] p-4 space-y-2"
+            class="rounded-xl border border-[#dbe4ef] bg-[var(--aktiv-background)] p-4 space-y-2"
           >
             <div class="flex items-center justify-between">
               <span class="text-xs text-[#64748b]">Status</span>
@@ -391,7 +391,7 @@ const statusLabels: Record<string, string> = {
         <div v-else class="space-y-4">
           <!-- Tab toggle -->
           <div
-            class="flex rounded-lg border border-[#dbe4ef] bg-[#f9fdf2] p-1 gap-1"
+            class="flex rounded-lg border border-[#dbe4ef] bg-[var(--aktiv-background)] p-1 gap-1"
           >
             <button
               v-for="tab in [

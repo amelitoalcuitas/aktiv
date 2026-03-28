@@ -17,7 +17,8 @@ class AuthApiTest extends TestCase
     public function test_user_can_register_via_api(): void
     {
         $response = $this->postJson('/api/auth/register', [
-            'name' => 'Jane Doe',
+            'first_name' => 'Jane',
+            'last_name' => 'Doe',
             'email' => 'jane@example.com',
             'password' => 'password123',
             'password_confirmation' => 'password123',
@@ -26,7 +27,7 @@ class AuthApiTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonStructure([
-                'user' => ['id', 'name', 'email'],
+                'user' => ['id', 'first_name', 'last_name', 'email'],
                 'token',
                 'token_type',
             ]);

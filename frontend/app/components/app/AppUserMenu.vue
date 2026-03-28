@@ -10,7 +10,11 @@ const fullName = computed(() =>
 );
 
 const profileLink = computed(() =>
-  user.value?.username ? `/profile/${user.value.username}` : '/profile'
+  user.value?.username
+    ? `/profile/${user.value.username}`
+    : user.value?.id
+      ? `/profile/${user.value.id}`
+      : '/profile'
 );
 
 const menuItems = computed(() => {
@@ -29,7 +33,7 @@ const menuItems = computed(() => {
       icon: 'i-heroicons-calendar-days',
       to: '/bookings'
     },
-    { label: 'Profile', icon: 'i-heroicons-user', to: profileLink.value }
+    { label: 'Profile', icon: 'i-heroicons-user', to: profileLink }
   ]);
 
   items.push([

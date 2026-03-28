@@ -162,7 +162,7 @@ function abbreviateName(fullName: string): string {
 }
 
 function bookingLabel(booking: BookingDetail): string {
-  if (booking.booked_by_user) return abbreviateName(booking.booked_by_user.name);
+  if (booking.booked_by_user) return abbreviateName(`${booking.booked_by_user.first_name} ${booking.booked_by_user.last_name}`.trim());
   if (booking.guest_name) return abbreviateName(booking.guest_name);
   return 'Booked';
 }

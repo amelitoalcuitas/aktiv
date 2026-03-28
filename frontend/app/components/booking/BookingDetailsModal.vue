@@ -119,7 +119,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 // Helper formats
 function customerLabel(b: BookingDetail | null): string {
   if (!b) return 'Unknown';
-  if (b.booked_by_user) return b.booked_by_user.name;
+  if (b.booked_by_user) return `${b.booked_by_user.first_name} ${b.booked_by_user.last_name}`.trim();
   if (b.guest_name) return `${b.guest_name} (guest)`;
   return 'Unknown';
 }

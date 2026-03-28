@@ -135,7 +135,7 @@ function formatRange(start: string, end: string): string {
         <!-- Booking summary -->
         <div
           v-if="booking"
-          class="rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-bg)] p-3 text-sm"
+          class="rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-background)] p-3 text-sm"
         >
           <p class="font-semibold text-[var(--aktiv-ink)]">
             {{ courtName ?? `Court #${booking.id}` }}

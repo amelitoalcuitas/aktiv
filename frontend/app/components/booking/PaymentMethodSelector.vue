@@ -99,7 +99,7 @@ async function downloadQr() {
           hub?.digital_bank_name ||
           hub?.digital_bank_account)
       "
-      class="rounded-lg border border-[#dbe4ef] bg-[#f9fdf2] p-3 space-y-0.5"
+      class="rounded-lg border border-[#dbe4ef] bg-[var(--aktiv-background)] p-3 space-y-0.5"
     >
       <!-- Account info -->
       <div
@@ -142,7 +142,7 @@ async function downloadQr() {
   <!-- Single option: inline notice -->
   <div
     v-else-if="modelValue"
-    class="rounded-lg border border-[#dbe4ef] bg-[#f9fdf2] px-3 py-2.5"
+    class="rounded-lg border border-[#dbe4ef] bg-[var(--aktiv-background)] px-3 py-2.5"
   >
     <div class="flex items-center gap-2 text-sm">
       <UIcon

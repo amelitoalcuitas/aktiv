@@ -19,7 +19,8 @@ class EmailVerificationTest extends TestCase
         Notification::fake();
 
         $this->postJson('/api/auth/register', [
-            'name'                  => 'Jane Doe',
+            'first_name'            => 'Jane',
+            'last_name'             => 'Doe',
             'email'                 => 'jane@example.com',
             'password'              => 'password123',
             'password_confirmation' => 'password123',
@@ -35,7 +36,8 @@ class EmailVerificationTest extends TestCase
         Notification::fake(); // prevent actual email sending
 
         $this->postJson('/api/auth/register', [
-            'name'                  => 'Jane Doe',
+            'first_name'            => 'Jane',
+            'last_name'             => 'Doe',
             'email'                 => 'jane@example.com',
             'password'              => 'password123',
             'password_confirmation' => 'password123',

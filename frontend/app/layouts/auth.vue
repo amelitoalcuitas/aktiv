@@ -1,5 +1,5 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-[#f9fdf2] px-4">
+  <div class="flex min-h-screen items-center justify-center bg-[var(--aktiv-background)] px-4">
     <div class="w-full max-w-[420px]">
       <div class="mb-8 flex flex-col items-center text-center">
         <NuxtLink to="/" class="flex flex-col items-center gap-3">

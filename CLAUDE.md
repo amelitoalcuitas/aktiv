@@ -28,10 +28,12 @@ docker compose up -d
 ### Backend (Laravel 12)
 
 > **All `php artisan` and `composer` commands must be run inside the Docker container:**
+>
 > ```bash
 > docker compose exec backend php artisan <command>
 > docker compose exec backend composer <command>
 > ```
+>
 > Never run these directly on the host — the backend process runs inside Docker and needs access to the database, Redis, and other services.
 
 ```bash
@@ -144,7 +146,7 @@ new Date(iso).toLocaleString('en-PH', { ... })
 - No hardcoded colors — use Nuxt theme tokens or CSS variables from `frontend/app/assets/css/main.css`
 - Style is flat and minimal: no gradients, glassmorphism, or heavy shadows
 - Check `frontend/app/components/` for existing components before creating new ones
-- Primary color: `#004e89` · Background: `#f9fdf2`
+- Primary color: `#004e89` · Background: `#ecf4fc`
 
 ### Booking Flow Summary
 
@@ -170,15 +172,15 @@ See `SCHEDULER_FLOW.md` for full booking flow details.
 
 ## Infrastructure
 
-| Service | Purpose | Host Port |
-|---------|---------|-----------|
-| nginx | Reverse proxy | 8080 |
-| frontend | Nuxt dev server | internal |
-| backend | PHP-FPM | internal |
-| db | PostgreSQL 16 | 5433 |
-| redis | Cache + queue | 6379 |
-| mailpit | Email catcher (dev) | 8025 |
-| minio | S3-compatible storage | 9000, 9001 |
+| Service  | Purpose               | Host Port  |
+| -------- | --------------------- | ---------- |
+| nginx    | Reverse proxy         | 8080       |
+| frontend | Nuxt dev server       | internal   |
+| backend  | PHP-FPM               | internal   |
+| db       | PostgreSQL 16         | 5433       |
+| redis    | Cache + queue         | 6379       |
+| mailpit  | Email catcher (dev)   | 8025       |
+| minio    | S3-compatible storage | 9000, 9001 |
 
 **Image uploads**: `ImageUploadService` compresses to 500KB max and stores on MinIO (dev) / Cloudflare R2 (prod).
 

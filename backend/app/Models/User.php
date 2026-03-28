@@ -41,6 +41,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'bio',
         'social_links',
         'profile_privacy',
+        'hub_display_order',
         'google_id',
         'role',
         'is_disabled',
@@ -78,6 +79,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'name_changed_at'             => 'datetime',
             'social_links'                => 'array',
             'profile_privacy'             => 'array',
+            'hub_display_order'           => 'array',
         ];
     }
 
@@ -154,6 +156,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function defaultPrivacy(): array
     {
         return [
+            'show_owned_hubs'      => true,
             'show_visited_hubs'    => true,
             'show_leaderboard'     => true,
             'show_hearts'          => true,
@@ -166,5 +169,25 @@ class User extends Authenticatable implements MustVerifyEmail
     public function resolvedPrivacy(): array
     {
         return array_merge($this->defaultPrivacy(), $this->profile_privacy ?? []);
+    }
+
+    public function orderedOwnedHubs(): \Illuminate\Support\Collection
+    {
+        $hubs = $this->hubs()
+            ->where('is_active', true)
+            ->select('id', 'name', 'description', 'city', 'cover_image_url', 'show_on_profile')
+            ->withAvg('ratings', 'rating')
+            ->withCount('ratings as reviews_count')
+            ->get();
+
+        $order = $this->hub_display_order ?? [];
+        if (empty($order)) {
+            return $hubs;
+        }
+
+        return $hubs->sortBy(function ($hub) use ($order) {
+            $key = array_search($hub->id, $order);
+            return $key !== false ? $key : PHP_INT_MAX;
+        })->values();
     }
 }

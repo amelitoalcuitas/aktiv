@@ -323,6 +323,17 @@ class HubController extends Controller
         return response()->json(null, 204);
     }
 
+    public function updateShowOnProfile(Request $request, Hub $hub): JsonResponse
+    {
+        $this->authorize('update', $hub);
+
+        $request->validate(['show_on_profile' => ['required', 'boolean']]);
+
+        $hub->update(['show_on_profile' => $request->boolean('show_on_profile')]);
+
+        return response()->json(['data' => ['id' => $hub->id, 'show_on_profile' => $hub->show_on_profile]]);
+    }
+
     /**
      * Sync hub_sports to the exact provided list.
      *

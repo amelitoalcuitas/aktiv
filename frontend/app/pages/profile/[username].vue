@@ -4,7 +4,7 @@ import { useAuthStore } from '~/stores/auth';
 
 const route = useRoute();
 const authStore = useAuthStore();
-const { fetchPublicProfile, fetchOwnProfile, resolveUsername, toggleHeart, uploadAvatar, uploadBanner, updateProfile } = useProfile();
+const { fetchPublicProfile, fetchOwnProfile, resolveUsername, toggleHeart, uploadAvatar, uploadBanner, updateProfile, updateHubShowOnProfile } = useProfile();
 const toast = useToast();
 
 const param = computed(() => String(route.params.username));
@@ -18,7 +18,7 @@ const { data: resolvedId } = await useAsyncData(
 const userId = resolvedId.value ? String(resolvedId.value) : param.value;
 
 // Always fetch public profile first (used for ownership check + public view)
-const { data: publicProfile, error } = await useAsyncData<PublicUser>(
+const { data: publicProfile, error, refresh: refreshPublic } = await useAsyncData<PublicUser>(
   `user-profile-${userId}`,
   () => fetchPublicProfile(userId),
 );
@@ -26,6 +26,12 @@ const { data: publicProfile, error } = await useAsyncData<PublicUser>(
 if (error.value || !publicProfile.value) {
   throw createError({ statusCode: 404, statusMessage: 'Profile not found', fatal: true });
 }
+
+// Re-fetch client-side to get auth-aware data (has_hearted).
+// SSR may not carry the auth token, so has_hearted can be stale in the payload.
+onMounted(() => {
+  if (authStore.isAuthenticated) refreshPublic();
+});
 
 const isOwnProfile = computed(() => authStore.user?.id === publicProfile.value?.id);
 
@@ -46,6 +52,7 @@ const editModalOpen = ref(false);
 const savingPrivacy = ref(false);
 
 const privacy = computed(() => ({
+  show_owned_hubs: true,
   show_visited_hubs: true,
   show_leaderboard: true,
   show_hearts: true,
@@ -54,6 +61,17 @@ const privacy = computed(() => ({
   show_favorite_sports: true,
   ...ownProfile.value?.profile_privacy,
 }));
+
+async function saveHubOrder(ids: string[]) {
+  const updated = await updateProfile({ hub_display_order: ids });
+  authStore.setUser(updated);
+  await refreshOwn();
+}
+
+async function toggleHubVisibility(id: string, val: boolean) {
+  await updateHubShowOnProfile(id, val);
+  await refreshOwn();
+}
 
 async function onUploadAvatar(file: File) {
   try {
@@ -97,6 +115,7 @@ async function togglePrivacy(key: string, val: boolean) {
 // ── Public profile ────────────────────────────────────────────────────────────
 
 const publicPrivacy = computed(() => publicProfile.value?.privacy ?? {
+  show_owned_hubs: true,
   show_visited_hubs: true,
   show_leaderboard: true,
   show_hearts: true,
@@ -112,8 +131,7 @@ async function onToggleHeart() {
   }
   const result = await toggleHeart(userId);
   if (publicProfile.value) {
-    publicProfile.value.has_hearted = result.hearted;
-    publicProfile.value.hearts_count = result.hearts_count;
+    publicProfile.value = { ...publicProfile.value, has_hearted: result.hearted, hearts_count: result.hearts_count };
   }
 }
 </script>
@@ -190,24 +208,38 @@ async function onToggleHeart() {
           <p v-else class="mt-1 text-sm italic text-[var(--aktiv-muted)]">No bio yet.</p>
         </div>
 
+        <ProfileOwnedHubsCard
+          v-if="ownProfile.is_hub_owner"
+          :hubs="ownProfile.owned_hubs"
+          :hidden="!privacy.show_owned_hubs"
+          :editing="editing"
+          :show-eye="true"
+          @toggle-privacy="(val) => togglePrivacy('show_owned_hubs', val)"
+          @reorder="saveHubOrder"
+          @toggle-hub-visibility="toggleHubVisibility"
+        />
         <ProfileVisitedHubs
           :hidden="!privacy.show_visited_hubs"
           :editing="editing"
+          :show-eye="true"
           @toggle-privacy="(val) => togglePrivacy('show_visited_hubs', val)"
         />
         <ProfileStatsCard
           :hidden="!privacy.show_leaderboard"
           :editing="editing"
+          :show-eye="true"
           @toggle-privacy="(val) => togglePrivacy('show_leaderboard', val)"
         />
         <ProfileTournamentsCard
           :hidden="!privacy.show_tournaments"
           :editing="editing"
+          :show-eye="true"
           @toggle-privacy="(val) => togglePrivacy('show_tournaments', val)"
         />
         <ProfileOpenPlayCard
           :hidden="!privacy.show_open_play"
           :editing="editing"
+          :show-eye="true"
           @toggle-privacy="(val) => togglePrivacy('show_open_play', val)"
         />
       </div>
@@ -225,12 +257,25 @@ async function onToggleHeart() {
     <ProfileHeader
       :profile="publicProfile"
       :is-own="false"
+      :is-authenticated="authStore.isAuthenticated"
       @toggle-heart="onToggleHeart"
     />
 
     <div class="mx-auto max-w-4xl px-4 pb-12 md:px-6">
       <div class="mt-6 grid grid-cols-1 gap-5">
         <div class="space-y-5">
+          <div class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4 md:p-6">
+            <h3 class="mb-1 text-lg font-bold text-[var(--aktiv-ink)]">About</h3>
+            <p v-if="publicProfile.bio" class="mt-1 whitespace-pre-wrap text-base leading-relaxed text-[var(--aktiv-muted)]">
+              {{ publicProfile.bio }}
+            </p>
+            <p v-else class="mt-1 text-sm italic text-[var(--aktiv-muted)]">No bio yet.</p>
+          </div>
+          <ProfileOwnedHubsCard
+            v-if="publicProfile.is_hub_owner && publicPrivacy.show_owned_hubs"
+            :hubs="publicProfile.owned_hubs"
+            :hidden="false"
+          />
           <ProfileVisitedHubs v-if="publicPrivacy.show_visited_hubs" :hidden="false" />
           <ProfileStatsCard v-if="publicPrivacy.show_leaderboard" :hidden="false" />
           <ProfileTournamentsCard v-if="publicPrivacy.show_tournaments" :hidden="false" />

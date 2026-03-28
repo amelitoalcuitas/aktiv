@@ -5,6 +5,7 @@ const props = defineProps<{
   profile: User | PublicUser;
   isOwn?: boolean;
   editing?: boolean;
+  isAuthenticated?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -225,19 +226,13 @@ const name = computed(
           "
           class="mt-1.5 flex flex-wrap items-center justify-center gap-2"
         >
-          <UBadge
-            v-if="profile.is_hub_owner"
-            color="primary"
-            variant="soft"
-            size="sm"
-          >
+          <UBadge v-if="profile.is_hub_owner" color="primary" variant="soft">
             Hub Owner
           </UBadge>
           <UBadge
-            v-if="isOwn && showHearts && heartsCount !== null"
+            v-if="showHearts && heartsCount !== null"
             color="error"
             variant="subtle"
-            size="sm"
           >
             <UIcon name="i-heroicons-heart-solid" class="h-3 w-3 mr-0.5" />
             {{ heartsCount }}
@@ -281,19 +276,16 @@ const name = computed(
         <!-- Action buttons -->
         <div class="mt-3 flex items-center gap-2">
           <slot name="actions">
-            <template v-if="!isOwn && showHearts">
-              <UButton
-                :icon="
-                  hasHearted ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'
-                "
-                :color="hasHearted ? 'error' : 'neutral'"
-                :variant="hasHearted ? 'soft' : 'outline'"
-                size="sm"
-                @click="emit('toggleHeart')"
-              >
-                <span v-if="heartsCount !== null">{{ heartsCount }}</span>
-              </UButton>
-            </template>
+            <UButton
+              v-if="!isOwn && showHearts && isAuthenticated"
+              :icon="hasHearted ? 'i-heroicons-heart-solid' : 'i-heroicons-heart'"
+              :color="hasHearted ? 'error' : 'neutral'"
+              :variant="hasHearted ? 'solid' : 'outline'"
+              size="sm"
+              @click="emit('toggleHeart')"
+            >
+              {{ hasHearted ? 'Hearted!' : 'Heart this profile' }}
+            </UButton>
           </slot>
         </div>
       </div>

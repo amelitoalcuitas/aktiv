@@ -133,6 +133,8 @@ new Date(iso).toLocaleString('en-PH', { ... })
 
 ### Key Backend Conventions
 
+- **Hub ratings use a Bayesian average** (`C=5, prior=3.5`): `round((5 * 3.5 + avg * count) / (5 + count), 1)`. Never display a raw average — always apply this formula. Returns `null` when `count === 0`.
+- **`select()` must come before `withAvg()`/`withCount()`** on Eloquent relationship queries — calling `select()` after these clears the aggregate subqueries and they return `null`.
 - Prefer `Model::query()` over `DB::` raw queries
 - Always eager-load relationships to prevent N+1 queries
 - Use queued jobs (`ShouldQueue`) for time-consuming operations

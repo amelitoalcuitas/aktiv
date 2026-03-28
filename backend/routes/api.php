@@ -103,6 +103,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function (): void {
     Route::post('/hubs', [HubController::class, 'store'])->name('api.hubs.store');
     Route::match(['put', 'post'], '/hubs/{hub}', [HubController::class, 'update'])->name('api.hubs.update');
     Route::delete('/hubs/{hub}', [HubController::class, 'destroy'])->name('api.hubs.destroy');
+    Route::patch('/hubs/{hub}/show-on-profile', [HubController::class, 'updateShowOnProfile'])->name('api.hubs.show-on-profile');
     Route::post('/hubs/{hub}/courts', [CourtController::class, 'store'])->name('api.hubs.courts.store');
     Route::match(['put', 'post'], '/hubs/{hub}/courts/{court}', [CourtController::class, 'update'])->name('api.hubs.courts.update');
     Route::delete('/hubs/{hub}/courts/{court}', [CourtController::class, 'destroy'])->name('api.hubs.courts.destroy');

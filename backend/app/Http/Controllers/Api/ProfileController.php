@@ -56,6 +56,10 @@ class ProfileController extends Controller
             );
         }
 
+        if (array_key_exists('hub_display_order', $data)) {
+            $data['hub_display_order'] = $data['hub_display_order'] ?? [];
+        }
+
         if ($changingName) {
             $data['name_changed_at'] = now();
         }

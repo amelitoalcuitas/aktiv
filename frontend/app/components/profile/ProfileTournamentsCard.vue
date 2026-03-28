@@ -2,6 +2,7 @@
 defineProps<{
   hidden?: boolean;
   editing?: boolean;
+  showEye?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -15,7 +16,7 @@ const emit = defineEmits<{
       <div class="flex items-center gap-2">
         <h3 class="text-lg font-bold text-[var(--aktiv-ink)]">Tournaments</h3>
         <UIcon
-          v-if="editing"
+          v-if="editing || showEye"
           :name="hidden ? 'i-heroicons-eye-slash' : 'i-heroicons-eye'"
           class="h-5 w-5"
           :class="hidden ? 'text-[var(--aktiv-muted)]' : 'text-[var(--aktiv-primary)]'"

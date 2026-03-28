@@ -1,5 +1,5 @@
 import { useAuthStore } from '~/stores/auth';
-import type { User, PublicUser, SocialLinks, ProfilePrivacy } from '~/types/user';
+import type { User, PublicUser, SocialLinks, ProfilePrivacy, OwnedHub } from '~/types/user';
 
 export function useProfile() {
   const { apiFetch } = useApi();
@@ -19,6 +19,7 @@ export function useProfile() {
     bio?: string | null;
     social_links?: SocialLinks;
     profile_privacy?: Partial<ProfilePrivacy>;
+    hub_display_order?: string[];
   }): Promise<User> {
     const res = await apiFetch<{ data: User }>('/profile', {
       method: 'PUT',
@@ -92,6 +93,13 @@ export function useProfile() {
     return d;
   }
 
+  async function updateHubShowOnProfile(hubId: string, showOnProfile: boolean): Promise<void> {
+    await apiFetch(`/hubs/${hubId}/show-on-profile`, {
+      method: 'PATCH',
+      body: { show_on_profile: showOnProfile },
+    });
+  }
+
   return {
     fetchOwnProfile,
     updateProfile,
@@ -104,5 +112,6 @@ export function useProfile() {
     nextNameChangeDate,
     canChangeUsername,
     nextUsernameChangeDate,
+    updateHubShowOnProfile,
   };
 }

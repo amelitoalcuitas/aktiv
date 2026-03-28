@@ -34,6 +34,7 @@ class Hub extends Model
         'is_approved',
         'is_verified',
         'is_active',
+        'show_on_profile',
     ];
 
     /**
@@ -44,9 +45,10 @@ class Hub extends Model
         return [
             'lat' => 'decimal:7',
             'lng' => 'decimal:7',
-            'is_approved' => 'boolean',
-            'is_verified' => 'boolean',
-            'is_active'   => 'boolean',
+            'is_approved'      => 'boolean',
+            'is_verified'      => 'boolean',
+            'is_active'        => 'boolean',
+            'show_on_profile'  => 'boolean',
         ];
     }
 

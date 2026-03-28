@@ -39,7 +39,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <UCard :ui="{ root: 'shadow-lg ring-1 ring-[#dbe4ef]' }">
+  <UCard :ui="{ root: 'ring-1 ring-[#dbe4ef]' }">
     <template #header>
       <h1 class="text-xl font-bold text-[#0f1728]">Forgot password?</h1>
       <p class="mt-1 text-sm text-[#64748b]">
@@ -55,7 +55,10 @@ async function handleSubmit() {
         description="If an account exists for that email, a password reset link has been sent. It expires in 60 minutes."
       />
       <p class="text-center text-sm text-[#64748b]">
-        <NuxtLink to="/auth/login" class="font-medium text-[#004e89] hover:underline">
+        <NuxtLink
+          to="/auth/login"
+          class="font-medium text-[#004e89] hover:underline"
+        >
           Back to sign in
         </NuxtLink>
       </p>
@@ -90,7 +93,10 @@ async function handleSubmit() {
       </UButton>
 
       <p class="text-center text-sm text-[#64748b]">
-        <NuxtLink to="/auth/login" class="font-medium text-[#004e89] hover:underline">
+        <NuxtLink
+          to="/auth/login"
+          class="font-medium text-[#004e89] hover:underline"
+        >
           Back to sign in
         </NuxtLink>
       </p>

@@ -58,7 +58,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <UCard :ui="{ root: 'shadow-lg ring-1 ring-[#dbe4ef]' }">
+  <UCard :ui="{ root: 'ring-1 ring-[#dbe4ef]' }">
     <template #header>
       <h1 class="text-xl font-bold text-[#0f1728]">Sign in to Aktiv</h1>
       <p class="mt-1 text-sm text-[#64748b]">

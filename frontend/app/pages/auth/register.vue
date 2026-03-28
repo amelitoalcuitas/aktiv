@@ -79,7 +79,7 @@ function fieldError(field: string) {
 </script>
 
 <template>
-  <UCard :ui="{ root: 'shadow-lg ring-1 ring-[#dbe4ef]' }">
+  <UCard :ui="{ root: 'ring-1 ring-[#dbe4ef]' }">
     <template #header>
       <h1 class="text-xl font-bold text-[#0f1728]">Create your account</h1>
       <p class="mt-1 text-sm text-[#64748b]">
@@ -107,7 +107,11 @@ function fieldError(field: string) {
 
     <form class="space-y-4" @submit.prevent="handleSubmit">
       <div class="grid grid-cols-2 gap-3">
-        <UFormField label="First Name" name="first_name" :error="fieldError('first_name')">
+        <UFormField
+          label="First Name"
+          name="first_name"
+          :error="fieldError('first_name')"
+        >
           <UInput
             v-model="form.first_name"
             placeholder="Juan"
@@ -117,7 +121,11 @@ function fieldError(field: string) {
           />
         </UFormField>
 
-        <UFormField label="Last Name" name="last_name" :error="fieldError('last_name')">
+        <UFormField
+          label="Last Name"
+          name="last_name"
+          :error="fieldError('last_name')"
+        >
           <UInput
             v-model="form.last_name"
             placeholder="dela Cruz"

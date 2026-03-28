@@ -19,7 +19,11 @@ async function handleResend() {
   } catch (err: any) {
     const is429 = err?.response?.status === 429 || err?.status === 429;
     if (is429) {
-      const retryAfter = Number(err?.response?.headers?.get('Retry-After') ?? err?.response?.headers?.['retry-after'] ?? 0);
+      const retryAfter = Number(
+        err?.response?.headers?.get('Retry-After') ??
+          err?.response?.headers?.['retry-after'] ??
+          0
+      );
       const mins = retryAfter > 0 ? Math.ceil(retryAfter / 60) : 5;
       toast.add({
         title: 'Please wait',
@@ -29,7 +33,8 @@ async function handleResend() {
     } else {
       toast.add({
         title: 'Error',
-        description: 'Could not resend the verification email. Please try again.',
+        description:
+          'Could not resend the verification email. Please try again.',
         color: 'error'
       });
     }
@@ -40,13 +45,13 @@ async function handleResend() {
 </script>
 
 <template>
-  <UCard :ui="{ root: 'shadow-lg ring-1 ring-[#dbe4ef]' }">
+  <UCard :ui="{ root: 'ring-1 ring-[#dbe4ef]' }">
     <template #header>
       <h1 class="text-xl font-bold text-[#0f1728]">Verify your email</h1>
       <p class="mt-1 text-sm text-[#64748b]">
         We sent a verification link to
-        <span class="font-medium text-[#0f1728]">{{ user?.email }}</span>.
-        Please check your inbox.
+        <span class="font-medium text-[#0f1728]">{{ user?.email }}</span
+        >. Please check your inbox.
       </p>
     </template>
 
@@ -60,12 +65,7 @@ async function handleResend() {
         Resend verification email
       </UButton>
 
-      <UButton
-        block
-        variant="ghost"
-        color="neutral"
-        @click="logout"
-      >
+      <UButton block variant="ghost" color="neutral" @click="logout">
         Log out
       </UButton>
     </div>

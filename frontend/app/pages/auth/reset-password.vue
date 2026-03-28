@@ -47,11 +47,17 @@ async function handleSubmit() {
 
   loading.value = true;
   try {
-    await resetPassword(token.value, email.value, parsed.data.password, parsed.data.password_confirmation);
+    await resetPassword(
+      token.value,
+      email.value,
+      parsed.data.password,
+      parsed.data.password_confirmation
+    );
     await navigateTo('/auth/login?reset=success');
   } catch (e: unknown) {
     const err = e as { data?: { message?: string } };
-    error.value = err?.data?.message ?? 'This reset link is invalid or has expired.';
+    error.value =
+      err?.data?.message ?? 'This reset link is invalid or has expired.';
   } finally {
     loading.value = false;
   }
@@ -59,7 +65,7 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <UCard :ui="{ root: 'shadow-lg ring-1 ring-[#dbe4ef]' }">
+  <UCard :ui="{ root: 'ring-1 ring-[#dbe4ef]' }">
     <template #header>
       <h1 class="text-xl font-bold text-[#0f1728]">Set a new password</h1>
       <p class="mt-1 text-sm text-[#64748b]">
@@ -76,7 +82,11 @@ async function handleSubmit() {
     />
 
     <form class="space-y-4" @submit.prevent="handleSubmit">
-      <UFormField label="New password" name="password" :error="fieldErrors['password']">
+      <UFormField
+        label="New password"
+        name="password"
+        :error="fieldErrors['password']"
+      >
         <UInput
           v-model="form.password"
           type="password"
@@ -87,7 +97,11 @@ async function handleSubmit() {
         />
       </UFormField>
 
-      <UFormField label="Confirm password" name="password_confirmation" :error="fieldErrors['password_confirmation']">
+      <UFormField
+        label="Confirm password"
+        name="password_confirmation"
+        :error="fieldErrors['password_confirmation']"
+      >
         <UInput
           v-model="form.password_confirmation"
           type="password"
@@ -108,7 +122,10 @@ async function handleSubmit() {
       </UButton>
 
       <p class="text-center text-sm text-[#64748b]">
-        <NuxtLink to="/auth/login" class="font-medium text-[#004e89] hover:underline">
+        <NuxtLink
+          to="/auth/login"
+          class="font-medium text-[#004e89] hover:underline"
+        >
           Back to sign in
         </NuxtLink>
       </p>

@@ -163,7 +163,7 @@ defineExpose({ clear });
           isDragging
             ? 'border-[#004e89] bg-[#e8f0f8]'
             : 'border-[var(--aktiv-border,#dbe4ef)] bg-[var(--aktiv-background)] hover:border-[#004e89] hover:bg-[#e8f0f8]',
-          previewItems.length > 0 ? 'h-48 border-solid p-0' : 'border-dashed px-6 py-6 text-center'
+          previewItems.length > 0 ? 'border-solid p-0' : 'border-dashed px-6 py-6 text-center'
         ]"
         @click="previewItems.length === 0 ? fileInput?.click() : null"
         @dragover.prevent="isDragging = true"
@@ -174,7 +174,7 @@ defineExpose({ clear });
           <img
             :src="previewItems[0]!.url"
             alt="Preview"
-            class="h-full w-full object-cover"
+            class="w-full object-contain"
           />
           <button
             type="button"

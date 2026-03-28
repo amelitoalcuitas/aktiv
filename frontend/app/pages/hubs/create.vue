@@ -49,7 +49,7 @@ async function handleSubmit(payload: HubFormPayload) {
       operating_hours: payload.operating_hours
     });
     toast.add({ title: 'Hub created successfully!', color: 'success' });
-    await navigateTo('/dashboard');
+    await navigateTo('/dashboard/hubs');
   } catch (e: unknown) {
     const err = e as {
       data?: { message?: string; errors?: Record<string, string[]> };

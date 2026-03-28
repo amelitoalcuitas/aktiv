@@ -3,70 +3,55 @@
 @section('title', 'Receipt Uploaded — Aktiv')
 
 @section('content')
-    <style>
-        .header { text-align: center; margin-bottom: 28px; }
-        .icon-circle { display: inline-block; width: 48px; height: 48px; background: #fef9c3; border-radius: 50%; line-height: 48px; font-size: 24px; margin-bottom: 12px; }
-        h1 { margin: 0 0 4px; font-size: 1.25rem; color: #0f1728; }
-        .subtitle { color: #64748b; font-size: 0.875rem; margin: 0; }
-        .details { background: #f0f4f8; border-radius: 8px; padding: 16px; margin: 24px 0; font-size: 0.875rem; }
-        .details table { width: 100%; border-collapse: collapse; }
-        .details td { padding: 4px 0; color: #64748b; }
-        .details td:last-child { text-align: right; font-weight: 500; color: #0f1728; }
-        .details .price td:last-child { color: #004e89; font-weight: 700; }
-        .code { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.2em; color: #0f1728; margin: 4px 0; font-family: monospace; }
-        .btn-wrap { text-align: center; margin: 28px 0 8px; }
-        .btn { display: inline-block; background: #004e89; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 0.9375rem; font-weight: 600; }
-    </style>
-
-    <div class="header">
-        <div class="icon-circle">🧾</div>
-        <h1>Payment Receipt Uploaded</h1>
-        <p class="subtitle">A customer has uploaded a receipt for their booking at <strong>{{ $hub->name }}</strong>.</p>
+    <div style="text-align:center; margin-bottom:28px;">
+        <div style="display:inline-block; width:48px; height:48px; background:#fef9c3; border-radius:50%; line-height:48px; font-size:24px; margin-bottom:12px;">🧾</div>
+        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Payment Receipt Uploaded</h1>
+        <p style="color:#64748b; font-size:0.875rem; margin:0;">A customer has uploaded a receipt for their booking at <strong>{{ $hub->name }}</strong>.</p>
     </div>
 
-    <div class="details">
-        <table>
+    <div style="background:#f0f4f8; border-radius:8px; padding:16px; margin:24px 0; font-size:0.875rem;">
+        <table style="width:100%; border-collapse:collapse;">
             <tr>
-                <td>Customer</td>
-                <td>{{ $booking->bookedBy?->name ?? $booking->guest_name ?? 'Guest' }}</td>
+                <td style="padding:4px 0; color:#64748b;">Customer</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ $booking->bookedBy?->name ?? $booking->guest_name ?? 'Guest' }}</td>
             </tr>
             @if ($booking->bookedBy?->email ?? $booking->guest_email)
             <tr>
-                <td>Email</td>
-                <td>{{ $booking->bookedBy?->email ?? $booking->guest_email }}</td>
+                <td style="padding:4px 0; color:#64748b;">Email</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ $booking->bookedBy?->email ?? $booking->guest_email }}</td>
             </tr>
             @endif
             <tr>
-                <td>Court</td>
-                <td>{{ $courtName }}</td>
+                <td style="padding:4px 0; color:#64748b;">Court</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ $courtName }}</td>
             </tr>
             <tr>
-                <td>Date</td>
-                <td>{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+                <td style="padding:4px 0; color:#64748b;">Date</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
             </tr>
             <tr>
-                <td>Time</td>
-                <td>
+                <td style="padding:4px 0; color:#64748b;">Time</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">
                     {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }}
                     –
                     {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
                 </td>
             </tr>
             @if ($booking->total_price)
-            <tr class="price">
-                <td>Amount</td>
-                <td>₱{{ number_format($booking->total_price, 2) }}</td>
+            <tr>
+                <td style="padding:4px 0; color:#64748b;">Amount</td>
+                <td style="padding:4px 0; text-align:right; font-weight:700; color:#004e89;">₱{{ number_format($booking->total_price, 2) }}</td>
             </tr>
             @endif
             <tr>
-                <td>Booking Code</td>
-                <td><span class="code">{{ $booking->booking_code }}</span></td>
+                <td style="padding:4px 0; color:#64748b;">Booking Code</td>
+                <td style="padding:4px 0; text-align:right; font-weight:700; color:#0f1728; font-family:monospace; font-size:1.25rem; letter-spacing:0.15em;">{{ $booking->booking_code }}</td>
             </tr>
         </table>
     </div>
 
-    <div class="btn-wrap">
-        <a href="{{ $frontendUrl }}/dashboard/bookings?hubId={{ $hub->id }}&bookingId={{ $booking->id }}" class="btn">Review in Dashboard</a>
+    <div style="text-align:center; margin:28px 0 8px;">
+        <a href="{{ $frontendUrl }}/hubs/{{ $hub->id }}/bookings?bookingId={{ $booking->id }}" style="display:inline-block; background:#004e89; color:#fff; text-decoration:none; padding:12px 28px; border-radius:6px; font-size:0.9375rem; font-weight:600;">Review in Dashboard</a>
     </div>
 @endsection
 

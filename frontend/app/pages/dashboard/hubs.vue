@@ -191,10 +191,7 @@ async function toggleActive(
             </NuxtLink>
 
             <NuxtLink
-              :to="{
-                path: '/dashboard/courts',
-                query: { hubId: String(hub.id) }
-              }"
+              :to="`/hubs/${hub.id}/courts`"
               class="text-xs font-medium text-[#004e89] hover:underline"
               @click.stop
             >

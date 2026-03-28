@@ -128,7 +128,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
       <div class="mb-6 grid gap-4 sm:grid-cols-3">
         <!-- Pending Payments -->
         <NuxtLink
-          to="/dashboard/bookings?status=pending_payment"
+          to="/dashboard/hubs"
           class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5 transition hover:shadow-md"
         >
           <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-amber-50">
@@ -142,7 +142,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
         <!-- Today's Confirmed -->
         <NuxtLink
-          to="/dashboard/bookings"
+          to="/dashboard/hubs"
           class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5 transition hover:shadow-md"
         >
           <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-green-50">
@@ -175,7 +175,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
           <div class="flex items-center justify-between border-b border-[#dbe4ef] px-5 py-4">
             <h2 class="text-sm font-semibold text-[#0f1728]">Pending Payments</h2>
             <NuxtLink
-              to="/dashboard/bookings?status=pending_payment"
+              to="/dashboard/hubs"
               class="text-xs font-medium text-[#004e89] hover:underline"
             >
               View all
@@ -197,7 +197,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
               v-for="booking in pendingBookings.slice(0, 10)"
               :key="booking.id"
               class="flex cursor-pointer items-start justify-between gap-3 px-5 py-3.5 hover:bg-[#f8fafc]"
-              @click="navigateTo({ path: '/dashboard/bookings', query: { hubId: booking.court?.hub_id, bookingId: booking.id } })"
+              @click="navigateTo({ path: `/hubs/${booking.court?.hub_id}/bookings`, query: { bookingId: booking.id } })"
             >
               <div class="min-w-0">
                 <p class="truncate text-sm font-medium text-[#0f1728]">
@@ -225,7 +225,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
           <div class="flex items-center justify-between border-b border-[#dbe4ef] px-5 py-4">
             <h2 class="text-sm font-semibold text-[#0f1728]">Today's Schedule</h2>
             <NuxtLink
-              to="/dashboard/bookings"
+              to="/dashboard/hubs"
               class="text-xs font-medium text-[#004e89] hover:underline"
             >
               View all
@@ -247,7 +247,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
               v-for="booking in todayBookings"
               :key="booking.id"
               class="flex cursor-pointer items-start justify-between gap-3 px-5 py-3.5 hover:bg-[#f8fafc]"
-              @click="navigateTo({ path: '/dashboard/bookings', query: { hubId: booking.court?.hub_id, bookingId: booking.id } })"
+              @click="navigateTo({ path: `/hubs/${booking.court?.hub_id}/bookings`, query: { bookingId: booking.id } })"
             >
               <div class="min-w-0">
                 <p class="truncate text-sm font-medium text-[#0f1728]">

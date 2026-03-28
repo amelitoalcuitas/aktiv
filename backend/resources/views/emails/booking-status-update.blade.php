@@ -3,176 +3,177 @@
 @section('title', 'Booking Update — Aktiv')
 
 @section('content')
-    <style>
-        .header { text-align: center; margin-bottom: 28px; }
-        .icon { display: inline-block; width: 48px; height: 48px; border-radius: 50%; line-height: 48px; font-size: 24px; margin-bottom: 12px; }
-        .icon-confirmed { background: #dcfce7; }
-        .icon-rejected  { background: #fff7ed; }
-        .icon-cancelled { background: #fee2e2; }
-        h1 { margin: 0 0 4px; font-size: 1.25rem; color: #0f1728; }
-        .subtitle { color: #64748b; font-size: 0.875rem; margin: 0; }
-        .details { background: #f0f4f8; border-radius: 8px; padding: 16px; margin: 24px 0; font-size: 0.875rem; }
-        .details table { width: 100%; border-collapse: collapse; }
-        .details td { padding: 4px 0; color: #64748b; }
-        .details td:last-child { text-align: right; font-weight: 500; color: #0f1728; }
-        .details .price td:last-child { color: #004e89; font-weight: 700; }
-        .qr-section { text-align: center; margin: 24px 0; }
-        .qr-label { font-size: 0.75rem; color: #64748b; margin-bottom: 8px; }
-        .qr-img { display: inline-block; border: 1px solid #dbe4ef; border-radius: 8px; padding: 12px; background: #fff; }
-        .code { font-size: 2rem; font-weight: 700; letter-spacing: 0.25em; color: #0f1728; margin: 12px 0 4px; font-family: monospace; }
-        .code-label { font-size: 0.75rem; color: #64748b; }
-        .note { border-radius: 8px; padding: 14px 16px; font-size: 0.8125rem; margin: 20px 0; }
-        .note-orange { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
-        .note-red    { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
-        .body-text { font-size: 0.875rem; color: #64748b; }
-        .btn-wrap { text-align: center; margin: 28px 0 8px; }
-        .btn { display: inline-block; background: #004e89; color: #fff; text-decoration: none; padding: 12px 28px; border-radius: 6px; font-size: 0.9375rem; font-weight: 600; }
-    </style>
-
     @if (($activityType ?? null) === 'booking_updated')
     {{-- ── Updated (time/court changed by owner) ──────────────── --}}
-    <div class="header">
-        <div class="icon icon-confirmed">✎</div>
-        <h1>Booking Updated</h1>
-        <p class="subtitle">Your booking at <strong>{{ $hub->name }}</strong> has been updated by the hub.</p>
+    <div style="text-align:center; margin-bottom:28px;">
+        <div style="display:inline-block; width:48px; height:48px; background:#dcfce7; border-radius:50%; line-height:48px; font-size:24px; margin-bottom:12px;">✎</div>
+        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Booking Updated</h1>
+        <p style="color:#64748b; font-size:0.875rem; margin:0;">Your booking at <strong>{{ $hub->name }}</strong> has been updated by the hub.</p>
     </div>
 
-    <div class="details">
-        <table>
-            <tr><td>Court</td><td>{{ $courtName }}</td></tr>
+    <div style="background:#f0f4f8; border-radius:8px; padding:16px; margin:24px 0; font-size:0.875rem;">
+        <table style="width:100%; border-collapse:collapse;">
             <tr>
-                <td>Date</td>
-                <td>{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+                <td style="padding:4px 0; color:#64748b;">Court</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ $courtName }}</td>
             </tr>
             <tr>
-                <td>Time</td>
-                <td>
+                <td style="padding:4px 0; color:#64748b;">Date</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+            </tr>
+            <tr>
+                <td style="padding:4px 0; color:#64748b;">Time</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">
                     {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }}
                     –
                     {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
                 </td>
             </tr>
-            <tr><td>Booking Code</td><td style="font-family:monospace;">{{ $booking->booking_code }}</td></tr>
+            <tr>
+                <td style="padding:4px 0; color:#64748b;">Booking Code</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728; font-family:monospace;">{{ $booking->booking_code }}</td>
+            </tr>
             @if ($booking->total_price)
-            <tr class="price"><td>Amount</td><td>₱{{ number_format($booking->total_price, 2) }}</td></tr>
+            <tr>
+                <td style="padding:4px 0; color:#64748b;">Amount</td>
+                <td style="padding:4px 0; text-align:right; font-weight:700; color:#004e89;">₱{{ number_format($booking->total_price, 2) }}</td>
+            </tr>
             @endif
         </table>
     </div>
 
     @elseif ($booking->status === 'confirmed')
     {{-- ── Confirmed ──────────────────────────────────────────── --}}
-    <div class="header">
-        <div class="icon icon-confirmed">✓</div>
-        <h1>Booking Confirmed!</h1>
-        <p class="subtitle">Your booking at <strong>{{ $hub->name }}</strong> has been confirmed.</p>
+    <div style="text-align:center; margin-bottom:28px;">
+        <div style="display:inline-block; width:48px; height:48px; background:#dcfce7; border-radius:50%; line-height:48px; font-size:24px; margin-bottom:12px;">✓</div>
+        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Booking Confirmed!</h1>
+        <p style="color:#64748b; font-size:0.875rem; margin:0;">Your booking at <strong>{{ $hub->name }}</strong> has been confirmed.</p>
     </div>
 
-    <div class="details">
-        <table>
-            <tr><td>Court</td><td>{{ $courtName }}</td></tr>
+    <div style="background:#f0f4f8; border-radius:8px; padding:16px; margin:24px 0; font-size:0.875rem;">
+        <table style="width:100%; border-collapse:collapse;">
             <tr>
-                <td>Date</td>
-                <td>{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+                <td style="padding:4px 0; color:#64748b;">Court</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ $courtName }}</td>
             </tr>
             <tr>
-                <td>Time</td>
-                <td>
+                <td style="padding:4px 0; color:#64748b;">Date</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+            </tr>
+            <tr>
+                <td style="padding:4px 0; color:#64748b;">Time</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">
                     {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }}
                     –
                     {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
                 </td>
             </tr>
             @if ($booking->total_price)
-            <tr class="price"><td>Amount</td><td>₱{{ number_format($booking->total_price, 2) }}</td></tr>
+            <tr>
+                <td style="padding:4px 0; color:#64748b;">Amount</td>
+                <td style="padding:4px 0; text-align:right; font-weight:700; color:#004e89;">₱{{ number_format($booking->total_price, 2) }}</td>
+            </tr>
             @endif
         </table>
     </div>
 
-    <div class="qr-section">
-        <p class="qr-label">Scan at the venue</p>
-        <div class="qr-img">
+    <div style="text-align:center; margin:24px 0;">
+        <p style="font-size:0.75rem; color:#64748b; margin-bottom:8px;">Scan at the venue</p>
+        <div style="display:inline-block; border:1px solid #dbe4ef; border-radius:8px; padding:12px; background:#fff;">
             <img src="{{ url('/api/bookings/' . $booking->booking_code . '/qr') }}" width="180" height="180" alt="Booking QR code" />
         </div>
-        <div class="code">{{ $booking->booking_code }}</div>
-        <div class="code-label">Booking Code</div>
+        <div style="font-size:2rem; font-weight:700; letter-spacing:0.25em; color:#0f1728; margin:12px 0 4px; font-family:monospace;">{{ $booking->booking_code }}</div>
+        <div style="font-size:0.75rem; color:#64748b;">Booking Code</div>
     </div>
 
     @elseif ($booking->status === 'pending_payment')
     {{-- ── Rejected (reset to pending_payment) ────────────────── --}}
-    <div class="header">
-        <div class="icon icon-rejected">⚠</div>
-        <h1>Receipt Not Accepted</h1>
-        <p class="subtitle">Your payment receipt for <strong>{{ $hub->name }}</strong> was not accepted.</p>
+    <div style="text-align:center; margin-bottom:28px;">
+        <div style="display:inline-block; width:48px; height:48px; background:#fff7ed; border-radius:50%; line-height:48px; font-size:24px; margin-bottom:12px;">⚠</div>
+        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Receipt Not Accepted</h1>
+        <p style="color:#64748b; font-size:0.875rem; margin:0;">Your payment receipt for <strong>{{ $hub->name }}</strong> was not accepted.</p>
     </div>
 
-    <div class="details">
-        <table>
-            <tr><td>Court</td><td>{{ $courtName }}</td></tr>
+    <div style="background:#f0f4f8; border-radius:8px; padding:16px; margin:24px 0; font-size:0.875rem;">
+        <table style="width:100%; border-collapse:collapse;">
             <tr>
-                <td>Date</td>
-                <td>{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+                <td style="padding:4px 0; color:#64748b;">Court</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ $courtName }}</td>
             </tr>
             <tr>
-                <td>Time</td>
-                <td>
+                <td style="padding:4px 0; color:#64748b;">Date</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+            </tr>
+            <tr>
+                <td style="padding:4px 0; color:#64748b;">Time</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">
                     {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }}
                     –
                     {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
                 </td>
             </tr>
-            <tr><td>Booking Code</td><td style="font-family:monospace;">{{ $booking->booking_code }}</td></tr>
+            <tr>
+                <td style="padding:4px 0; color:#64748b;">Booking Code</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728; font-family:monospace;">{{ $booking->booking_code }}</td>
+            </tr>
         </table>
     </div>
 
     @if ($booking->payment_note)
-    <div class="note note-orange">
+    <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:8px; padding:14px 16px; font-size:0.8125rem; color:#9a3412; margin:20px 0;">
         <strong>Note from {{ $hub->name }}:</strong> {{ $booking->payment_note }}
     </div>
     @endif
 
-    <p class="body-text">Please re-upload your receipt before your booking expires.</p>
+    <p style="font-size:0.875rem; color:#64748b;">Please re-upload your receipt before your booking expires.</p>
 
     @else
     {{-- ── Cancelled ───────────────────────────────────────────── --}}
-    <div class="header">
-        <div class="icon icon-cancelled">❌</div>
-        <h1>Booking Cancelled</h1>
-        <p class="subtitle">Your booking at <strong>{{ $hub->name }}</strong> has been cancelled.</p>
+    <div style="text-align:center; margin-bottom:28px;">
+        <div style="display:inline-block; width:48px; height:48px; background:#fee2e2; border-radius:50%; line-height:48px; font-size:24px; margin-bottom:12px;">❌</div>
+        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Booking Cancelled</h1>
+        <p style="color:#64748b; font-size:0.875rem; margin:0;">Your booking at <strong>{{ $hub->name }}</strong> has been cancelled.</p>
     </div>
 
-    <div class="details">
-        <table>
-            <tr><td>Court</td><td>{{ $courtName }}</td></tr>
+    <div style="background:#f0f4f8; border-radius:8px; padding:16px; margin:24px 0; font-size:0.875rem;">
+        <table style="width:100%; border-collapse:collapse;">
             <tr>
-                <td>Date</td>
-                <td>{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+                <td style="padding:4px 0; color:#64748b;">Court</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ $courtName }}</td>
             </tr>
             <tr>
-                <td>Time</td>
-                <td>
+                <td style="padding:4px 0; color:#64748b;">Date</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+            </tr>
+            <tr>
+                <td style="padding:4px 0; color:#64748b;">Time</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">
                     {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }}
                     –
                     {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
                 </td>
             </tr>
-            <tr><td>Booking Code</td><td style="font-family:monospace;">{{ $booking->booking_code }}</td></tr>
+            <tr>
+                <td style="padding:4px 0; color:#64748b;">Booking Code</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728; font-family:monospace;">{{ $booking->booking_code }}</td>
+            </tr>
         </table>
     </div>
 
     @if ($booking->payment_note)
-    <div class="note note-red">
+    <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:14px 16px; font-size:0.8125rem; color:#991b1b; margin:20px 0;">
         <strong>Note:</strong> {{ $booking->payment_note }}
     </div>
     @endif
     @endif
 
     @if($booking->guest_email && $booking->guest_tracking_token)
-    <div class="btn-wrap">
-        <a href="{{ $frontendUrl }}/booking/track/{{ $booking->guest_tracking_token }}" class="btn">Track Your Booking</a>
+    <div style="text-align:center; margin:28px 0 8px;">
+        <a href="{{ $frontendUrl }}/booking/track/{{ $booking->guest_tracking_token }}" style="display:inline-block; background:#004e89; color:#fff; text-decoration:none; padding:12px 28px; border-radius:6px; font-size:0.9375rem; font-weight:600;">Track Your Booking</a>
     </div>
     @elseif(!$booking->guest_email)
-    <div class="btn-wrap">
-        <a href="{{ $frontendUrl }}/bookings?bookingId={{ $booking->id }}" class="btn">View My Booking</a>
+    <div style="text-align:center; margin:28px 0 8px;">
+        <a href="{{ $frontendUrl }}/bookings?bookingId={{ $booking->id }}" style="display:inline-block; background:#004e89; color:#fff; text-decoration:none; padding:12px 28px; border-radius:6px; font-size:0.9375rem; font-weight:600;">View My Booking</a>
     </div>
     @endif
 @endsection

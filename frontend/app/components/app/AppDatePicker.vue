@@ -68,7 +68,7 @@ const minValue = computed(() => (props.allowPast ? undefined : today));
   <UPopover v-else v-model:open="open">
     <button
       type="button"
-      class="flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-[var(--aktiv-border,#f1f5f9)]"
+      class="cursor-pointer flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-[var(--aktiv-border,#f1f5f9)] ring ring-1.5 ring-[var(--aktiv-border)]"
     >
       <UIcon
         name="i-heroicons-calendar-days"

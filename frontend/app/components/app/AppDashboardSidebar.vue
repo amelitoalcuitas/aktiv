@@ -5,9 +5,16 @@ const props = defineProps<{ open?: boolean }>();
 const emit = defineEmits<{ 'update:open': [value: boolean] }>();
 
 const route = useRoute();
+const router = useRouter();
 const hubStore = useHubStore();
 
 const isVerifyModalOpen = ref(false);
+const pendingPath = ref<string | null>(null);
+
+const activePath = computed(() => pendingPath.value ?? route.path);
+
+router.beforeEach((to) => { pendingPath.value = to.path; });
+router.afterEach(() => { pendingPath.value = null; });
 
 const verifyHub = computed(() => hubStore.myHubs[0] ?? null);
 
@@ -27,10 +34,14 @@ const navGroups = [
   }
 ];
 
-const isActive = (to: string) => {
-  if (to === '/dashboard') return route.path === '/dashboard';
-  return route.path.startsWith(to);
+const isActive = (to: string, exact = false) => {
+  if (exact || to === '/dashboard') return activePath.value === to;
+  return activePath.value.startsWith(to);
 };
+
+const isHubSubActive = computed(() =>
+  hubStore.myHubs.some(h => activePath.value.startsWith(`/hubs/${h.id}`))
+);
 
 const close = () => emit('update:open', false);
 
@@ -100,7 +111,7 @@ watch(() => route.path, close);
               :to="link.to"
               :class="[
                 'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition',
-                isActive(link.to)
+                isActive(link.to) && !(link.to === '/dashboard/hubs' && isHubSubActive)
                   ? 'bg-[#e8f0f8] text-[#004e89]'
                   : 'text-[#3a4a5c] hover:bg-[#f0f4f8] hover:text-[#004e89]'
               ]"
@@ -108,6 +119,28 @@ watch(() => route.path, close);
               <UIcon :name="link.icon" class="h-5 w-5 flex-shrink-0" />
               {{ link.label }}
             </NuxtLink>
+            <!-- Hub sub-items under My Hubs -->
+            <div
+              v-if="link.to === '/dashboard/hubs' && hubStore.myHubs.length"
+              class="mt-0.5 ml-[22px] flex"
+            >
+              <div class="w-px bg-[#dbe4ef] mx-3 flex-shrink-0" />
+              <ul class="flex-1 space-y-0.5">
+                <li v-for="hub in hubStore.myHubs" :key="hub.id">
+                  <NuxtLink
+                    :to="`/hubs/${hub.id}/edit`"
+                    :class="[
+                      'flex items-center rounded-xl px-3 py-2 text-sm transition',
+                      isActive(`/hubs/${hub.id}`)
+                        ? 'font-medium text-[#004e89] bg-[#e8f0f8]'
+                        : 'text-[#64748b] hover:bg-[#f0f4f8] hover:text-[#004e89]'
+                    ]"
+                  >
+                    <span class="truncate">{{ hub.name }}</span>
+                  </NuxtLink>
+                </li>
+              </ul>
+            </div>
           </li>
         </ul>
       </div>

@@ -136,7 +136,12 @@ function onUserSelect(
     return;
   }
   const found = userSearchResults.value.find((u) => u.id === item.value);
-  selectedUser.value = { id: item.value, first_name: found?.first_name ?? item.label, last_name: found?.last_name ?? '', email: item.email };
+  selectedUser.value = {
+    id: item.value,
+    first_name: found?.first_name ?? item.label,
+    last_name: found?.last_name ?? '',
+    email: item.email
+  };
   walkInForm.bookedBy = item.value;
   userSearchQuery.value = '';
 }
@@ -161,9 +166,15 @@ watch(
   }
 );
 
-const todayStr = computed(() => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const dateObj = computed({
+  get() {
+    if (!walkInForm.date) return new Date();
+    const [y, mo, d] = walkInForm.date.split('-').map(Number);
+    return new Date(y!, mo! - 1, d!);
+  },
+  set(val: Date) {
+    walkInForm.date = `${val.getFullYear()}-${String(val.getMonth() + 1).padStart(2, '0')}-${String(val.getDate()).padStart(2, '0')}`;
+  }
 });
 
 const isPastSlot = computed(() => {
@@ -325,11 +336,17 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         <!-- Date + time -->
         <div class="grid grid-cols-3 gap-3">
           <UFormField label="Date" name="date" class="col-span-1">
-            <UInput
-              v-model="walkInForm.date"
-              type="date"
-              :min="todayStr"
-              class="w-full"
+            <AppDatePicker
+              v-model="dateObj"
+              variant="nav"
+              :allow-past="false"
+              :label="
+                dateObj.toLocaleDateString('en-PH', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })
+              "
             />
           </UFormField>
           <UFormField label="Start" name="startHour">
@@ -439,7 +456,9 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             >
               <div>
                 <p class="text-sm font-medium text-[#0f1728]">
-                  {{ `${selectedUser.first_name} ${selectedUser.last_name}`.trim() }}
+                  {{
+                    `${selectedUser.first_name} ${selectedUser.last_name}`.trim()
+                  }}
                 </p>
                 <p class="text-sm text-[#64748b]">{{ selectedUser.email }}</p>
               </div>

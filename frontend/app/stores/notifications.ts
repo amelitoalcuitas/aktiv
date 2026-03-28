@@ -97,7 +97,7 @@ export const useNotificationStore = defineStore('notifications', () => {
               const userFacing = ['booking_confirmed', 'booking_rejected', 'booking_cancelled'];
               const destination = userFacing.includes(payload.activity_type)
                 ? `/bookings?bookingId=${payload.data.booking_id}`
-                : `/dashboard/bookings?hubId=${payload.data.hub_id}&bookingId=${payload.data.booking_id}`;
+                : `/hubs/${payload.data.hub_id}/bookings?bookingId=${payload.data.booking_id}`;
               navigateTo(destination);
             }
           }

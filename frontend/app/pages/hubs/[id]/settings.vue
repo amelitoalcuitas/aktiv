@@ -11,12 +11,36 @@ const toast = useToast();
 const hubId = computed(() => String(route.params.id));
 
 const manageTabs = computed(() => [
-  { label: 'Hub', icon: 'i-heroicons-building-storefront', to: `/hubs/${hubId.value}/edit` },
-  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: `/hubs/${hubId.value}/courts` },
-  { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: `/hubs/${hubId.value}/bookings` },
-  { label: 'Events', icon: 'i-heroicons-megaphone', to: `/hubs/${hubId.value}/events` },
-  { label: 'Reviews', icon: 'i-heroicons-star', to: `/hubs/${hubId.value}/reviews` },
-  { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: `/hubs/${hubId.value}/settings` }
+  {
+    label: 'Hub',
+    icon: 'i-heroicons-building-storefront',
+    to: `/hubs/${hubId.value}/edit`
+  },
+  {
+    label: 'Courts',
+    icon: 'i-heroicons-squares-2x2',
+    to: `/hubs/${hubId.value}/courts`
+  },
+  {
+    label: 'Bookings',
+    icon: 'i-heroicons-calendar-days',
+    to: `/hubs/${hubId.value}/bookings`
+  },
+  {
+    label: 'Events',
+    icon: 'i-heroicons-megaphone',
+    to: `/hubs/${hubId.value}/events`
+  },
+  {
+    label: 'Reviews',
+    icon: 'i-heroicons-star',
+    to: `/hubs/${hubId.value}/reviews`
+  },
+  {
+    label: 'Settings',
+    icon: 'i-heroicons-cog-6-tooth',
+    to: `/hubs/${hubId.value}/settings`
+  }
 ]);
 
 const hubData = ref<Hub | null>(null);
@@ -106,7 +130,9 @@ async function saveSettings() {
 
     await updateHub(hubId.value, {
       require_account_to_book: requireAccount.value,
-      guest_booking_limit: requireAccount.value ? undefined : guestBookingLimit.value,
+      guest_booking_limit: requireAccount.value
+        ? undefined
+        : guestBookingLimit.value,
       guest_max_hours: requireAccount.value ? undefined : guestMaxHours.value,
       payment_methods: paymentMethods,
       payment_qr_image: paymentQrFile.value,
@@ -306,12 +332,16 @@ async function saveSettings() {
                     <p class="text-xs font-medium text-[#0f1728]">
                       Payment QR Code <span class="text-red-500">*</span>
                     </p>
-                    <AppImageUploader
-                      :model-value="paymentQrFile"
-                      :preview-url="paymentQrPreview"
-                      @update:model-value="onPaymentQrPicked"
-                      @clear="clearPaymentQr"
-                    />
+                    <div class="flex justify-center">
+                      <div class="w-full max-w-xs h-full max-h-lg">
+                        <AppImageUploader
+                          :model-value="paymentQrFile"
+                          :preview-url="paymentQrPreview"
+                          @update:model-value="onPaymentQrPicked"
+                          @clear="clearPaymentQr"
+                        />
+                      </div>
+                    </div>
                     <p
                       v-if="!paymentQrPreview && !paymentQrFile"
                       class="text-xs text-amber-600"

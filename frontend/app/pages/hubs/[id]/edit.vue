@@ -22,12 +22,36 @@ const toast = useToast();
 const hubId = computed(() => String(route.params.id));
 
 const manageTabs = computed(() => [
-  { label: 'Hub', icon: 'i-heroicons-building-storefront', to: `/hubs/${hubId.value}/edit` },
-  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: `/hubs/${hubId.value}/courts` },
-  { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: `/hubs/${hubId.value}/bookings` },
-  { label: 'Events', icon: 'i-heroicons-megaphone', to: `/hubs/${hubId.value}/events` },
-  { label: 'Reviews', icon: 'i-heroicons-star', to: `/hubs/${hubId.value}/reviews` },
-  { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: `/hubs/${hubId.value}/settings` }
+  {
+    label: 'Hub',
+    icon: 'i-heroicons-building-storefront',
+    to: `/hubs/${hubId.value}/edit`
+  },
+  {
+    label: 'Courts',
+    icon: 'i-heroicons-squares-2x2',
+    to: `/hubs/${hubId.value}/courts`
+  },
+  {
+    label: 'Bookings',
+    icon: 'i-heroicons-calendar-days',
+    to: `/hubs/${hubId.value}/bookings`
+  },
+  {
+    label: 'Events',
+    icon: 'i-heroicons-megaphone',
+    to: `/hubs/${hubId.value}/events`
+  },
+  {
+    label: 'Reviews',
+    icon: 'i-heroicons-star',
+    to: `/hubs/${hubId.value}/reviews`
+  },
+  {
+    label: 'Settings',
+    icon: 'i-heroicons-cog-6-tooth',
+    to: `/hubs/${hubId.value}/settings`
+  }
 ]);
 const loading = ref(false);
 const loadingHub = ref(true);
@@ -73,7 +97,6 @@ async function handleSubmit(payload: HubFormPayload) {
       operating_hours: payload.operating_hours
     });
     toast.add({ title: 'Hub updated successfully!', color: 'success' });
-    await navigateTo('/dashboard');
   } catch (e: unknown) {
     const err = e as {
       data?: { message?: string; errors?: Record<string, string[]> };

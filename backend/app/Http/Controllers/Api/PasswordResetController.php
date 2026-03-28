@@ -40,4 +40,25 @@ class PasswordResetController extends Controller
             'message' => 'Password reset successfully.',
         ]);
     }
+
+    public function setupPassword(ResetPasswordRequest $request): JsonResponse
+    {
+        $status = Password::broker('onboarding')->reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password): void {
+                $user->forceFill(['password' => $password])->save();
+                $user->markEmailAsVerified();
+            }
+        );
+
+        if ($status !== Password::PasswordReset) {
+            throw ValidationException::withMessages([
+                'email' => [__($status)],
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Password set successfully.',
+        ]);
+    }
 }

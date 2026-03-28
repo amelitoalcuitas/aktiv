@@ -72,11 +72,18 @@ export function useAuth() {
     });
   }
 
+  async function setupPassword(token: string, email: string, password: string, password_confirmation: string): Promise<void> {
+    await $fetch('/api/auth/account/setup', {
+      method: 'POST',
+      body: { token, email, password, password_confirmation }
+    });
+  }
+
   async function init(): Promise<void> {
     if (authStore.token && !authStore.user) {
       await authStore.fetchUser();
     }
   }
 
-  return { isAuthenticated, isAdmin, isSuperAdmin, user, login, register, logout, init, resendVerification, forgotPassword, resetPassword };
+  return { isAuthenticated, isAdmin, isSuperAdmin, user, login, register, logout, init, resendVerification, forgotPassword, resetPassword, setupPassword };
 }

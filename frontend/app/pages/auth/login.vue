@@ -4,18 +4,20 @@ import { useAuth } from '~/composables/useAuth';
 
 definePageMeta({ layout: 'auth' });
 
-const { login } = useAuth();
+const { login, isSuperAdmin } = useAuth();
 const route = useRoute();
 
 const resetSuccess = computed(() => route.query.reset === 'success');
+const setupSuccess = computed(() => route.query.setup === 'success');
 
 // Safe redirect: only allow same-origin paths starting with /
 const redirectPath = computed(() => {
   const r = route.query.redirect;
-  return typeof r === 'string' && r.startsWith('/') ? r : '/dashboard';
+  if (typeof r === 'string' && r.startsWith('/')) return r;
+  return isSuperAdmin.value ? '/panel' : '/dashboard';
 });
 
-const form = reactive({ email: '', password: '' });
+const form = reactive({ email: String(route.query.email ?? ''), password: '' });
 const error = ref<string | null>(null);
 const fieldErrors = ref<Record<string, string>>({});
 const loading = ref(false);
@@ -71,6 +73,14 @@ async function handleSubmit() {
         </NuxtLink>
       </p>
     </template>
+
+    <UAlert
+      v-if="setupSuccess"
+      color="success"
+      variant="subtle"
+      description="Password set! You can now sign in."
+      class="mb-4"
+    />
 
     <UAlert
       v-if="resetSuccess"

@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -16,8 +17,10 @@ return new class extends Migration
         });
 
         // Backfill usernames for existing users
-        User::query()->whereNull('username')->each(function (User $user): void {
-            $user->update(['username' => User::generateUsername($user->first_name ?? 'user', $user->last_name ?? '')]);
+        // Use DB::table() to avoid SoftDeletes scope referencing deleted_at
+        DB::table('users')->whereNull('username')->orderBy('id')->each(function (object $row): void {
+            $username = User::generateUsername($row->first_name ?? 'user', $row->last_name ?? '');
+            DB::table('users')->where('id', $row->id)->update(['username' => $username]);
         });
     }
 

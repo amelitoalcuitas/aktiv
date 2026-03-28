@@ -135,18 +135,28 @@ async function submitDelete() {
 }
 
 // --- Verify email ---
-const verifyingId = ref<string | null>(null);
+const verifyModal = ref({
+  open: false,
+  user: null as PanelUser | null,
+  loading: false
+});
 
-async function verifyEmail(user: PanelUser) {
-  verifyingId.value = user.id;
+function openVerifyModal(user: PanelUser) {
+  verifyModal.value = { open: true, user, loading: false };
+}
+
+async function submitVerifyEmail() {
+  if (!verifyModal.value.user) return;
+  verifyModal.value.loading = true;
   try {
     const updated = await apiFetch<PanelUser>(
-      `/panel/users/${user.id}/verify-email`,
+      `/panel/users/${verifyModal.value.user.id}/verify-email`,
       { method: 'PATCH' }
     );
     patchUser(updated);
+    verifyModal.value.open = false;
   } finally {
-    verifyingId.value = null;
+    verifyModal.value.loading = false;
   }
 }
 
@@ -160,6 +170,114 @@ const roleOptions = [
   { label: 'User', value: 'user' },
   { label: 'Admin', value: 'admin' }
 ];
+
+// --- Create user modal ---
+const isCreateOpen = ref(false);
+const createLoading = ref(false);
+const createSubmitted = ref(false);
+const createForm = reactive({
+  first_name: '',
+  last_name: '',
+  email: '',
+  contact_number: '',
+  role: 'user'
+});
+const createErrors = reactive({
+  first_name: '',
+  last_name: '',
+  email: '',
+  contact_number: '',
+  role: ''
+});
+const toast = useToast();
+
+function openCreate() {
+  Object.assign(createForm, {
+    first_name: '',
+    last_name: '',
+    email: '',
+    contact_number: '',
+    role: 'user'
+  });
+  Object.assign(createErrors, {
+    first_name: '',
+    last_name: '',
+    email: '',
+    contact_number: '',
+    role: ''
+  });
+  createSubmitted.value = false;
+  isCreateOpen.value = true;
+}
+
+function validateCreateForm(): boolean {
+  Object.assign(createErrors, {
+    first_name: '',
+    last_name: '',
+    email: '',
+    contact_number: '',
+    role: ''
+  });
+  let valid = true;
+
+  if (!createForm.first_name.trim()) {
+    createErrors.first_name = 'First name is required.';
+    valid = false;
+  }
+  if (!createForm.last_name.trim()) {
+    createErrors.last_name = 'Last name is required.';
+    valid = false;
+  }
+  if (!createForm.email.trim()) {
+    createErrors.email = 'Email is required.';
+    valid = false;
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createForm.email.trim())) {
+    createErrors.email = 'Please enter a valid email address.';
+    valid = false;
+  }
+
+  return valid;
+}
+
+async function submitCreate() {
+  createSubmitted.value = true;
+  if (!validateCreateForm()) return;
+
+  createLoading.value = true;
+  try {
+    const body: Record<string, string> = {
+      first_name: createForm.first_name.trim(),
+      last_name: createForm.last_name.trim(),
+      email: createForm.email.trim(),
+      role: createForm.role
+    };
+    if (createForm.contact_number.trim()) {
+      body.contact_number = createForm.contact_number.trim();
+    }
+
+    await apiFetch('/panel/users', { method: 'POST', body });
+    isCreateOpen.value = false;
+    toast.add({
+      title: 'User created. Password setup email sent.',
+      color: 'success'
+    });
+    page.value = 1;
+    await fetchUsers();
+  } catch (err: any) {
+    const errors = err?.data?.errors ?? {};
+    if (errors.first_name) createErrors.first_name = errors.first_name[0];
+    if (errors.last_name) createErrors.last_name = errors.last_name[0];
+    if (errors.email) createErrors.email = errors.email[0];
+    if (errors.contact_number)
+      createErrors.contact_number = errors.contact_number[0];
+    if (errors.role) createErrors.role = errors.role[0];
+    if (!Object.values(errors).length) {
+      toast.add({ title: 'Failed to create user.', color: 'error' });
+    }
+  } finally {
+    createLoading.value = false;
+  }
+}
 </script>
 
 <template>
@@ -173,12 +291,21 @@ const roleOptions = [
           <template v-else>Manage platform users.</template>
         </p>
       </div>
-      <UInput
-        v-model="search"
-        icon="i-heroicons-magnifying-glass"
-        placeholder="Search name, username, email…"
-        class="w-72"
-      />
+      <div class="flex items-center gap-3">
+        <UInput
+          v-model="search"
+          icon="i-heroicons-magnifying-glass"
+          placeholder="Search name, username, email…"
+          class="w-72"
+        />
+        <UButton
+          icon="i-heroicons-plus"
+          class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
+          @click="openCreate"
+        >
+          Create User
+        </UButton>
+      </div>
     </div>
 
     <!-- Loading -->
@@ -292,8 +419,7 @@ const roleOptions = [
                       variant="ghost"
                       size="xs"
                       icon="i-heroicons-check-badge"
-                      :loading="verifyingId === user.id"
-                      @click="verifyEmail(user)"
+                      @click="openVerifyModal(user)"
                     />
                   </UTooltip>
                   <UTooltip text="Change role">
@@ -351,6 +477,124 @@ const roleOptions = [
         </div>
       </div>
     </template>
+
+    <!-- Verify Email Modal -->
+    <AppModal
+      v-model:open="verifyModal.open"
+      title="Verify Email"
+      :ui="{ content: 'max-w-sm' }"
+      confirm="Verify"
+      confirm-color="primary"
+      :confirm-loading="verifyModal.loading"
+      @confirm="submitVerifyEmail"
+    >
+      <template #body>
+        <p class="text-sm text-[#0f1728]">
+          Manually verify the email address for
+          <strong>{{ verifyModal.user?.name }}</strong
+          >? This will mark their account as verified.
+        </p>
+      </template>
+    </AppModal>
+
+    <!-- Create User Modal -->
+    <AppModal
+      v-model:open="isCreateOpen"
+      title="Create User"
+      :ui="{ content: 'max-w-md' }"
+      confirm="Create User"
+      :confirm-loading="createLoading"
+      @confirm="submitCreate"
+    >
+      <template #body>
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <UFormField
+              label="First Name"
+              required
+              :error="
+                createSubmitted && createErrors.first_name
+                  ? createErrors.first_name
+                  : undefined
+              "
+            >
+              <UInput
+                v-model="createForm.first_name"
+                placeholder="Juan"
+                class="w-full"
+                maxlength="100"
+              />
+            </UFormField>
+            <UFormField
+              label="Last Name"
+              required
+              :error="
+                createSubmitted && createErrors.last_name
+                  ? createErrors.last_name
+                  : undefined
+              "
+            >
+              <UInput
+                v-model="createForm.last_name"
+                placeholder="dela Cruz"
+                class="w-full"
+                maxlength="100"
+              />
+            </UFormField>
+          </div>
+          <UFormField
+            label="Email"
+            required
+            :error="
+              createSubmitted && createErrors.email
+                ? createErrors.email
+                : undefined
+            "
+          >
+            <UInput
+              v-model="createForm.email"
+              type="email"
+              placeholder="juan@example.com"
+              class="w-full"
+            />
+          </UFormField>
+          <UFormField
+            label="Contact Number"
+            :error="
+              createSubmitted && createErrors.contact_number
+                ? createErrors.contact_number
+                : undefined
+            "
+          >
+            <UInput
+              v-model="createForm.contact_number"
+              placeholder="+63 912 345 6789"
+              class="w-full"
+              maxlength="20"
+            />
+          </UFormField>
+          <UFormField
+            label="Role"
+            :error="
+              createSubmitted && createErrors.role
+                ? createErrors.role
+                : undefined
+            "
+          >
+            <USelect
+              v-model="createForm.role"
+              :items="roleOptions"
+              value-key="value"
+              label-key="label"
+              class="w-full"
+            />
+          </UFormField>
+          <p class="text-xs text-[#64748b]">
+            A password setup email will be sent to the user after creation.
+          </p>
+        </div>
+      </template>
+    </AppModal>
 
     <!-- Change Role Modal -->
     <AppModal

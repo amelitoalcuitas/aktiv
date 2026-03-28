@@ -30,6 +30,7 @@ Route::prefix('auth')->group(function (): void {
 
     Route::post('/password/forgot', [PasswordResetController::class, 'forgotPassword'])->name('api.auth.password.forgot');
     Route::post('/password/reset', [PasswordResetController::class, 'resetPassword'])->name('api.auth.password.reset');
+    Route::post('/account/setup', [PasswordResetController::class, 'setupPassword'])->name('api.auth.account.setup');
 
     Route::get('/email/verify/{id}/{hash}', [AuthController::class, 'verifyEmail'])
         ->middleware(['throttle:6,1'])
@@ -129,6 +130,7 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function (): void {
 Route::middleware(['auth:sanctum', 'super_admin'])->prefix('panel')->group(function (): void {
     Route::get('/stats', [SuperAdminController::class, 'stats'])->name('api.panel.stats');
     Route::get('/users', [SuperAdminController::class, 'users'])->name('api.panel.users');
+    Route::post('/users', [SuperAdminController::class, 'store'])->name('api.panel.users.store');
     Route::patch('/users/{user}/verify-email', [SuperAdminController::class, 'verifyEmail'])->name('api.panel.users.verify-email');
     Route::patch('/users/{user}/role', [SuperAdminController::class, 'updateRole'])->name('api.panel.users.update-role');
     Route::delete('/users/{user}', [SuperAdminController::class, 'destroy'])->name('api.panel.users.destroy');

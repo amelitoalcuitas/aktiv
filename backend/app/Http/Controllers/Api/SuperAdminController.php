@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreUserRequest;
 use App\Models\Hub;
 use App\Models\User;
+use App\Notifications\AccountCreatedNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 class SuperAdminController extends Controller
 {
@@ -18,6 +22,26 @@ class SuperAdminController extends Controller
             'active_hubs'  => Hub::query()->where('is_active', true)->count(),
             'total_users'  => User::query()->where('role', '!=', UserRole::SuperAdmin)->count(),
         ]);
+    }
+
+    public function store(StoreUserRequest $request): JsonResponse
+    {
+        $validated = $request->validated();
+
+        $user = User::create([
+            'first_name'     => $validated['first_name'],
+            'last_name'      => $validated['last_name'],
+            'email'          => $validated['email'],
+            'username'       => User::generateUsername($validated['first_name'], $validated['last_name']),
+            'password'       => Str::random(32),
+            'role'           => UserRole::from($validated['role'] ?? 'user'),
+            'contact_number' => $validated['contact_number'] ?? null,
+        ]);
+
+        $token = Password::broker('onboarding')->createToken($user);
+        $user->notify(new AccountCreatedNotification($token));
+
+        return response()->json($this->formatUser($user->loadCount('hubs')), 201);
     }
 
     public function users(Request $request): JsonResponse

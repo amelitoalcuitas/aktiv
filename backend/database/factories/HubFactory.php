@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -18,7 +19,7 @@ class HubFactory extends Factory
     public function definition(): array
     {
         return [
-            'owner_id' => User::factory(),
+            'owner_id' => User::factory()->state(['role' => UserRole::Admin]),
             'name' => fake()->company(),
             'description' => fake()->sentence(16),
             'city' => fake()->city(),

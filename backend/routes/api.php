@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\SuperAdminController;
 use App\Http\Controllers\Api\HubEventController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CourtController;
@@ -122,6 +123,15 @@ Route::middleware(['auth:sanctum', 'admin'])->group(function (): void {
     Route::put('/dashboard/hubs/{hub}/events/{event}', [HubEventController::class, 'update'])->name('api.dashboard.hubs.events.update');
     Route::delete('/dashboard/hubs/{hub}/events/{event}', [HubEventController::class, 'destroy'])->name('api.dashboard.hubs.events.destroy');
     Route::patch('/dashboard/hubs/{hub}/events/{event}/toggle', [HubEventController::class, 'toggle'])->name('api.dashboard.hubs.events.toggle');
+});
+
+// Super admin panel routes
+Route::middleware(['auth:sanctum', 'super_admin'])->prefix('panel')->group(function (): void {
+    Route::get('/stats', [SuperAdminController::class, 'stats'])->name('api.panel.stats');
+    Route::get('/users', [SuperAdminController::class, 'users'])->name('api.panel.users');
+    Route::patch('/users/{user}/verify-email', [SuperAdminController::class, 'verifyEmail'])->name('api.panel.users.verify-email');
+    Route::patch('/users/{user}/role', [SuperAdminController::class, 'updateRole'])->name('api.panel.users.update-role');
+    Route::delete('/users/{user}', [SuperAdminController::class, 'destroy'])->name('api.panel.users.destroy');
 });
 
 Route::get('/status', static fn (): array => ['ok' => true])->name('api.status');

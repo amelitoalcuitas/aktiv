@@ -3,7 +3,7 @@ import { useAuth } from '~/composables/useAuth';
 
 const props = defineProps<{ variant?: 'sidebar' | 'header' }>();
 
-const { user, logout, isAdmin } = useAuth();
+const { user, logout, isAdmin, isSuperAdmin } = useAuth();
 
 const fullName = computed(() =>
   user.value ? `${user.value.first_name} ${user.value.last_name}`.trim() : ''
@@ -19,6 +19,12 @@ const profileLink = computed(() =>
 
 const menuItems = computed(() => {
   const items = [];
+
+  if (isSuperAdmin.value) {
+    items.push([
+      { label: 'Admin Panel', icon: 'i-heroicons-shield-check', to: '/panel' }
+    ]);
+  }
 
   if (isAdmin.value) {
     items.push([

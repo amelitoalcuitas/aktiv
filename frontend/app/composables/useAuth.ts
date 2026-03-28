@@ -7,6 +7,7 @@ export function useAuth() {
 
   const isAuthenticated = computed(() => authStore.isAuthenticated);
   const isAdmin = computed(() => authStore.isAdmin);
+  const isSuperAdmin = computed(() => authStore.user?.role === 'super_admin');
   const user = computed(() => authStore.user);
 
   async function login(email: string, password: string): Promise<void> {
@@ -77,5 +78,5 @@ export function useAuth() {
     }
   }
 
-  return { isAuthenticated, isAdmin, user, login, register, logout, init, resendVerification, forgotPassword, resetPassword };
+  return { isAuthenticated, isAdmin, isSuperAdmin, user, login, register, logout, init, resendVerification, forgotPassword, resetPassword };
 }

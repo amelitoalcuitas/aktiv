@@ -316,7 +316,7 @@ class OwnerBookingController extends Controller
 
         $q = '%'.trim($request->q).'%';
 
-        $users = User::where(function ($query) use ($q) {
+        $users = User::where('role', '!=', \App\Enums\UserRole::SuperAdmin)->where(function ($query) use ($q) {
             $query->where('first_name', 'ilike', $q)
                 ->orWhere('last_name', 'ilike', $q)
                 ->orWhere('email', 'ilike', $q)

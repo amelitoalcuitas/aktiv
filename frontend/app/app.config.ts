@@ -4,6 +4,11 @@ export default defineAppConfig({
       neutral: 'slate',
       primary: 'brand',
       warning: 'warning'
+    },
+    button: {
+      slots: {
+        base: 'cursor-pointer'
+      }
     }
   }
 });

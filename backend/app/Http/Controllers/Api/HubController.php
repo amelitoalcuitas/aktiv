@@ -49,7 +49,19 @@ class HubController extends Controller
             ->withCount('ratings as reviews_count');
 
         if ($search = $request->string('search')->trim()->value()) {
-            $query->where('name', 'ilike', "%{$search}%");
+            $query->where(function ($q) use ($search): void {
+                $q->where('name', 'ilike', "%{$search}%")
+                  ->orWhere('description', 'ilike', "%{$search}%")
+                  ->orWhere('address', 'ilike', "%{$search}%")
+                  ->orWhere('city', 'ilike', "%{$search}%")
+                  ->orWhere('province', 'ilike', "%{$search}%")
+                  ->orWhereHas('sports', fn ($sq) => $sq->where('sport', 'ilike', "%{$search}%"))
+                  // Fuzzy fallback: catches typos like "pagdian" → "pagadian"
+                  ->orWhereRaw('word_similarity(?, name) > 0.3', [$search])
+                  ->orWhereRaw('word_similarity(?, city) > 0.3', [$search])
+                  ->orWhereRaw('word_similarity(?, province) > 0.3', [$search])
+                  ->orWhereRaw('word_similarity(?, address) > 0.3', [$search]);
+            });
         }
 
         if ($city = $request->string('city')->trim()->value()) {
@@ -68,13 +80,60 @@ class HubController extends Controller
             $haversine = '(6371 * acos(LEAST(1, cos(radians(?)) * cos(radians(lat)) * cos(radians(lng) - radians(?)) + sin(radians(?)) * sin(radians(lat)))))';
             $radius = max(1, (int) ($request->input('radius') ?: 50));
             $query->whereRaw("{$haversine} < ?", [$lat, $lng, $lat, $radius]);
-            $query->orderByRaw("{$haversine} ASC", [$lat, $lng, $lat]);
-        } else {
-            $sort = $request->string('sort')->trim()->value();
-            if ($sort === 'courts_count') {
-                $query->orderByDesc('courts_count');
+            if ($search) {
+                $query->orderByRaw(
+                    'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province)) DESC, ' . $haversine . ' ASC',
+                    [$search, $search, $search, $lat, $lng, $lat]
+                );
             } else {
-                $query->orderByDesc('created_at');
+                $query->orderByRaw("{$haversine} ASC", [$lat, $lng, $lat]);
+            }
+        } else {
+            if ($search) {
+                // Rank exact/close matches above fuzzy ones
+                $query->orderByRaw(
+                    'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province)) DESC',
+                    [$search, $search, $search]
+                );
+            } else {
+                $sort = $request->string('sort')->trim()->value();
+                if ($sort === 'courts_count') {
+                    $query->orderByDesc('courts_count');
+                } elseif ($sort === 'top') {
+                    $query->orderByRaw("
+                        (
+                            (5.0 * 3.5 + COALESCE((SELECT AVG(r.rating) FROM hub_ratings r WHERE r.hub_id = hubs.id), 3.5)
+                                       * COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0))
+                            / (5.0 + COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0))
+                        ) * 0.40
+                        + LN(1 + (
+                            SELECT COUNT(*) FROM bookings b
+                            JOIN courts ct ON ct.id = b.court_id
+                            WHERE ct.hub_id = hubs.id
+                              AND b.status IN ('confirmed', 'completed', 'payment_sent')
+                              AND b.created_at >= NOW() - INTERVAL '30 days'
+                        )) * 0.30
+                        + LN(1 + COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0)) * 0.15
+                        + CASE WHEN EXISTS (
+                            SELECT 1 FROM hub_events
+                            WHERE hub_id = hubs.id
+                              AND is_active = true
+                              AND event_type = 'promo'
+                              AND date_from <= NOW()
+                              AND date_to >= NOW()
+                          ) THEN 1 ELSE 0 END * 0.10
+                        + (
+                            CASE WHEN cover_image_url IS NOT NULL THEN 0.25 ELSE 0 END
+                            + CASE WHEN description IS NOT NULL AND description <> '' THEN 0.25 ELSE 0 END
+                            + CASE WHEN lat IS NOT NULL THEN 0.25 ELSE 0 END
+                            + CASE WHEN EXISTS (SELECT 1 FROM hub_operating_hours WHERE hub_id = hubs.id) THEN 0.125 ELSE 0 END
+                            + CASE WHEN EXISTS (SELECT 1 FROM hub_contact_numbers WHERE hub_id = hubs.id) THEN 0.125 ELSE 0 END
+                          ) * 0.05
+                        DESC
+                    ");
+                } else {
+                    $query->orderByDesc('created_at');
+                }
             }
         }
 
@@ -514,7 +573,10 @@ class HubController extends Controller
 
         $suggestionQuery->where(function ($q) use ($search, $sportWords, $lat, $lng, $haversine): void {
             $q->whereRaw('word_similarity(?, name) > 0.25', [$search])
-              ->orWhereRaw('word_similarity(?, city) > 0.25', [$search]);
+              ->orWhereRaw('word_similarity(?, city) > 0.25', [$search])
+              ->orWhereRaw('word_similarity(?, province) > 0.25', [$search])
+              ->orWhereRaw('word_similarity(?, address) > 0.25', [$search])
+              ->orWhereRaw('word_similarity(?, description) > 0.25', [$search]);
 
             if (! empty($sportWords)) {
                 $q->orWhereHas('sports', fn ($sq) => $sq->whereIn('sport', $sportWords));
@@ -528,13 +590,13 @@ class HubController extends Controller
         // Order: best trigram similarity first; proximity as tiebreaker when available
         if ($lat !== null && $lng !== null) {
             $suggestionQuery->orderByRaw(
-                'GREATEST(word_similarity(?, name), word_similarity(?, city)) DESC, ' . $haversine . ' ASC',
-                [$search, $search, $lat, $lng, $lat]
+                'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province), word_similarity(?, address)) DESC, ' . $haversine . ' ASC',
+                [$search, $search, $search, $search, $lat, $lng, $lat]
             );
         } else {
             $suggestionQuery->orderByRaw(
-                'GREATEST(word_similarity(?, name), word_similarity(?, city)) DESC',
-                [$search, $search]
+                'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province), word_similarity(?, address)) DESC',
+                [$search, $search, $search, $search]
             );
         }
 

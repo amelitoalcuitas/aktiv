@@ -10,7 +10,7 @@ const { fetchHubsPaginated } = useHubs();
 
 const { data: hubs, error: hubsError } = await useAsyncData<Hub[]>(
   'hubs-home',
-  () => fetchHubsPaginated({ limit: 3, sort: 'courts_count' }).then((r) => r.data),
+  () => fetchHubsPaginated({ limit: 6, sort: 'top' }).then((r) => r.data),
   { default: () => [] as Hub[] }
 );
 

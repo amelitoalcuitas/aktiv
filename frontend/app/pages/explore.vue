@@ -307,13 +307,20 @@ const activeFilterCount = computed(
       <div class="min-w-0 flex-1">
         <!-- Search bar -->
         <div class="mb-4">
-          <UInput
-            v-model="searchInput"
-            placeholder="Search hubs by name…"
-            icon="i-heroicons-magnifying-glass"
-            class="w-full"
-            @keyup.enter="onSearchEnter"
-          />
+          <UFieldGroup class="w-full">
+            <UInput
+              v-model="searchInput"
+              placeholder="Search hubs..."
+              class="w-full"
+              @keyup.enter="onSearchEnter"
+            />
+            <UButton
+              icon="i-heroicons-magnifying-glass"
+              color="primary"
+              class="px-4 sm:px-6"
+              @click="onSearchEnter"
+            />
+          </UFieldGroup>
         </div>
 
         <!-- Location denied notice -->
@@ -337,7 +344,7 @@ const activeFilterCount = computed(
         <!-- Mobile filter trigger row -->
         <div class="mb-4 flex items-center justify-between lg:hidden">
           <span class="text-sm text-[#5d7086]">
-            {{ meta ? `${meta.total} hubs` : '' }}
+            {{ !showNearbyOnly && meta ? `${meta.total} hubs` : '' }}
           </span>
           <UButton
             variant="outline"
@@ -359,7 +366,10 @@ const activeFilterCount = computed(
         </div>
 
         <!-- Result count (desktop) -->
-        <p class="mb-4 hidden text-sm text-[#5d7086] lg:block">
+        <p
+          v-if="!showNearbyOnly"
+          class="mb-4 hidden text-sm text-[#5d7086] lg:block"
+        >
           {{ meta ? `${meta.total} hubs found` : '\u00a0' }}
         </p>
 

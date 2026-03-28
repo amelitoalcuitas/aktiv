@@ -1,6 +1,6 @@
 # Aktiv — Sports Hub Scheduler
 
-> **Primary Color:** `#004e89` · **Background:** `#f9fdf2` · **Style:** Flat, minimal, no gradients, use Nuxt UI components as much as possible
+> **Primary Color:** `#004e89` · **Background:** `#ecf4fc` · **Style:** Flat, minimal, no gradients, use Nuxt UI components as much as possible
 
 ---
 
@@ -313,7 +313,7 @@ hub_reviews
 - [ ] Map view using MapLibre GL JS + OpenFreeMap Bright tiles
 - [ ] Hub profile shell (tabs: Scheduler, Open Play, Tournaments, Leaderboard)
 - [ ] Hub owner dashboard: create and manage hub, courts, and court sports
-- [ ] Design system: `#004e89` primary, `#f9fdf2` background, flat UI components
+- [ ] Design system: `#004e89` primary, `#ecf4fc` background, flat UI components
 
 **Deliverables:** Browsable hub directory, hub detail page with map
 
@@ -697,10 +697,10 @@ frontend/
 | Booking payment               | ✅ Receipt upload flow — user pays offline (GCash/bank transfer), uploads receipt, owner confirms manually. Statuses: `pending_payment` → `payment_sent` → `confirmed`. See [SCHEDULER_FLOW.md](SCHEDULER_FLOW.md) |
 | Online payment gateway        | ⏳ Deferred to future phase; all price fields stored in DB now to ease future integration                                                                                                                          |
 | Booking auth requirement      | ✅ Account required to book; guests redirected to login/register                                                                                                                                                   |
-| Slot holding / auto-cancel    | ✅ `expires_at` is payment-method-aware: `digital_bank` → `min(now + 1h, start_time)`; `pay_on_site` → `start_time`. `CancelExpiredBookings` command cancels when `expires_at` passes. |
+| Slot holding / auto-cancel    | ✅ `expires_at` is payment-method-aware: `digital_bank` → `min(now + 1h, start_time)`; `pay_on_site` → `start_time`. `CancelExpiredBookings` command cancels when `expires_at` passes.                             |
 | Owner walk-in bookings        | ✅ Owners can add bookings for on-site customers (registered user or anonymous guest); instantly confirmed                                                                                                         |
 | Scheduler contact notice      | ✅ Non-dismissible info alert above calendar; shows hub contact numbers from `hub_contact_numbers`                                                                                                                 |
-| Hub rating formula            | ✅ Bayesian average (`C=5, prior=3.5`): `(5×3.5 + avg×count) / (5+count)`. Used everywhere a hub rating is displayed (explore cards, hub detail, profile owned-hubs card). Raw average is never shown.            |
+| Hub rating formula            | ✅ Bayesian average (`C=5, prior=3.5`): `(5×3.5 + avg×count) / (5+count)`. Used everywhere a hub rating is displayed (explore cards, hub detail, profile owned-hubs card). Raw average is never shown.             |
 | Maps                          | ✅ OpenFreeMap (Bright tiles) + MapLibre GL JS — fully free, no API key needed                                                                                                                                     |
 | Frontend framework            | ✅ Nuxt 3 + Nuxt UI 4 + Pinia (uses npm)                                                                                                                                                                           |
 | Hosting                       | Local dev on WSL Ubuntu + Docker Compose; Hetzner VPS provisioned before Phase 6 launch                                                                                                                            |

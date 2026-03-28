@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'Aktiv')</title>
 </head>
-<body style="font-family:sans-serif; background:#f9fdf2; margin:0; padding:40px 20px; color:#1a1a1a;">
+<body style="font-family:sans-serif; background:#ecf4fc; margin:0; padding:40px 20px; color:#1a1a1a;">
     <div style="max-width:480px; margin:0 auto;">
         <div style="text-align:center; margin-bottom:24px;">
             <a href="#" style="text-decoration:none;">

@@ -41,6 +41,37 @@ export interface Booking {
   guest_tracking_token?: string | null;
 }
 
+export interface AppliedDiscount {
+  source: 'promo' | 'voucher';
+  title: string | null;
+  label: string;
+  code: string | null;
+  event_id?: string | null;
+  discount_type: 'percent' | 'flat';
+  discount_value: number;
+  overrides_promo: boolean;
+}
+
+export interface VoucherPreviewItem {
+  court_id: string;
+  start_time: string;
+  end_time: string;
+  original_price: number;
+  discounted_price: number;
+  discount_amount: number;
+}
+
+export interface VoucherPreview {
+  voucher_code: string;
+  summary: {
+    original_total: number;
+    discounted_total: number;
+    discount_amount: number;
+  };
+  applied_discount: AppliedDiscount | null;
+  items: VoucherPreviewItem[];
+}
+
 /** Full booking shape returned by owner dashboard endpoints (includes eager-loaded relations). */
 export interface BookingDetail extends Booking {
   court: { id: string; name: string; hub_id: string } | null;

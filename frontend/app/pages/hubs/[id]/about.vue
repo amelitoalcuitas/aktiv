@@ -10,6 +10,7 @@ const route = useRoute();
 const { fetchCourts } = useHubs();
 const { fetchHubBookings } = useBooking();
 const authStore = useAuthStore();
+const toast = useToast();
 
 const hubId = computed(() => String(route.params.id ?? ''));
 
@@ -117,6 +118,15 @@ function bookThisCourt(court: Court) {
   filteredCourtId.value = court.id;
   selectedSlots.value = [];
   scrollToSchedule();
+}
+
+async function copyVoucherCode(code: string) {
+  try {
+    await navigator.clipboard.writeText(code);
+    toast.add({ title: 'Voucher code copied', color: 'success' });
+  } catch {
+    toast.add({ title: 'Failed to copy voucher code', color: 'error' });
+  }
 }
 
 // ── Multi-slot selection ────────────────────────────────────────────────────
@@ -340,6 +350,61 @@ onUnmounted(() => {
         :event="event"
         :courts="courts ?? []"
       />
+
+      <div
+        v-for="event in hub.active_events?.filter(
+          (e) => e.event_type === 'voucher' && e.show_announcement
+        )"
+        :key="event.id"
+        class="mb-4 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3"
+      >
+        <div class="flex items-start gap-3">
+          <div
+            class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#dcfce7]"
+          >
+            <UIcon name="i-heroicons-ticket" class="h-5 w-5 text-[#166534]" />
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <p class="font-semibold text-[#166534]">
+              {{ event.title || 'Voucher Available' }}
+            </p>
+            <p v-if="event.description" class="mt-0.5 text-sm text-[#15803d]">
+              {{ event.description }}
+            </p>
+            <p class="mt-1 text-sm text-[#15803d]">
+              Valid until
+              <strong class="font-semibold text-[#166534]">
+                {{
+                  new Date(`${event.date_to}T00:00:00`).toLocaleDateString(
+                    'en-PH',
+                    {
+                      timeZone: 'Asia/Manila',
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric'
+                    }
+                  )
+                }}
+              </strong>
+            </p>
+            <div
+              v-if="event.voucher_code"
+              class="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-[#166534]"
+            >
+              <span>Voucher code: {{ event.voucher_code }}</span>
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="success"
+                icon="i-heroicons-clipboard-document"
+                @click="copyVoucherCode(event.voucher_code)"
+              >
+              </UButton>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div
         class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2 xl:grid-cols-[2fr_2fr_minmax(320px,1.2fr)]"

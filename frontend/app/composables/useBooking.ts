@@ -1,4 +1,4 @@
-import type { Booking, BookingDetail, CalendarBooking, SessionType, UserBooking } from '~/types/booking';
+import type { Booking, BookingDetail, CalendarBooking, SessionType, UserBooking, VoucherPreview } from '~/types/booking';
 import { useApi } from '~/utils/api';
 
 interface FetchBookingsParams {
@@ -48,6 +48,7 @@ export function useBooking() {
       end_time: string;
       session_type: SessionType;
       payment_method: string;
+      voucher_code?: string | null;
     }
   ): Promise<Booking> {
     const response = await apiFetch<{ message: string; data: Booking }>(
@@ -114,6 +115,7 @@ export function useBooking() {
       end_time: string;
       session_type: SessionType;
       payment_method: string;
+      voucher_code?: string | null;
     }
   ): Promise<Booking> {
     const response = await apiFetch<{ message: string; data: Booking }>(
@@ -154,6 +156,29 @@ export function useBooking() {
       method: 'POST',
       body: formData
     });
+    return response.data;
+  }
+
+  async function previewVoucher(
+    hubId: string | number,
+    data: {
+      voucher_code: string;
+      guest_email?: string;
+      items: Array<{
+        court_id: string;
+        start_time: string;
+        end_time: string;
+      }>;
+    }
+  ): Promise<VoucherPreview> {
+    const response = await apiFetch<{ data: VoucherPreview }>(
+      `/hubs/${hubId}/vouchers/preview`,
+      {
+        method: 'POST',
+        body: data
+      }
+    );
+
     return response.data;
   }
 
@@ -222,6 +247,7 @@ export function useBooking() {
     uploadReceipt,
     sendGuestVerificationCode,
     createGuestBooking,
+    previewVoucher,
     uploadGuestReceipt,
     verifyBookingByCode,
     confirmBooking,

@@ -58,6 +58,7 @@ Route::get('/hubs/{hub}/courts', [CourtController::class, 'index'])->name('api.h
 Route::get('/hubs/{hub}/bookings', [BookingController::class, 'hubIndex'])->name('api.hubs.bookings.index');
 Route::get('/bookings/{code}/qr', [BookingController::class, 'qrCode'])->name('api.bookings.qr');
 Route::get('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'index'])->name('api.hubs.courts.bookings.index');
+Route::post('/hubs/{hub}/vouchers/preview', [BookingController::class, 'previewVoucher'])->name('api.hubs.vouchers.preview');
 
 // Guest booking routes (public — verified by OTP)
 Route::post('/hubs/{hub}/courts/{court}/guest-verify', [GuestBookingController::class, 'sendVerificationCode'])->name('api.hubs.courts.guest-verify');

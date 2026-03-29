@@ -131,13 +131,13 @@ export interface HubSport {
   sport: SportType;
 }
 
-export type EventType = 'closure' | 'promo' | 'announcement'
+export type EventType = 'closure' | 'promo' | 'announcement' | 'voucher'
 export type DiscountType = 'percent' | 'flat'
 
 export interface HubEvent {
   id: string
   hub_id: string
-  title: string
+  title: string | null
   description: string | null
   event_type: EventType
   date_from: string   // YYYY-MM-DD
@@ -146,6 +146,12 @@ export interface HubEvent {
   time_to: string | null
   discount_type: DiscountType | null
   discount_value: string | null  // decimal string from API
+  voucher_code: string | null
+  show_announcement: boolean
+  limit_total_uses: boolean
+  max_total_uses: number | null
+  limit_per_user_uses: boolean
+  max_uses_per_user: number | null
   affected_courts: string[] | null  // null = all courts
   court_discounts: Array<{ court_id: string; discount_type: DiscountType; discount_value: string }> | null
   is_active: boolean

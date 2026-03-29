@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Court, Hub } from '~/types/hub';
-import type { Booking, SelectedSlot, SessionType } from '~/types/booking';
+import type { AppliedDiscount, Booking, SelectedSlot, SessionType, VoucherPreview } from '~/types/booking';
 
 const props = defineProps<{
   open: boolean;
@@ -8,6 +8,8 @@ const props = defineProps<{
   courts: Court[];
   hubId: string;
   hub: Hub | null | undefined;
+  voucherCode?: string;
+  voucherPreview?: VoucherPreview | null;
 }>();
 
 const emit = defineEmits<{
@@ -16,7 +18,7 @@ const emit = defineEmits<{
 }>();
 
 const toast = useToast();
-const { sendGuestVerificationCode, createGuestBooking } = useBooking();
+const { sendGuestVerificationCode, createGuestBooking, previewVoucher } = useBooking();
 
 const isQrModalOpen = ref(false);
 const qrBooking = ref<Booking | null>(null);
@@ -44,6 +46,7 @@ watch(hubPaymentMethods, (methods) => {
 
 const isPayOnSite = computed(() => selectedPaymentMethod.value === 'pay_on_site');
 const otp = ref('');
+const appliedVoucherPreview = computed(() => props.voucherPreview ?? null);
 
 // ── Derived booking info ──────────────────────────────────────
 
@@ -145,6 +148,60 @@ const grandTotal = computed(() =>
   groups.value.reduce((sum, g) => sum + (g.subtotal ?? 0), 0)
 );
 
+function normalizeIsoKeyPart(value: Date | string): string {
+  if (value instanceof Date) return value.toISOString();
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+}
+
+function rangeKey(courtId: string, start: Date | string, end: Date | string): string {
+  const startIso = normalizeIsoKeyPart(start);
+  const endIso = normalizeIsoKeyPart(end);
+  return `${courtId}-${startIso}-${endIso}`;
+}
+
+const voucherItemMap = computed(() => new Map(
+  (appliedVoucherPreview.value?.items ?? []).map((item) => [
+    rangeKey(item.court_id, item.start_time, item.end_time),
+    item
+  ])
+));
+
+function groupVoucherSubtotal(group: GuestGroup): number | null {
+  if (!appliedVoucherPreview.value) return group.subtotal;
+
+  return group.ranges.reduce((sum, range) => {
+    const item = voucherItemMap.value.get(
+      rangeKey(group.court.id, range.start, range.end)
+    );
+    return sum + (item?.discounted_price ?? 0);
+  }, 0);
+}
+
+function groupVoucherOriginalSubtotal(group: GuestGroup): number | null {
+  if (!appliedVoucherPreview.value) return group.subtotal;
+
+  return group.ranges.reduce((sum, range) => {
+    const item = voucherItemMap.value.get(
+      rangeKey(group.court.id, range.start, range.end)
+    );
+    return sum + (item?.original_price ?? 0);
+  }, 0);
+}
+
+const displayedGrandTotal = computed(() =>
+  appliedVoucherPreview.value?.summary.discounted_total ?? grandTotal.value
+);
+
+const displayedOriginalTotal = computed(() =>
+  appliedVoucherPreview.value?.summary.original_total ?? null
+);
+
+const appliedDiscountMeta = computed<AppliedDiscount | null>(
+  () => appliedVoucherPreview.value?.applied_discount ?? null
+);
+
 function formatPrice(n: number) {
   return n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -163,11 +220,28 @@ async function handleSendCode() {
   isSendingCode.value = true;
   sendError.value = null;
   try {
+    if (props.voucherCode) {
+      await previewVoucher(props.hubId, {
+        voucher_code: props.voucherCode,
+        guest_email: email.value,
+        items: groups.value.flatMap((group) =>
+          group.ranges.map((range) => ({
+            court_id: group.court.id,
+            start_time: range.start.toISOString(),
+            end_time: range.end.toISOString()
+          }))
+        )
+      });
+    }
+
     await sendGuestVerificationCode(props.hubId, firstGroup.court.id, email.value);
     step.value = 'verify';
   } catch (e: unknown) {
-    const err = e as { data?: { message?: string } };
-    sendError.value = err?.data?.message ?? 'Failed to send code. Please try again.';
+    const err = e as { data?: { message?: string; errors?: Record<string, string[]> } };
+    sendError.value =
+      err?.data?.errors?.voucher_code?.[0] ??
+      err?.data?.message ??
+      'Failed to send code. Please try again.';
   } finally {
     isSendingCode.value = false;
   }
@@ -196,7 +270,8 @@ async function handleVerifyAndBook() {
           start_time: range.start.toISOString(),
           end_time: range.end.toISOString(),
           session_type: 'private' as SessionType,
-          payment_method: selectedPaymentMethod.value!
+          payment_method: selectedPaymentMethod.value!,
+          voucher_code: props.voucherCode ?? null
         })
       );
     }
@@ -312,15 +387,46 @@ function handleClose() {
               {{ range.label }}
             </span>
           </div>
-          <div v-if="group.subtotal !== null" class="mt-1.5 text-right text-xs text-[var(--aktiv-muted)]">
+          <div v-if="groupVoucherSubtotal(group) !== null" class="mt-1.5 text-right text-xs text-[var(--aktiv-muted)]">
             {{ group.totalHours }}hr × ₱{{ group.pricePerHour }}/hr =
-            <strong class="text-[var(--aktiv-ink)]">₱{{ formatPrice(group.subtotal) }}</strong>
+            <strong class="text-[var(--aktiv-ink)]">
+              <template v-if="appliedVoucherPreview && groupVoucherOriginalSubtotal(group) !== null">
+                <span class="mr-1 font-normal line-through text-[var(--aktiv-muted)]">
+                  ₱{{ formatPrice(groupVoucherOriginalSubtotal(group)!) }}
+                </span>
+              </template>
+              ₱{{ formatPrice(groupVoucherSubtotal(group)!) }}
+            </strong>
           </div>
         </div>
 
-        <div v-if="grandTotal > 0" class="flex items-center justify-between pt-1 text-sm">
+        <div v-if="displayedGrandTotal > 0" class="flex items-center justify-between pt-1 text-sm">
           <span class="font-semibold text-[var(--aktiv-ink)]">Total</span>
-          <span class="font-black text-[var(--aktiv-ink)]">₱{{ formatPrice(grandTotal) }}</span>
+          <div class="text-right">
+            <p
+              v-if="displayedOriginalTotal !== null && appliedVoucherPreview"
+              class="text-xs text-[var(--aktiv-muted)] line-through"
+            >
+              ₱{{ formatPrice(displayedOriginalTotal) }}
+            </p>
+            <span class="font-black text-[var(--aktiv-ink)]">₱{{ formatPrice(displayedGrandTotal) }}</span>
+          </div>
+        </div>
+
+        <div
+          v-if="appliedDiscountMeta"
+          class="mt-2 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-3 py-2 text-sm text-[#166534]"
+        >
+          <p class="font-semibold">{{ appliedDiscountMeta.label }} applied</p>
+          <p>
+            Code: {{ props.voucherCode }}
+            <span v-if="appliedVoucherPreview">
+              · Saved ₱{{ formatPrice(appliedVoucherPreview.summary.discount_amount) }}
+            </span>
+            <span v-if="appliedDiscountMeta.overrides_promo">
+              · This voucher overrides any active promo.
+            </span>
+          </p>
         </div>
       </div>
 

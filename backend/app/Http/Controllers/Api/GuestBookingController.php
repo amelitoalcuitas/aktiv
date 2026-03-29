@@ -8,18 +8,22 @@ use App\Http\Requests\Booking\StoreGuestBookingRequest;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
-use App\Models\HubEvent;
 use App\Services\BookingNotificationService;
+use App\Services\HubEventDiscountService;
 use App\Services\ImageUploadService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class GuestBookingController extends Controller
 {
-    public function __construct(private BookingNotificationService $notifications) {}
+    public function __construct(
+        private BookingNotificationService $notifications,
+        private HubEventDiscountService $discounts
+    ) {}
     /**
      * Send a 6-digit OTP to the guest's email for booking verification.
      */
@@ -107,7 +111,7 @@ class GuestBookingController extends Controller
         }
 
         // Closure check: reject if an active closure event covers this court and time window
-        $closureEvent = $this->findClosureEvent($hub, $court, $startTime, $endTime);
+        $closureEvent = $this->discounts->findClosureEvent($hub, $court, $startTime, $endTime);
         if ($closureEvent) {
             return response()->json([
                 'message' => "This court is unavailable: {$closureEvent->title}",
@@ -128,27 +132,44 @@ class GuestBookingController extends Controller
             ], 409);
         }
 
-        $hours = $startTime->diffInMinutes($endTime) / 60;
-        $pricePerHour = (float) $court->price_per_hour;
-        $totalPrice = $pricePerHour > 0 ? round($pricePerHour * $hours, 2) : null;
+        [$booking, $appliedDiscount] = DB::transaction(function () use ($hub, $court, $request, $startTime, $endTime) {
+            $pricing = $this->discounts->resolveBookingPricing(
+                hub: $hub,
+                court: $court,
+                startTime: $startTime,
+                endTime: $endTime,
+                voucherCode: $request->voucher_code,
+                guestEmail: $request->email,
+                lockVoucher: true,
+            );
 
-        $booking = Booking::create([
-            'court_id'       => $court->id,
-            'booked_by'      => null,
-            'created_by'     => null,
-            'sport'          => $court->sports->first()?->sport,
-            'start_time'     => $startTime,
-            'end_time'       => $endTime,
-            'session_type'   => $request->session_type,
-            'status'         => 'pending_payment',
-            'booking_source' => 'self_booked',
-            'guest_name'     => $request->guest_name,
-            'guest_email'    => $request->email,
-            'guest_phone'    => $request->guest_phone,
-            'total_price'    => $totalPrice,
-            'payment_method' => $request->payment_method,
-            'expires_at'     => $this->resolveExpiresAt($request->payment_method, $startTime),
-        ]);
+            $appliedDiscount = $pricing['applied_discount'];
+            $booking = Booking::create([
+                'court_id'       => $court->id,
+                'booked_by'      => null,
+                'created_by'     => null,
+                'sport'          => $court->sports->first()?->sport,
+                'start_time'     => $startTime,
+                'end_time'       => $endTime,
+                'session_type'   => $request->session_type,
+                'status'         => 'pending_payment',
+                'booking_source' => 'self_booked',
+                'guest_name'     => $request->guest_name,
+                'guest_email'    => $request->email,
+                'guest_phone'    => $request->guest_phone,
+                'total_price'    => $pricing['total_price'],
+                'original_price' => $pricing['original_price'],
+                'discount_amount' => $pricing['discount_amount'],
+                'applied_promo_title' => $appliedDiscount['label'] ?? null,
+                'applied_hub_event_id' => ($appliedDiscount['source'] ?? null) === 'voucher'
+                    ? $appliedDiscount['event_id']
+                    : null,
+                'payment_method' => $request->payment_method,
+                'expires_at'     => $this->resolveExpiresAt($request->payment_method, $startTime),
+            ]);
+
+            return [$booking, $appliedDiscount];
+        });
 
         Cache::forget($cacheKey);
 
@@ -171,6 +192,7 @@ class GuestBookingController extends Controller
                 'status'         => $booking->status,
                 'booking_source' => $booking->booking_source,
                 'total_price'    => $booking->total_price,
+                'applied_discount' => $appliedDiscount,
                 'expires_at'          => $booking->expires_at->toIso8601String(),
                 'created_at'          => $booking->created_at->toIso8601String(),
                 'guest_tracking_token' => $trackingToken,
@@ -226,27 +248,6 @@ class GuestBookingController extends Controller
                 'receipt_uploaded_at'  => $booking->receipt_uploaded_at->toIso8601String(),
             ],
         ]);
-    }
-
-    private function findClosureEvent(Hub $hub, Court $court, Carbon $startTime, Carbon $endTime): ?HubEvent
-    {
-        $bookingStart = $startTime->copy()->setTimezone('Asia/Manila')->startOfDay();
-        $bookingEnd   = $endTime->copy()->setTimezone('Asia/Manila')->endOfDay();
-
-        $slotStart = $startTime->copy()->setTimezone('Asia/Manila')->format('H:i');
-        $slotEnd   = $endTime->copy()->setTimezone('Asia/Manila')->format('H:i');
-
-        return HubEvent::where('hub_id', $hub->id)
-            ->where('event_type', 'closure')
-            ->where('is_active', true)
-            ->where('date_from', '<=', $bookingEnd)
-            ->where('date_to', '>=', $bookingStart)
-            ->get()
-            ->filter(function (HubEvent $e) use ($slotStart, $slotEnd) {
-                if (! $e->time_from || ! $e->time_to) return true;
-                return $slotStart < substr($e->time_to, 0, 5) && $slotEnd > substr($e->time_from, 0, 5);
-            })
-            ->first(fn (HubEvent $e) => $e->appliesToCourt($court->id));
     }
 
     private function resolveExpiresAt(string $paymentMethod, Carbon $startTime): Carbon

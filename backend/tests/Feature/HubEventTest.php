@@ -1,8 +1,10 @@
 <?php
 
+use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
 use App\Models\HubEvent;
+use App\Models\HubSettings;
 use App\Models\User;
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -87,6 +89,129 @@ it('rejects a promo event without discount fields', function () {
             'date_to'    => now()->addDays(7)->toDateString(),
         ])
         ->assertUnprocessable();
+});
+
+it('creates a voucher event with announcement details', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+
+    $this->actingAs($owner)
+        ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
+            'title' => 'Summer Voucher',
+            'description' => 'Use this code on checkout.',
+            'event_type' => 'voucher',
+            'date_from' => now()->toDateString(),
+            'date_to' => now()->addDays(7)->toDateString(),
+            'discount_type' => 'flat',
+            'discount_value' => 150,
+            'voucher_code' => 'save1234abcd',
+            'show_announcement' => true,
+            'limit_total_uses' => true,
+            'max_total_uses' => 50,
+            'limit_per_user_uses' => true,
+            'max_uses_per_user' => 2,
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.event_type', 'voucher')
+        ->assertJsonPath('data.voucher_code', 'SAVE1234ABCD')
+        ->assertJsonPath('data.show_announcement', true)
+        ->assertJsonPath('data.limit_total_uses', true)
+        ->assertJsonPath('data.max_total_uses', 50)
+        ->assertJsonPath('data.limit_per_user_uses', true)
+        ->assertJsonPath('data.max_uses_per_user', 2);
+});
+
+it('requires a title even when voucher announcement is off', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+
+    $this->actingAs($owner)
+        ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
+            'event_type' => 'voucher',
+            'date_from' => now()->toDateString(),
+            'date_to' => now()->addDays(7)->toDateString(),
+            'discount_type' => 'percent',
+            'discount_value' => 20,
+            'voucher_code' => 'SAVE12345678',
+            'show_announcement' => false,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('title');
+});
+
+it('stores voucher title and description even when announcement is off', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+
+    $this->actingAs($owner)
+        ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
+            'title' => 'Private Voucher',
+            'description' => 'Hidden from the about page.',
+            'event_type' => 'voucher',
+            'date_from' => now()->toDateString(),
+            'date_to' => now()->addDays(7)->toDateString(),
+            'discount_type' => 'percent',
+            'discount_value' => 20,
+            'voucher_code' => 'SAVE12345678',
+            'show_announcement' => false,
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.title', 'Private Voucher')
+        ->assertJsonPath('data.description', 'Hidden from the about page.')
+        ->assertJsonPath('data.show_announcement', false);
+});
+
+it('rejects duplicate voucher codes within the same hub', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+    HubEvent::factory()->voucher(voucherCode: 'SAVE12345678')->create(['hub_id' => $hub->id]);
+
+    $this->actingAs($owner)
+        ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
+            'event_type' => 'voucher',
+            'date_from' => now()->toDateString(),
+            'date_to' => now()->addDays(7)->toDateString(),
+            'discount_type' => 'percent',
+            'discount_value' => 20,
+            'voucher_code' => 'SAVE12345678',
+            'show_announcement' => false,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('voucher_code');
+});
+
+it('rejects voucher limits when enabled without values', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+
+    $this->actingAs($owner)
+        ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
+            'title' => 'Limited Voucher',
+            'event_type' => 'voucher',
+            'date_from' => now()->toDateString(),
+            'date_to' => now()->addDays(7)->toDateString(),
+            'discount_type' => 'percent',
+            'discount_value' => 20,
+            'voucher_code' => 'SAVE12345678',
+            'limit_total_uses' => true,
+            'limit_per_user_uses' => true,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['max_total_uses', 'max_uses_per_user']);
+});
+
+it('allows the same voucher code on a different hub', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+    [$otherOwner, $otherHub] = makeOwnerWithHub();
+    HubEvent::factory()->voucher(voucherCode: 'SAVE12345678')->create(['hub_id' => $hub->id]);
+
+    $this->actingAs($otherOwner)
+        ->postJson("/api/dashboard/hubs/{$otherHub->id}/events", [
+            'title' => 'Second Hub Voucher',
+            'event_type' => 'voucher',
+            'date_from' => now()->toDateString(),
+            'date_to' => now()->addDays(7)->toDateString(),
+            'discount_type' => 'percent',
+            'discount_value' => 20,
+            'voucher_code' => 'SAVE12345678',
+            'show_announcement' => false,
+        ])
+        ->assertCreated();
 });
 
 it('rejects date_to before date_from', function () {
@@ -217,7 +342,7 @@ it('auto-applies percent promo discount to booking price', function () {
 
     // 400 * 0.75 = 300
     expect((float) $res['total_price'])->toBe(300.0);
-    expect($res['applied_promo']['discount_type'])->toBe('percent');
+    expect($res['applied_discount']['discount_type'])->toBe('percent');
 });
 
 it('auto-applies flat promo discount to booking price', function () {
@@ -247,6 +372,268 @@ it('auto-applies flat promo discount to booking price', function () {
 
     // 500 - 100 = 400
     expect((float) $res['total_price'])->toBe(400.0);
+});
+
+it('previews a valid voucher for the selected booking', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+    $court = Court::factory()->create(['hub_id' => $hub->id, 'price_per_hour' => 400, 'is_active' => true]);
+
+    HubEvent::factory()->voucher('percent', 25, 'SAVE12345678')->create([
+        'hub_id' => $hub->id,
+        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
+        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        'is_active' => true,
+        'show_announcement' => false,
+        'title' => null,
+        'description' => null,
+    ]);
+
+    $start = now('Asia/Manila')->addDay()->setHour(10)->setMinute(0)->setSecond(0);
+    $end = $start->copy()->addHour();
+
+    $this->postJson("/api/hubs/{$hub->id}/vouchers/preview", [
+        'voucher_code' => 'save12345678',
+        'items' => [[
+            'court_id' => $court->id,
+            'start_time' => $start->toIso8601String(),
+            'end_time' => $end->toIso8601String(),
+        ]],
+    ])
+        ->assertOk()
+        ->assertJsonPath('data.voucher_code', 'SAVE12345678')
+        ->assertJsonPath('data.summary.original_total', 400)
+        ->assertJsonPath('data.summary.discounted_total', 300)
+        ->assertJsonPath('data.applied_discount.source', 'voucher');
+});
+
+it('rejects voucher preview when total-use cap is exhausted', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+    $court = Court::factory()->create(['hub_id' => $hub->id, 'price_per_hour' => 400, 'is_active' => true]);
+    $voucher = HubEvent::factory()->voucher('percent', 25, 'SAVE12345678')->create([
+        'hub_id' => $hub->id,
+        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
+        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        'is_active' => true,
+        'show_announcement' => false,
+        'title' => 'Limited Voucher',
+        'description' => null,
+        'limit_total_uses' => true,
+        'max_total_uses' => 1,
+    ]);
+
+    Booking::factory()->create([
+        'court_id' => $court->id,
+        'status' => 'confirmed',
+        'expires_at' => null,
+        'applied_hub_event_id' => $voucher->id,
+    ]);
+
+    $start = now('Asia/Manila')->addDay()->setHour(10)->setMinute(0)->setSecond(0);
+    $end = $start->copy()->addHour();
+
+    $this->postJson("/api/hubs/{$hub->id}/vouchers/preview", [
+        'voucher_code' => 'SAVE12345678',
+        'items' => [[
+            'court_id' => $court->id,
+            'start_time' => $start->toIso8601String(),
+            'end_time' => $end->toIso8601String(),
+        ]],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('voucher_code');
+});
+
+it('rejects voucher preview when guest email has reached the per-user cap', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+    $court = Court::factory()->create(['hub_id' => $hub->id, 'price_per_hour' => 400, 'is_active' => true]);
+    $voucher = HubEvent::factory()->voucher('percent', 25, 'SAVE12345678')->create([
+        'hub_id' => $hub->id,
+        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
+        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        'is_active' => true,
+        'show_announcement' => false,
+        'title' => 'Email Limited Voucher',
+        'description' => null,
+        'limit_per_user_uses' => true,
+        'max_uses_per_user' => 1,
+    ]);
+
+    Booking::factory()->create([
+        'court_id' => $court->id,
+        'status' => 'confirmed',
+        'expires_at' => null,
+        'guest_email' => 'guest@example.com',
+        'applied_hub_event_id' => $voucher->id,
+    ]);
+
+    $start = now('Asia/Manila')->addDay()->setHour(10)->setMinute(0)->setSecond(0);
+    $end = $start->copy()->addHour();
+
+    $this->postJson("/api/hubs/{$hub->id}/vouchers/preview", [
+        'voucher_code' => 'SAVE12345678',
+        'guest_email' => 'guest@example.com',
+        'items' => [[
+            'court_id' => $court->id,
+            'start_time' => $start->toIso8601String(),
+            'end_time' => $end->toIso8601String(),
+        ]],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('voucher_code');
+});
+
+it('does not count expired bookings toward voucher usage caps', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+    $court = Court::factory()->create(['hub_id' => $hub->id, 'price_per_hour' => 400, 'is_active' => true]);
+    $voucher = HubEvent::factory()->voucher('percent', 25, 'SAVE12345678')->create([
+        'hub_id' => $hub->id,
+        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
+        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        'is_active' => true,
+        'show_announcement' => false,
+        'title' => 'Temporary Voucher',
+        'description' => null,
+        'limit_total_uses' => true,
+        'max_total_uses' => 1,
+    ]);
+
+    Booking::factory()->create([
+        'court_id' => $court->id,
+        'status' => 'pending_payment',
+        'expires_at' => now()->subMinute(),
+        'applied_hub_event_id' => $voucher->id,
+    ]);
+
+    $start = now('Asia/Manila')->addDay()->setHour(10)->setMinute(0)->setSecond(0);
+    $end = $start->copy()->addHour();
+
+    $this->postJson("/api/hubs/{$hub->id}/vouchers/preview", [
+        'voucher_code' => 'SAVE12345678',
+        'items' => [[
+            'court_id' => $court->id,
+            'start_time' => $start->toIso8601String(),
+            'end_time' => $end->toIso8601String(),
+        ]],
+    ])
+        ->assertOk();
+});
+
+it('rejects voucher preview outside the voucher time window', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+    $court = Court::factory()->create(['hub_id' => $hub->id, 'price_per_hour' => 400, 'is_active' => true]);
+
+    HubEvent::factory()->voucher('percent', 25, 'SAVE12345678')->create([
+        'hub_id' => $hub->id,
+        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
+        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        'time_from' => '09:00',
+        'time_to' => '11:00',
+        'is_active' => true,
+        'show_announcement' => false,
+        'title' => null,
+        'description' => null,
+    ]);
+
+    $start = now('Asia/Manila')->addDay()->setHour(12)->setMinute(0)->setSecond(0);
+    $end = $start->copy()->addHour();
+
+    $this->postJson("/api/hubs/{$hub->id}/vouchers/preview", [
+        'voucher_code' => 'SAVE12345678',
+        'items' => [[
+            'court_id' => $court->id,
+            'start_time' => $start->toIso8601String(),
+            'end_time' => $end->toIso8601String(),
+        ]],
+    ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('voucher_code');
+});
+
+it('applies voucher discount instead of promo for registered bookings', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+    $court = Court::factory()->create(['hub_id' => $hub->id, 'price_per_hour' => 400, 'is_active' => true]);
+    $user = User::factory()->create(['role' => 'user', 'email_verified_at' => now()]);
+
+    HubEvent::factory()->promo('percent', 10)->create([
+        'hub_id' => $hub->id,
+        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
+        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        'is_active' => true,
+    ]);
+
+    HubEvent::factory()->voucher('flat', 150, 'SAVE12345678')->create([
+        'hub_id' => $hub->id,
+        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
+        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        'is_active' => true,
+        'show_announcement' => false,
+        'title' => null,
+        'description' => null,
+    ]);
+
+    $start = now('Asia/Manila')->addDay()->setHour(10)->setMinute(0)->setSecond(0);
+    $end = $start->copy()->addHour();
+
+    $res = $this->actingAs($user)
+        ->postJson("/api/hubs/{$hub->id}/courts/{$court->id}/bookings", [
+            'start_time' => $start->toIso8601String(),
+            'end_time' => $end->toIso8601String(),
+            'session_type' => 'private',
+            'payment_method' => 'pay_on_site',
+            'voucher_code' => 'SAVE12345678',
+        ])
+        ->assertCreated()
+        ->json('data');
+
+    expect((float) $res['total_price'])->toBe(250.0);
+    expect($res['applied_discount']['source'])->toBe('voucher');
+    expect(Booking::query()->latest('created_at')->first()?->applied_hub_event_id)->not->toBeNull();
+});
+
+it('applies voucher discount for guest bookings', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+    HubSettings::factory()->create([
+        'hub_id' => $hub->id,
+        'require_account_to_book' => false,
+        'payment_methods' => ['pay_on_site'],
+    ]);
+    $court = Court::factory()->create(['hub_id' => $hub->id, 'price_per_hour' => 500, 'is_active' => true]);
+
+    HubEvent::factory()->voucher('flat', 100, 'SAVE12345678')->create([
+        'hub_id' => $hub->id,
+        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
+        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        'is_active' => true,
+        'show_announcement' => false,
+        'title' => null,
+        'description' => null,
+    ]);
+
+    $start = now('Asia/Manila')->addDay()->setHour(10)->setMinute(0)->setSecond(0);
+    $end = $start->copy()->addHour();
+
+    $this->postJson("/api/hubs/{$hub->id}/courts/{$court->id}/guest-verify", [
+        'email' => 'guest@example.com',
+    ])->assertOk();
+
+    cache()->put("guest_otp:{$hub->id}:guest@example.com", '123456', now()->addMinutes(10));
+
+    $res = $this->postJson("/api/hubs/{$hub->id}/courts/{$court->id}/guest-bookings", [
+        'email' => 'guest@example.com',
+        'otp' => '123456',
+        'guest_name' => 'Guest User',
+        'guest_phone' => '09170000000',
+        'start_time' => $start->toIso8601String(),
+        'end_time' => $end->toIso8601String(),
+        'session_type' => 'private',
+        'payment_method' => 'pay_on_site',
+        'voucher_code' => 'SAVE12345678',
+    ])
+        ->assertCreated()
+        ->json('data');
+
+    expect((float) $res['total_price'])->toBe(400.0);
+    expect($res['applied_discount']['source'])->toBe('voucher');
 });
 
 // ── Public API — Event flags on hub ──────────────────────────────

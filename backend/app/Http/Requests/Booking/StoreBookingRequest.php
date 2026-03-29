@@ -24,6 +24,7 @@ class StoreBookingRequest extends FormRequest
             'end_time' => ['required', 'date', 'after:start_time'],
             'session_type' => ['required', Rule::in(['private', 'open_play'])],
             'payment_method' => ['required', 'string', Rule::in($allowedPaymentMethods)],
+            'voucher_code' => ['nullable', 'string', 'max:12'],
         ];
     }
 

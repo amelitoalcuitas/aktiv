@@ -13,12 +13,36 @@ const toast = useToast();
 const hubId = computed(() => String(route.params.id));
 
 const manageTabs = computed(() => [
-  { label: 'Hub', icon: 'i-heroicons-building-storefront', to: `/hubs/${hubId.value}/edit` },
-  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: `/hubs/${hubId.value}/courts` },
-  { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: `/hubs/${hubId.value}/bookings` },
-  { label: 'Events', icon: 'i-heroicons-megaphone', to: `/hubs/${hubId.value}/events` },
-  { label: 'Reviews', icon: 'i-heroicons-star', to: `/hubs/${hubId.value}/reviews` },
-  { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: `/hubs/${hubId.value}/settings` }
+  {
+    label: 'Hub',
+    icon: 'i-heroicons-building-storefront',
+    to: `/hubs/${hubId.value}/edit`
+  },
+  {
+    label: 'Courts',
+    icon: 'i-heroicons-squares-2x2',
+    to: `/hubs/${hubId.value}/courts`
+  },
+  {
+    label: 'Bookings',
+    icon: 'i-heroicons-calendar-days',
+    to: `/hubs/${hubId.value}/bookings`
+  },
+  {
+    label: 'Events',
+    icon: 'i-heroicons-megaphone',
+    to: `/hubs/${hubId.value}/events`
+  },
+  {
+    label: 'Reviews',
+    icon: 'i-heroicons-star',
+    to: `/hubs/${hubId.value}/reviews`
+  },
+  {
+    label: 'Settings',
+    icon: 'i-heroicons-cog-6-tooth',
+    to: `/hubs/${hubId.value}/settings`
+  }
 ]);
 
 const events = ref<HubEvent[]>([]);
@@ -65,9 +89,10 @@ const editingEvent = ref<HubEvent | null>(null);
 const formLoading = ref(false);
 
 const EVENT_TYPE_OPTIONS = [
+  { label: 'Announcement', value: 'announcement' },
   { label: 'Closure', value: 'closure' },
   { label: 'Promo', value: 'promo' },
-  { label: 'Announcement', value: 'announcement' }
+  { label: 'Voucher', value: 'voucher' }
 ] as const;
 
 const DISCOUNT_TYPE_OPTIONS = [
@@ -101,10 +126,37 @@ const form = reactive({
   time_to: '',
   discount_type: 'percent' as DiscountType,
   discount_value: '' as string,
+  voucher_code: '',
+  show_announcement: true,
+  limit_total_uses: false,
+  max_total_uses: '',
+  limit_per_user_uses: false,
+  max_uses_per_user: '',
   affected_courts: null as string[] | null,
   court_discounts: [] as CourtDiscountRow[],
   is_active: true
 });
+
+const isVoucherEvent = computed(() => form.event_type === 'voucher');
+const showDiscountFields = computed(
+  () => form.event_type === 'promo' || form.event_type === 'voucher'
+);
+
+function generateVoucherCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+
+  for (let i = 0; i < 12; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)]!;
+  }
+
+  return code;
+}
+
+function handleGenerateVoucherCode() {
+  form.voucher_code = generateVoucherCode();
+  formErrors.voucher_code = '';
+}
 
 function addCourtDiscountRow() {
   const firstUnused = hubCourts.value.find(
@@ -160,22 +212,30 @@ function formatPrice(n: number): string {
 
 const formErrors = reactive({
   title: '',
+  description: '',
   event_type: '',
   date_from: '',
   date_to: '',
   discount_type: '',
-  discount_value: ''
+  discount_value: '',
+  voucher_code: '',
+  max_total_uses: '',
+  max_uses_per_user: ''
 });
 
 const courtDiscountErrors = ref<string[]>([]);
 
 function clearFormErrors() {
   formErrors.title = '';
+  formErrors.description = '';
   formErrors.event_type = '';
   formErrors.date_from = '';
   formErrors.date_to = '';
   formErrors.discount_type = '';
   formErrors.discount_value = '';
+  formErrors.voucher_code = '';
+  formErrors.max_total_uses = '';
+  formErrors.max_uses_per_user = '';
   courtDiscountErrors.value = [];
 }
 
@@ -203,14 +263,13 @@ function validateForm(): boolean {
     formErrors.date_to = 'End date must be on or after start date.';
     valid = false;
   }
-  if (form.event_type === 'promo' && form.court_discounts.length === 0) {
+  if (showDiscountFields.value && form.court_discounts.length === 0) {
     if (!form.discount_type) {
-      formErrors.discount_type = 'Discount type is required for promos.';
+      formErrors.discount_type = `Discount type is required for ${form.event_type}s.`;
       valid = false;
     }
     if (!form.discount_value || isNaN(parseFloat(form.discount_value))) {
-      formErrors.discount_value =
-        'A valid discount value is required for promos.';
+      formErrors.discount_value = `A valid discount value is required for ${form.event_type}s.`;
       valid = false;
     }
   }
@@ -222,6 +281,34 @@ function validateForm(): boolean {
         : ''
     );
     if (courtDiscountErrors.value.some((e) => e)) valid = false;
+  }
+
+  if (form.event_type === 'voucher') {
+    const normalizedCode = form.voucher_code.trim().toUpperCase();
+    if (!normalizedCode) {
+      formErrors.voucher_code = 'Voucher code is required.';
+      valid = false;
+    } else if (!/^[A-Z0-9]{12}$/.test(normalizedCode)) {
+      formErrors.voucher_code =
+        'Voucher code must be 12 uppercase letters and numbers only.';
+      valid = false;
+    }
+
+    if (form.limit_total_uses) {
+      const value = Number.parseInt(form.max_total_uses, 10);
+      if (!form.max_total_uses || Number.isNaN(value) || value < 1) {
+        formErrors.max_total_uses = 'Enter a whole number greater than 0.';
+        valid = false;
+      }
+    }
+
+    if (form.limit_per_user_uses) {
+      const value = Number.parseInt(form.max_uses_per_user, 10);
+      if (!form.max_uses_per_user || Number.isNaN(value) || value < 1) {
+        formErrors.max_uses_per_user = 'Enter a whole number greater than 0.';
+        valid = false;
+      }
+    }
   }
 
   return valid;
@@ -241,6 +328,12 @@ function openAdd() {
     time_to: '',
     discount_type: 'percent',
     discount_value: '',
+    voucher_code: generateVoucherCode(),
+    show_announcement: true,
+    limit_total_uses: false,
+    max_total_uses: '',
+    limit_per_user_uses: false,
+    max_uses_per_user: '',
     affected_courts: null,
     court_discounts: [],
     is_active: true
@@ -252,7 +345,7 @@ function openEdit(event: HubEvent) {
   editingEvent.value = event;
   clearFormErrors();
   Object.assign(form, {
-    title: event.title,
+    title: event.title ?? '',
     description: event.description ?? '',
     event_type: event.event_type,
     date_from: event.date_from,
@@ -261,6 +354,14 @@ function openEdit(event: HubEvent) {
     time_to: event.time_to ?? '',
     discount_type: event.discount_type ?? 'percent',
     discount_value: event.discount_value ?? '',
+    voucher_code: event.voucher_code ?? '',
+    show_announcement: event.show_announcement ?? true,
+    limit_total_uses: event.limit_total_uses ?? false,
+    max_total_uses:
+      event.max_total_uses !== null ? String(event.max_total_uses) : '',
+    limit_per_user_uses: event.limit_per_user_uses ?? false,
+    max_uses_per_user:
+      event.max_uses_per_user !== null ? String(event.max_uses_per_user) : '',
     affected_courts: event.affected_courts ?? null,
     court_discounts:
       event.court_discounts?.map((r) => ({
@@ -287,12 +388,30 @@ async function submitForm() {
       time_from: form.time_from || null,
       time_to: form.time_to || null,
       discount_type:
-        form.event_type === 'promo' && !form.court_discounts.length
+        showDiscountFields.value && !form.court_discounts.length
           ? form.discount_type
           : null,
       discount_value:
-        form.event_type === 'promo' && !form.court_discounts.length
+        showDiscountFields.value && !form.court_discounts.length
           ? parseFloat(form.discount_value)
+          : null,
+      voucher_code:
+        form.event_type === 'voucher'
+          ? form.voucher_code.trim().toUpperCase()
+          : null,
+      show_announcement:
+        form.event_type === 'voucher' ? form.show_announcement : true,
+      limit_total_uses:
+        form.event_type === 'voucher' ? form.limit_total_uses : false,
+      max_total_uses:
+        form.event_type === 'voucher' && form.limit_total_uses
+          ? Number.parseInt(form.max_total_uses, 10)
+          : null,
+      limit_per_user_uses:
+        form.event_type === 'voucher' ? form.limit_per_user_uses : false,
+      max_uses_per_user:
+        form.event_type === 'voucher' && form.limit_per_user_uses
+          ? Number.parseInt(form.max_uses_per_user, 10)
           : null,
       affected_courts: form.affected_courts?.length
         ? form.affected_courts
@@ -317,12 +436,76 @@ async function submitForm() {
     }
     isFormOpen.value = false;
     await loadEvents();
-  } catch {
+  } catch (e: unknown) {
+    const err = e as {
+      data?: {
+        errors?: Record<string, string[]>;
+      };
+    };
+    const errors = err?.data?.errors ?? {};
+    formErrors.title = errors.title?.[0] ?? formErrors.title;
+    formErrors.description = errors.description?.[0] ?? formErrors.description;
+    formErrors.date_from = errors.date_from?.[0] ?? formErrors.date_from;
+    formErrors.date_to = errors.date_to?.[0] ?? formErrors.date_to;
+    formErrors.discount_type =
+      errors.discount_type?.[0] ?? formErrors.discount_type;
+    formErrors.discount_value =
+      errors.discount_value?.[0] ?? formErrors.discount_value;
+    formErrors.voucher_code =
+      errors.voucher_code?.[0] ?? formErrors.voucher_code;
+    formErrors.max_total_uses =
+      errors.max_total_uses?.[0] ?? formErrors.max_total_uses;
+    formErrors.max_uses_per_user =
+      errors.max_uses_per_user?.[0] ?? formErrors.max_uses_per_user;
     toast.add({ title: 'Failed to save event', color: 'error' });
   } finally {
     formLoading.value = false;
   }
 }
+
+watch(
+  () => form.event_type,
+  (eventType) => {
+    clearFormErrors();
+
+    if (eventType === 'voucher' && !form.voucher_code) {
+      form.voucher_code = generateVoucherCode();
+    }
+
+    if (eventType !== 'voucher') {
+      form.voucher_code = '';
+      form.show_announcement = true;
+      form.limit_total_uses = false;
+      form.max_total_uses = '';
+      form.limit_per_user_uses = false;
+      form.max_uses_per_user = '';
+    }
+
+    if (eventType === 'voucher') {
+      form.court_discounts = [];
+    }
+  }
+);
+
+watch(
+  () => form.limit_total_uses,
+  (enabled) => {
+    if (!enabled) {
+      form.max_total_uses = '';
+      formErrors.max_total_uses = '';
+    }
+  }
+);
+
+watch(
+  () => form.limit_per_user_uses,
+  (enabled) => {
+    if (!enabled) {
+      form.max_uses_per_user = '';
+      formErrors.max_uses_per_user = '';
+    }
+  }
+);
 
 // ── Delete ─────────────────────────────────────────────────────────────────────
 
@@ -388,13 +571,15 @@ const dateToObj = computed({
 const EVENT_TYPE_STYLES: Record<EventType, string> = {
   closure: 'bg-[#fee2e2] text-[#9f1239]',
   promo: 'bg-[#fef9c3] text-[#854d0e]',
-  announcement: 'bg-[#dbeafe] text-[#1e40af]'
+  announcement: 'bg-[#dbeafe] text-[#1e40af]',
+  voucher: 'bg-[#dcfce7] text-[#166534]'
 };
 
 const EVENT_TYPE_LABELS: Record<EventType, string> = {
   closure: 'Closure',
   promo: 'Promo',
-  announcement: 'Announcement'
+  announcement: 'Announcement',
+  voucher: 'Voucher'
 };
 
 function formatDateRange(from: string, to: string): string {
@@ -403,7 +588,8 @@ function formatDateRange(from: string, to: string): string {
 }
 
 function formatDiscount(event: HubEvent): string {
-  if (event.event_type !== 'promo') return '—';
+  if (event.event_type !== 'promo' && event.event_type !== 'voucher')
+    return '—';
   if (event.court_discounts?.length) {
     return `${event.court_discounts.length} court${event.court_discounts.length > 1 ? 's' : ''}`;
   }
@@ -411,6 +597,29 @@ function formatDiscount(event: HubEvent): string {
   if (event.discount_type === 'percent')
     return `${parseFloat(event.discount_value)}% off`;
   return `₱${parseFloat(event.discount_value).toFixed(0)} off`;
+}
+
+function formatVoucherLimits(event: HubEvent): string {
+  if (event.event_type !== 'voucher') return '';
+
+  const parts: string[] = [];
+  if (event.limit_total_uses && event.max_total_uses !== null) {
+    parts.push(
+      `${event.max_total_uses} total use${event.max_total_uses === 1 ? '' : 's'}`
+    );
+  }
+  if (event.limit_per_user_uses && event.max_uses_per_user !== null) {
+    parts.push(`${event.max_uses_per_user} per user`);
+  }
+
+  return parts.join(' · ');
+}
+
+function eventDisplayTitle(event: HubEvent): string {
+  if (event.title) return event.title;
+  if (event.event_type === 'voucher' && event.voucher_code)
+    return `Voucher ${event.voucher_code}`;
+  return 'Untitled event';
 }
 </script>
 
@@ -424,7 +633,7 @@ function formatDiscount(event: HubEvent): string {
         <div>
           <h1 class="text-2xl font-bold text-[#0f1728]">Events</h1>
           <p class="mt-1 text-sm text-[#64748b]">
-            Manage closures, promos, and announcements.
+            Manage closures, promos, announcements, and vouchers.
           </p>
         </div>
         <UButton
@@ -453,7 +662,8 @@ function formatDiscount(event: HubEvent): string {
         />
         <h3 class="mt-3 text-sm font-semibold text-[#0f1728]">No events yet</h3>
         <p class="mt-1 text-xs text-[#64748b]">
-          Add closures, promos, or announcements to inform your customers.
+          Add closures, promos, announcements, or vouchers to inform your
+          customers.
         </p>
         <UButton
           icon="i-heroicons-plus"
@@ -466,9 +676,14 @@ function formatDiscount(event: HubEvent): string {
       </div>
 
       <!-- Events list -->
-      <div v-else class="space-y-0 overflow-hidden rounded-2xl border border-[#dbe4ef] bg-white">
+      <div
+        v-else
+        class="space-y-0 overflow-hidden rounded-2xl border border-[#dbe4ef] bg-white"
+      >
         <!-- Desktop table header -->
-        <div class="hidden sm:grid sm:grid-cols-[140px_1fr_160px_100px_140px_80px] border-b border-[#dbe4ef] bg-[#f8fafc] px-4 py-3 text-xs font-medium text-[#64748b]">
+        <div
+          class="hidden sm:grid sm:grid-cols-[140px_1fr_160px_100px_140px_80px] border-b border-[#dbe4ef] bg-[#f8fafc] px-4 py-3 text-xs font-medium text-[#64748b]"
+        >
           <span>Type</span>
           <span>Title</span>
           <span>Date Range</span>
@@ -494,19 +709,58 @@ function formatDiscount(event: HubEvent): string {
                 </span>
                 <span
                   class="rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
-                  :class="event.is_active ? 'bg-[#daf7d0] text-[#1e6a0f]' : 'bg-[#fee2e2] text-[#9f1239]'"
+                  :class="
+                    event.is_active
+                      ? 'bg-[#daf7d0] text-[#1e6a0f]'
+                      : 'bg-[#fee2e2] text-[#9f1239]'
+                  "
                 >
                   {{ event.is_active ? 'Active' : 'Inactive' }}
                 </span>
               </div>
-              <p class="font-medium text-sm text-[#0f1728] truncate">{{ event.title }}</p>
-              <p v-if="event.description" class="text-xs text-[#64748b] truncate">{{ event.description }}</p>
-              <p class="text-xs text-[#94a3b8]">{{ formatDateRange(event.date_from, event.date_to) }}</p>
+              <p class="font-medium text-sm text-[#0f1728] truncate">
+                {{ eventDisplayTitle(event) }}
+              </p>
+              <p
+                v-if="event.description"
+                class="text-xs text-[#64748b] truncate"
+              >
+                {{ event.description }}
+              </p>
+              <p
+                v-if="event.event_type === 'voucher' && event.voucher_code"
+                class="text-xs font-medium text-[#166534]"
+              >
+                Code: {{ event.voucher_code }}
+              </p>
+              <p
+                v-if="
+                  event.event_type === 'voucher' && formatVoucherLimits(event)
+                "
+                class="text-xs text-[#64748b] truncate"
+              >
+                {{ formatVoucherLimits(event) }}
+              </p>
+              <p class="text-xs text-[#94a3b8]">
+                {{ formatDateRange(event.date_from, event.date_to) }}
+              </p>
             </div>
             <div class="flex shrink-0 flex-col items-end gap-2">
               <div class="flex items-center gap-1">
-                <UButton icon="i-heroicons-pencil-square" color="neutral" variant="ghost" size="sm" @click="openEdit(event)" />
-                <UButton icon="i-heroicons-trash" color="error" variant="ghost" size="sm" @click="openDelete(event)" />
+                <UButton
+                  icon="i-heroicons-pencil-square"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  @click="openEdit(event)"
+                />
+                <UButton
+                  icon="i-heroicons-trash"
+                  color="error"
+                  variant="ghost"
+                  size="sm"
+                  @click="openDelete(event)"
+                />
               </div>
               <USwitch
                 :model-value="event.is_active"
@@ -517,7 +771,9 @@ function formatDiscount(event: HubEvent): string {
           </div>
 
           <!-- Desktop row layout -->
-          <div class="hidden sm:grid sm:grid-cols-[140px_1fr_160px_100px_140px_80px] items-center px-4 py-3 text-sm">
+          <div
+            class="hidden sm:grid sm:grid-cols-[140px_1fr_160px_100px_140px_80px] items-center px-4 py-3 text-sm"
+          >
             <div>
               <span
                 class="rounded-full px-2 py-0.5 text-xs font-medium"
@@ -527,10 +783,38 @@ function formatDiscount(event: HubEvent): string {
               </span>
             </div>
             <div class="min-w-0 pr-3">
-              <p class="truncate font-medium text-[#0f1728]" :title="event.title">{{ event.title }}</p>
-              <p v-if="event.description" class="truncate text-xs text-[#64748b]" :title="event.description">{{ event.description }}</p>
+              <p
+                class="truncate font-medium text-[#0f1728]"
+                :title="eventDisplayTitle(event)"
+              >
+                {{ eventDisplayTitle(event) }}
+              </p>
+              <p
+                v-if="event.description"
+                class="truncate text-xs text-[#64748b]"
+                :title="event.description"
+              >
+                {{ event.description }}
+              </p>
+              <p
+                v-if="event.event_type === 'voucher' && event.voucher_code"
+                class="truncate text-xs font-medium text-[#166534]"
+              >
+                Code: {{ event.voucher_code }}
+              </p>
+              <p
+                v-if="
+                  event.event_type === 'voucher' && formatVoucherLimits(event)
+                "
+                class="truncate text-xs text-[#64748b]"
+                :title="formatVoucherLimits(event)"
+              >
+                {{ formatVoucherLimits(event) }}
+              </p>
             </div>
-            <div class="text-[#64748b]">{{ formatDateRange(event.date_from, event.date_to) }}</div>
+            <div class="text-[#64748b]">
+              {{ formatDateRange(event.date_from, event.date_to) }}
+            </div>
             <div class="text-[#64748b]">{{ formatDiscount(event) }}</div>
             <div class="flex items-center gap-2">
               <USwitch
@@ -540,14 +824,30 @@ function formatDiscount(event: HubEvent): string {
               />
               <span
                 class="rounded-full px-2 py-0.5 text-xs font-medium"
-                :class="event.is_active ? 'bg-[#daf7d0] text-[#1e6a0f]' : 'bg-[#fee2e2] text-[#9f1239]'"
+                :class="
+                  event.is_active
+                    ? 'bg-[#daf7d0] text-[#1e6a0f]'
+                    : 'bg-[#fee2e2] text-[#9f1239]'
+                "
               >
                 {{ event.is_active ? 'Active' : 'Inactive' }}
               </span>
             </div>
             <div class="flex items-center justify-end gap-1">
-              <UButton icon="i-heroicons-pencil-square" color="neutral" variant="ghost" size="sm" @click="openEdit(event)" />
-              <UButton icon="i-heroicons-trash" color="error" variant="ghost" size="sm" @click="openDelete(event)" />
+              <UButton
+                icon="i-heroicons-pencil-square"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                @click="openEdit(event)"
+              />
+              <UButton
+                icon="i-heroicons-trash"
+                color="error"
+                variant="ghost"
+                size="sm"
+                @click="openDelete(event)"
+              />
             </div>
           </div>
         </div>
@@ -592,6 +892,22 @@ function formatDiscount(event: HubEvent): string {
             </div>
           </UFormField>
 
+          <template v-if="isVoucherEvent">
+            <div class="rounded-xl border border-[#dbe4ef] bg-[#f8fafc] p-3">
+              <label
+                class="flex cursor-pointer items-center justify-between gap-3 text-sm"
+              >
+                <div>
+                  <p class="font-medium text-[#0f1728]">Show Announcement</p>
+                  <p class="text-xs text-[#64748b]">
+                    Toggle whether to announce this voucher on the hub's page.
+                  </p>
+                </div>
+                <USwitch v-model="form.show_announcement" />
+              </label>
+            </div>
+          </template>
+
           <UFormField
             label="Title"
             required
@@ -599,13 +915,20 @@ function formatDiscount(event: HubEvent): string {
           >
             <UInput
               v-model="form.title"
-              placeholder="e.g. Holiday Closure"
+              :placeholder="
+                form.event_type === 'voucher'
+                  ? 'e.g. Summer Voucher'
+                  : 'e.g. Holiday Closure'
+              "
               class="w-full"
               maxlength="100"
             />
           </UFormField>
 
-          <UFormField label="Description (optional)">
+          <UFormField
+            :label="isVoucherEvent ? 'Description' : 'Description (optional)'"
+            :error="formErrors.description || undefined"
+          >
             <UTextarea
               v-model="form.description"
               placeholder="Visible to customers on the hub page"
@@ -624,7 +947,13 @@ function formatDiscount(event: HubEvent): string {
               <AppDatePicker
                 v-model="dateFromObj"
                 variant="nav"
-                :label="dateFromObj.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })"
+                :label="
+                  dateFromObj.toLocaleDateString('en-PH', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })
+                "
               />
             </UFormField>
             <UFormField
@@ -635,7 +964,13 @@ function formatDiscount(event: HubEvent): string {
               <AppDatePicker
                 v-model="dateToObj"
                 variant="nav"
-                :label="dateToObj.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })"
+                :label="
+                  dateToObj.toLocaleDateString('en-PH', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })
+                "
               />
             </UFormField>
           </div>
@@ -648,6 +983,97 @@ function formatDiscount(event: HubEvent): string {
               <UInput v-model="form.time_to" type="time" class="w-full" />
             </UFormField>
           </div>
+
+          <template v-if="form.event_type === 'voucher'">
+            <div class="grid grid-cols-[1fr_auto] gap-2 items-end">
+              <UFormField
+                label="Voucher Code"
+                required
+                :error="formErrors.voucher_code || undefined"
+              >
+                <UInput
+                  v-model="form.voucher_code"
+                  class="w-full"
+                  maxlength="12"
+                  placeholder="AB12CD34EF56"
+                  @blur="
+                    form.voucher_code = form.voucher_code.trim().toUpperCase()
+                  "
+                />
+              </UFormField>
+              <UButton
+                variant="outline"
+                color="primary"
+                class="mb-0.5"
+                @click="handleGenerateVoucherCode"
+              >
+                Generate Code
+              </UButton>
+            </div>
+
+            <div class="rounded-xl border border-[#dbe4ef] bg-[#f8fafc] p-3">
+              <label
+                class="flex cursor-pointer items-center justify-between gap-3 text-sm"
+              >
+                <div>
+                  <p class="font-medium text-[#0f1728]">Limit Voucher Use</p>
+                  <p class="text-xs text-[#64748b]">
+                    Cap the total number of times this voucher can be used.
+                  </p>
+                </div>
+                <USwitch v-model="form.limit_total_uses" />
+              </label>
+            </div>
+
+            <UFormField
+              v-if="form.limit_total_uses"
+              label="Max Total Uses"
+              required
+              :error="formErrors.max_total_uses || undefined"
+            >
+              <UInput
+                v-model="form.max_total_uses"
+                type="number"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                placeholder="100"
+                class="w-full"
+              />
+            </UFormField>
+
+            <div class="rounded-xl border border-[#dbe4ef] bg-[#f8fafc] p-3">
+              <label
+                class="flex cursor-pointer items-center justify-between gap-3 text-sm"
+              >
+                <div>
+                  <p class="font-medium text-[#0f1728]">Limit Per User Use</p>
+                  <p class="text-xs text-[#64748b]">
+                    Restrict how many times the same customer can use this
+                    voucher.
+                  </p>
+                </div>
+                <USwitch v-model="form.limit_per_user_uses" />
+              </label>
+            </div>
+
+            <UFormField
+              v-if="form.limit_per_user_uses"
+              label="Max Uses Per User"
+              required
+              :error="formErrors.max_uses_per_user || undefined"
+            >
+              <UInput
+                v-model="form.max_uses_per_user"
+                type="number"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                placeholder="1"
+                class="w-full"
+              />
+            </UFormField>
+          </template>
 
           <!-- Promo-only fields -->
           <template v-if="form.event_type === 'promo'">
@@ -809,6 +1235,42 @@ function formatDiscount(event: HubEvent): string {
             </template>
           </template>
 
+          <template v-if="form.event_type === 'voucher'">
+            <UFormField
+              label="Discount Type"
+              required
+              :error="formErrors.discount_type || undefined"
+            >
+              <USelect
+                v-model="form.discount_type"
+                :items="[...DISCOUNT_TYPE_OPTIONS]"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField
+              :label="
+                form.discount_type === 'percent'
+                  ? 'Discount (%)'
+                  : 'Discount (₱)'
+              "
+              required
+              :error="formErrors.discount_value || undefined"
+            >
+              <UInput
+                v-model="form.discount_value"
+                type="number"
+                min="0"
+                step="0.01"
+                :placeholder="form.discount_type === 'percent' ? '20' : '100'"
+                class="w-full"
+              />
+            </UFormField>
+            <p class="text-xs text-[#64748b]">
+              Applied vouchers override any active promo on the selected
+              booking.
+            </p>
+          </template>
+
           <label class="flex cursor-pointer items-center gap-2 text-sm">
             <USwitch v-model="form.is_active" />
             <span class="font-medium text-[#0f1728]">Active</span>
@@ -830,7 +1292,9 @@ function formatDiscount(event: HubEvent): string {
       <template #body>
         <p class="text-sm text-[#0f1728]">
           Are you sure you want to delete
-          <strong>{{ deletingEvent?.title }}</strong
+          <strong>{{
+            deletingEvent ? eventDisplayTitle(deletingEvent) : ''
+          }}</strong
           >? This cannot be undone.
         </p>
       </template>

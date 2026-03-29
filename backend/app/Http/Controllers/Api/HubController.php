@@ -740,6 +740,12 @@ class HubController extends Controller
                     'time_to'          => $e->time_to,
                     'discount_type'    => $e->discount_type,
                     'discount_value'   => $e->discount_value,
+                    'voucher_code'     => $e->voucher_code,
+                    'show_announcement' => $e->show_announcement,
+                    'limit_total_uses' => $e->limit_total_uses,
+                    'max_total_uses' => $e->max_total_uses,
+                    'limit_per_user_uses' => $e->limit_per_user_uses,
+                    'max_uses_per_user' => $e->max_uses_per_user,
                     'affected_courts'  => $e->affected_courts,
                     'court_discounts'  => $e->court_discounts,
                 ])

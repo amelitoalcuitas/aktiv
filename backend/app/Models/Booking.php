@@ -32,6 +32,7 @@ class Booking extends Model
         'original_price',
         'discount_amount',
         'applied_promo_title',
+        'applied_hub_event_id',
         'receipt_image_url',
         'receipt_uploaded_at',
         'payment_note',
@@ -86,6 +87,11 @@ class Booking extends Model
     public function createdBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function appliedHubEvent(): BelongsTo
+    {
+        return $this->belongsTo(HubEvent::class, 'applied_hub_event_id');
     }
 
     public function paymentConfirmedBy(): BelongsTo

@@ -23,6 +23,12 @@ class HubEventFactory extends Factory
             'time_to'         => null,
             'discount_type'   => null,
             'discount_value'  => null,
+            'voucher_code'    => null,
+            'show_announcement' => true,
+            'limit_total_uses' => false,
+            'max_total_uses' => null,
+            'limit_per_user_uses' => false,
+            'max_uses_per_user' => null,
             'affected_courts' => null,
             'is_active'       => true,
         ];
@@ -39,6 +45,26 @@ class HubEventFactory extends Factory
             'event_type'     => 'promo',
             'discount_type'  => $discountType,
             'discount_value' => $discountValue,
+        ]);
+    }
+
+    public function voucher(
+        string $discountType = 'percent',
+        float $discountValue = 20,
+        string $voucherCode = 'SAVE12345678'
+    ): static {
+        return $this->state([
+            'event_type' => 'voucher',
+            'title' => fake()->sentence(3),
+            'description' => fake()->sentence(10),
+            'discount_type' => $discountType,
+            'discount_value' => $discountValue,
+            'voucher_code' => $voucherCode,
+            'show_announcement' => true,
+            'limit_total_uses' => false,
+            'max_total_uses' => null,
+            'limit_per_user_uses' => false,
+            'max_uses_per_user' => null,
         ]);
     }
 }

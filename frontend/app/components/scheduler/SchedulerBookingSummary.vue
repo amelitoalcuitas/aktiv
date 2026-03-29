@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Court, Hub, HubEvent, DiscountType } from '~/types/hub';
-import type { Booking, SelectedSlot } from '~/types/booking';
+import type { AppliedDiscount, Booking, SelectedSlot, VoucherPreview } from '~/types/booking';
 import { useAuthStore } from '~/stores/auth';
 
 const props = defineProps<{
@@ -19,7 +19,7 @@ const emit = defineEmits<{
 const route = useRoute();
 const toast = useToast();
 const authStore = useAuthStore();
-const { createBooking } = useBooking();
+const { createBooking, previewVoucher } = useBooking();
 
 const isLoggedIn = computed(() => authStore.isAuthenticated);
 const allowGuests = computed(
@@ -44,6 +44,11 @@ const isQrExpanded = ref(false);
 const multiplePaymentOptions = computed(
   () => hubPaymentMethods.value.length > 1
 ); // used for confirm button disable check
+
+const voucherCode = ref('');
+const voucherApplying = ref(false);
+const voucherError = ref<string | null>(null);
+const appliedVoucherPreview = ref<VoucherPreview | null>(null);
 
 // Payment method selection for the confirm modal
 const selectedPaymentMethod = ref<'pay_on_site' | 'digital_bank' | null>(null);
@@ -222,6 +227,112 @@ function formatPriceInt(n: number): string {
   return n.toLocaleString('en-PH', { maximumFractionDigits: 0 });
 }
 
+function normalizeIsoKeyPart(value: Date | string): string {
+  if (value instanceof Date) return value.toISOString();
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toISOString();
+}
+
+function rangeKey(courtId: string, start: Date | string, end: Date | string): string {
+  const startIso = normalizeIsoKeyPart(start);
+  const endIso = normalizeIsoKeyPart(end);
+  return `${courtId}-${startIso}-${endIso}`;
+}
+
+const voucherItems = computed(() =>
+  summaryGroups.value.flatMap((group) =>
+    group.ranges.map((range) => ({
+      court_id: group.court.id,
+      start_time: range.start.toISOString(),
+      end_time: range.end.toISOString()
+    }))
+  )
+);
+
+const voucherItemMap = computed(() => new Map(
+  (appliedVoucherPreview.value?.items ?? []).map((item) => [
+    rangeKey(item.court_id, item.start_time, item.end_time),
+    item
+  ])
+));
+
+function groupVoucherSubtotal(group: SummaryGroup): number | null {
+  if (!appliedVoucherPreview.value) return group.subtotal;
+
+  return group.ranges.reduce((sum, range) => {
+    const item = voucherItemMap.value.get(
+      rangeKey(group.court.id, range.start, range.end)
+    );
+    return sum + (item?.discounted_price ?? 0);
+  }, 0);
+}
+
+function groupVoucherOriginalSubtotal(group: SummaryGroup): number | null {
+  if (!appliedVoucherPreview.value) return group.subtotal;
+
+  return group.ranges.reduce((sum, range) => {
+    const item = voucherItemMap.value.get(
+      rangeKey(group.court.id, range.start, range.end)
+    );
+    return sum + (item?.original_price ?? 0);
+  }, 0);
+}
+
+const displayedGrandTotal = computed(() =>
+  appliedVoucherPreview.value?.summary.discounted_total ?? grandTotal.value
+);
+
+const displayedOriginalTotal = computed(() =>
+  appliedVoucherPreview.value?.summary.original_total ?? null
+);
+
+const appliedDiscountMeta = computed<AppliedDiscount | null>(
+  () => appliedVoucherPreview.value?.applied_discount ?? null
+);
+
+async function applyVoucher() {
+  const normalizedCode = voucherCode.value.trim().toUpperCase();
+  voucherError.value = null;
+
+  if (!normalizedCode) {
+    voucherError.value = 'Enter a voucher code.';
+    toast.add({ title: 'Voucher code required', color: 'error' });
+    return;
+  }
+
+  if (!voucherItems.value.length) {
+    voucherError.value = 'Select a booking first before applying a voucher.';
+    toast.add({ title: 'Select booking first', color: 'error' });
+    return;
+  }
+
+  voucherApplying.value = true;
+  try {
+    appliedVoucherPreview.value = await previewVoucher(props.hubId, {
+      voucher_code: normalizedCode,
+      items: voucherItems.value
+    });
+    voucherCode.value = normalizedCode;
+    toast.add({ title: 'Voucher applied', color: 'success' });
+  } catch (e: unknown) {
+    appliedVoucherPreview.value = null;
+    const err = e as { data?: { errors?: Record<string, string[]>; message?: string } };
+    voucherError.value =
+      err?.data?.errors?.voucher_code?.[0] ??
+      err?.data?.message ??
+      'Failed to apply voucher.';
+    toast.add({ title: voucherError.value, color: 'error' });
+  } finally {
+    voucherApplying.value = false;
+  }
+}
+
+function clearAppliedVoucher() {
+  appliedVoucherPreview.value = null;
+  voucherError.value = null;
+}
+
 // ── Actions ────────────────────────────────────────────────────
 function removeSlotsForGroup(group: SummaryGroup) {
   emit('remove-slots', group.slots);
@@ -247,6 +358,7 @@ function handleBookNow() {
     hubPaymentMethods.value.length === 1
       ? (hubPaymentMethods.value[0]! as 'pay_on_site' | 'digital_bank')
       : null;
+  voucherError.value = null;
   isConfirmOpen.value = true;
 }
 
@@ -263,7 +375,8 @@ async function submitBooking() {
           start_time: range.start.toISOString(),
           end_time: range.end.toISOString(),
           session_type: 'private',
-          payment_method: selectedPaymentMethod.value!
+          payment_method: selectedPaymentMethod.value!,
+          voucher_code: appliedVoucherPreview.value?.voucher_code ?? null
         })
       );
     }
@@ -311,6 +424,19 @@ async function submitBooking() {
     isSubmitting.value = false;
   }
 }
+
+watch(voucherCode, () => {
+  if (appliedVoucherPreview.value) {
+    clearAppliedVoucher();
+  }
+});
+
+watch(
+  () => props.selectedSlots.map((slot) => `${slot.courtId}-${slot.slotStart.toISOString()}`),
+  () => {
+    clearAppliedVoucher();
+  }
+);
 
 function scrollToSchedule() {
   const el = document.getElementById('schedule');
@@ -411,18 +537,28 @@ function scrollToSchedule() {
           <!-- Price breakdown row -->
           <div class="flex items-center justify-between">
             <span class="text-sm text-[var(--aktiv-muted)]">
-              {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }}
-              <template v-if="group.hasDiscount && group.discountedPricePerHour !== null">
+              <template v-if="appliedVoucherPreview">
+                {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }} · Voucher-adjusted total
+              </template>
+              <template v-else>
+                {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }}
+              </template>
+              <template v-if="!appliedVoucherPreview && group.hasDiscount && group.discountedPricePerHour !== null">
                 × <span class="line-through">₱{{ formatPriceInt(group.pricePerHour!) }}/hr</span>
                 <span class="ml-1 font-semibold text-[#b8860b]">₱{{ formatPriceInt(group.discountedPricePerHour) }}/hr</span>
               </template>
-              <template v-else-if="group.pricePerHour !== null">
+              <template v-else-if="!appliedVoucherPreview && group.pricePerHour !== null">
                 × ₱{{ formatPriceInt(group.pricePerHour) }}/hr
               </template>
             </span>
             <span class="font-semibold text-[var(--aktiv-ink)]">
-              <template v-if="group.subtotal !== null">
-                ₱{{ formatPrice(group.subtotal) }}
+              <template v-if="groupVoucherSubtotal(group) !== null">
+                <template v-if="appliedVoucherPreview && groupVoucherOriginalSubtotal(group) !== null">
+                  <span class="mr-2 text-sm font-normal text-[var(--aktiv-muted)] line-through">
+                    ₱{{ formatPrice(groupVoucherOriginalSubtotal(group)!) }}
+                  </span>
+                </template>
+                ₱{{ formatPrice(groupVoucherSubtotal(group)!) }}
               </template>
               <span v-else class="text-sm text-[var(--aktiv-muted)]">—</span>
             </span>
@@ -434,9 +570,17 @@ function scrollToSchedule() {
       <div class="border-t border-[var(--aktiv-border)] px-5 py-4">
         <div class="flex items-center justify-between">
           <span class="font-semibold text-[var(--aktiv-ink)]">Total</span>
-          <span class="text-2xl font-black text-[var(--aktiv-ink)]">
-            ₱{{ formatPrice(grandTotal) }}
-          </span>
+          <div class="text-right">
+            <p
+              v-if="displayedOriginalTotal !== null && appliedVoucherPreview"
+              class="text-sm text-[var(--aktiv-muted)] line-through"
+            >
+              ₱{{ formatPrice(displayedOriginalTotal) }}
+            </p>
+            <span class="text-2xl font-black text-[var(--aktiv-ink)]">
+              ₱{{ formatPrice(displayedGrandTotal) }}
+            </span>
+          </div>
         </div>
         <p
           v-if="totalBookingsToCreate > 1"
@@ -447,6 +591,46 @@ function scrollToSchedule() {
           }}
           will be created
         </p>
+      </div>
+
+      <div class="border-t border-[var(--aktiv-border)] px-5 py-4">
+        <div class="flex items-end gap-2">
+          <UFormField
+            label="Voucher Code"
+            :error="voucherError || undefined"
+            class="flex-1"
+          >
+            <UInput
+              v-model="voucherCode"
+              class="w-full"
+              placeholder="Enter voucher code"
+              @blur="voucherCode = voucherCode.trim().toUpperCase()"
+            />
+          </UFormField>
+          <UButton
+            color="primary"
+            variant="outline"
+            :loading="voucherApplying"
+            @click="applyVoucher"
+          >
+            Apply
+          </UButton>
+        </div>
+
+        <div
+          v-if="appliedDiscountMeta"
+          class="mt-3 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-3 py-2 text-sm text-[#166534]"
+        >
+          <p class="font-semibold">
+            {{ appliedDiscountMeta.label }} applied
+          </p>
+          <p>
+            Saved ₱{{ formatPrice(appliedVoucherPreview!.summary.discount_amount) }}
+            <span v-if="appliedDiscountMeta.overrides_promo">
+              · This voucher overrides any active promo.
+            </span>
+          </p>
+        </div>
       </div>
 
       <!-- ── Payment note ───────────────────────────────────── -->
@@ -550,6 +734,8 @@ function scrollToSchedule() {
     :courts="courts"
     :hub-id="hubId"
     :hub="hub"
+    :voucher-code="appliedVoucherPreview?.voucher_code ?? ''"
+    :voucher-preview="appliedVoucherPreview"
     @booking-created="
       () => {
         emit('booking-created');
@@ -601,19 +787,29 @@ function scrollToSchedule() {
           <!-- Price row -->
           <div class="flex items-center justify-end text-sm">
             <span class="text-[var(--aktiv-muted)]">
-              {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }}
-              <template v-if="group.hasDiscount && group.discountedPricePerHour !== null">
+              <template v-if="appliedVoucherPreview">
+                {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }} · Voucher-adjusted total
+              </template>
+              <template v-else>
+                {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }}
+              </template>
+              <template v-if="!appliedVoucherPreview && group.hasDiscount && group.discountedPricePerHour !== null">
                 × <span class="line-through">₱{{ formatPriceInt(group.pricePerHour!) }}/hr</span>
                 <span class="ml-1 font-semibold text-[#b8860b]">₱{{ formatPriceInt(group.discountedPricePerHour) }}/hr</span>
               </template>
-              <template v-else-if="group.pricePerHour !== null">
+              <template v-else-if="!appliedVoucherPreview && group.pricePerHour !== null">
                 × ₱{{ formatPriceInt(group.pricePerHour) }}/hr
               </template>
               <strong
-                v-if="group.subtotal !== null"
+                v-if="groupVoucherSubtotal(group) !== null"
                 class="ml-2 text-[var(--aktiv-ink)]"
               >
-                ₱{{ formatPrice(group.subtotal) }}
+                <template v-if="appliedVoucherPreview && groupVoucherOriginalSubtotal(group) !== null">
+                  <span class="mr-2 font-normal text-[var(--aktiv-muted)] line-through">
+                    ₱{{ formatPrice(groupVoucherOriginalSubtotal(group)!) }}
+                  </span>
+                </template>
+                ₱{{ formatPrice(groupVoucherSubtotal(group)!) }}
               </strong>
             </span>
           </div>
@@ -625,10 +821,41 @@ function scrollToSchedule() {
         class="mt-4 flex items-center justify-between border-t border-[var(--aktiv-border)] pt-4"
       >
         <span class="font-semibold text-[var(--aktiv-ink)]">Total</span>
-        <span class="text-xl font-black text-[var(--aktiv-ink)]">
-          ₱{{ formatPrice(grandTotal) }}
-        </span>
+        <div class="text-right">
+          <p
+            v-if="displayedOriginalTotal !== null && appliedVoucherPreview"
+            class="text-sm text-[var(--aktiv-muted)] line-through"
+          >
+            ₱{{ formatPrice(displayedOriginalTotal) }}
+          </p>
+          <span class="text-xl font-black text-[var(--aktiv-ink)]">
+            ₱{{ formatPrice(displayedGrandTotal) }}
+          </span>
+        </div>
       </div>
+
+      <div
+        v-if="appliedDiscountMeta"
+        class="mt-3 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-3 py-2 text-sm text-[#166534]"
+      >
+        <p class="font-semibold">{{ appliedDiscountMeta.label }} applied</p>
+        <p>
+          Code: {{ appliedVoucherPreview!.voucher_code }}
+          · Saved ₱{{ formatPrice(appliedVoucherPreview!.summary.discount_amount) }}
+          <span v-if="appliedDiscountMeta.overrides_promo">
+            · This voucher overrides any active promo.
+          </span>
+        </p>
+      </div>
+
+      <UAlert
+        v-else-if="voucherCode"
+        color="info"
+        variant="soft"
+        title="Voucher managed from booking summary"
+        description="Apply or change the voucher in the booking summary before opening this confirmation modal."
+        class="mt-3"
+      />
 
       <!-- Payment method selector -->
       <BookingPaymentMethodSelector

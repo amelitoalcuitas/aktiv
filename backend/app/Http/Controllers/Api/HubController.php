@@ -76,6 +76,39 @@ class HubController extends Controller
         $lat = $request->filled('lat') ? (float) $request->input('lat') : null;
         $lng = $request->filled('lng') ? (float) $request->input('lng') : null;
 
+        $sort = $request->string('sort')->trim()->value();
+
+        $topScoreSql = "
+            (
+                (5.0 * 3.5 + COALESCE((SELECT AVG(r.rating) FROM hub_ratings r WHERE r.hub_id = hubs.id), 3.5)
+                           * COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0))
+                / (5.0 + COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0))
+            ) * 0.40
+            + LN(1 + (
+                SELECT COUNT(*) FROM bookings b
+                JOIN courts ct ON ct.id = b.court_id
+                WHERE ct.hub_id = hubs.id
+                  AND b.status IN ('confirmed', 'completed', 'payment_sent')
+                  AND b.created_at >= NOW() - INTERVAL '30 days'
+            )) * 0.30
+            + LN(1 + COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0)) * 0.15
+            + CASE WHEN EXISTS (
+                SELECT 1 FROM hub_events
+                WHERE hub_id = hubs.id
+                  AND is_active = true
+                  AND event_type = 'promo'
+                  AND date_from <= NOW()
+                  AND date_to >= NOW()
+              ) THEN 1 ELSE 0 END * 0.10
+            + (
+                CASE WHEN cover_image_url IS NOT NULL THEN 0.25 ELSE 0 END
+                + CASE WHEN description IS NOT NULL AND description <> '' THEN 0.25 ELSE 0 END
+                + CASE WHEN lat IS NOT NULL THEN 0.25 ELSE 0 END
+                + CASE WHEN EXISTS (SELECT 1 FROM hub_operating_hours WHERE hub_id = hubs.id) THEN 0.125 ELSE 0 END
+                + CASE WHEN EXISTS (SELECT 1 FROM hub_contact_numbers WHERE hub_id = hubs.id) THEN 0.125 ELSE 0 END
+              ) * 0.05
+        ";
+
         if ($lat !== null && $lng !== null) {
             $haversine = '(6371 * acos(LEAST(1, cos(radians(?)) * cos(radians(lat)) * cos(radians(lng) - radians(?)) + sin(radians(?)) * sin(radians(lat)))))';
             $radius = max(1, (int) ($request->input('radius') ?: 50));
@@ -85,6 +118,8 @@ class HubController extends Controller
                     'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province)) DESC, ' . $haversine . ' ASC',
                     [$search, $search, $search, $lat, $lng, $lat]
                 );
+            } elseif ($sort === 'top') {
+                $query->orderByRaw("{$topScoreSql} DESC");
             } else {
                 $query->orderByRaw("{$haversine} ASC", [$lat, $lng, $lat]);
             }
@@ -96,41 +131,10 @@ class HubController extends Controller
                     [$search, $search, $search]
                 );
             } else {
-                $sort = $request->string('sort')->trim()->value();
                 if ($sort === 'courts_count') {
                     $query->orderByDesc('courts_count');
                 } elseif ($sort === 'top') {
-                    $query->orderByRaw("
-                        (
-                            (5.0 * 3.5 + COALESCE((SELECT AVG(r.rating) FROM hub_ratings r WHERE r.hub_id = hubs.id), 3.5)
-                                       * COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0))
-                            / (5.0 + COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0))
-                        ) * 0.40
-                        + LN(1 + (
-                            SELECT COUNT(*) FROM bookings b
-                            JOIN courts ct ON ct.id = b.court_id
-                            WHERE ct.hub_id = hubs.id
-                              AND b.status IN ('confirmed', 'completed', 'payment_sent')
-                              AND b.created_at >= NOW() - INTERVAL '30 days'
-                        )) * 0.30
-                        + LN(1 + COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0)) * 0.15
-                        + CASE WHEN EXISTS (
-                            SELECT 1 FROM hub_events
-                            WHERE hub_id = hubs.id
-                              AND is_active = true
-                              AND event_type = 'promo'
-                              AND date_from <= NOW()
-                              AND date_to >= NOW()
-                          ) THEN 1 ELSE 0 END * 0.10
-                        + (
-                            CASE WHEN cover_image_url IS NOT NULL THEN 0.25 ELSE 0 END
-                            + CASE WHEN description IS NOT NULL AND description <> '' THEN 0.25 ELSE 0 END
-                            + CASE WHEN lat IS NOT NULL THEN 0.25 ELSE 0 END
-                            + CASE WHEN EXISTS (SELECT 1 FROM hub_operating_hours WHERE hub_id = hubs.id) THEN 0.125 ELSE 0 END
-                            + CASE WHEN EXISTS (SELECT 1 FROM hub_contact_numbers WHERE hub_id = hubs.id) THEN 0.125 ELSE 0 END
-                          ) * 0.05
-                        DESC
-                    ");
+                    $query->orderByRaw("{$topScoreSql} DESC");
                 } else {
                     $query->orderByDesc('created_at');
                 }

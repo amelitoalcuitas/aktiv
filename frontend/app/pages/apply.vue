@@ -162,7 +162,8 @@ await bootstrap();
           Hub Owner Access
         </p>
         <h1 class="mt-3 text-3xl font-black text-[#0f1728] md:text-5xl">
-          Apply to bring your sports hub to Aktiv
+          Apply to bring your sports hub to
+          <span class="text-[#004e89]">Aktiv</span>
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-7 text-[#5d7086] md:text-base">
           Tell us a little about the venue you want to manage. Our team will
@@ -385,7 +386,10 @@ await bootstrap();
                   class="justify-between flex mt-1 text-right text-xs text-[#64748b]"
                 >
                   <p>(Min. 50 characters, repeated spaces do not count)</p>
-                  <p>{{ getMessageCharacterCount(form.message) }} / 1000 characters</p>
+                  <p>
+                    {{ getMessageCharacterCount(form.message) }} / 1000
+                    characters
+                  </p>
                 </div>
               </UFormField>
 

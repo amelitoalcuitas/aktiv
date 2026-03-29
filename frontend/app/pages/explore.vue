@@ -1,33 +1,48 @@
 <script setup lang="ts">
 import type { Hub, PaginationMeta, SportType } from '~/types/hub';
 import { isHubOpenNow } from '~/composables/useHubs';
+import type { ApproximateLocation } from '~/composables/useApproximateLocation';
 
 definePageMeta({ layout: 'explore' });
 
 const { fetchHubsPaginated } = useHubs();
+const { fetchApproximateLocation, getCachedApproximateLocation } =
+  useApproximateLocation();
+const route = useRoute();
 
 // ── Filters ────────────────────────────────────────────────────────────────
-
-const SPORT_OPTIONS: { value: SportType; label: string }[] = [
-  { value: 'pickleball', label: 'Pickleball' },
-  { value: 'badminton', label: 'Badminton' },
-  { value: 'tennis', label: 'Tennis' },
-  { value: 'basketball', label: 'Basketball' },
-  { value: 'volleyball', label: 'Volleyball' }
-];
 
 const ALL_CITIES = '__all__';
 
 // ── Draft state (what's shown in the UI) ───────────────────────────────────
+
+const VALID_SPORTS: SportType[] = [
+  'pickleball',
+  'badminton',
+  'tennis',
+  'basketball',
+  'volleyball'
+];
+
+function parseSportParam(): SportType[] {
+  const raw = route.query.sport;
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+  return values
+    .flatMap((v) => (typeof v === 'string' ? v.split(',') : []))
+    .filter((v): v is SportType => VALID_SPORTS.includes(v as SportType));
+}
+
+const initialSports = parseSportParam();
+
 const searchInput = ref('');
 const selectedCity = ref(ALL_CITIES);
-const selectedSports = ref<SportType[]>([]);
+const selectedSports = ref<SportType[]>(initialSports);
 const openNow = ref(false);
 
 // ── Applied state (what's sent to the API) ─────────────────────────────────
 const appliedSearch = ref('');
 const appliedCity = ref(ALL_CITIES);
-const appliedSports = ref<SportType[]>([]);
+const appliedSports = ref<SportType[]>(initialSports);
 const appliedOpenNow = ref(false);
 
 // ── Pagination & data ──────────────────────────────────────────────────────
@@ -44,13 +59,35 @@ const page = ref(1);
 const userLat = ref<number | null>(null);
 const userLng = ref<number | null>(null);
 const nearbyHubs = ref<Hub[]>([]);
+const topHubs = ref<Hub[]>([]);
+const locationSource = ref<'approximate' | 'precise' | null>(null);
+const approximateLocation = ref<ApproximateLocation | null>(null);
 const locationDenied = ref(false);
 const locationDismissed = ref(false);
 
-async function loadNearbyHubs(lat: number, lng: number) {
+async function loadNearbyHubs(
+  lat: number,
+  lng: number,
+  source: 'approximate' | 'precise'
+) {
   try {
-    const result = await fetchHubsPaginated({ lat, lng, limit: 6 });
+    const result = await fetchHubsPaginated({
+      lat,
+      lng,
+      sort: 'top',
+      limit: 6
+    });
     nearbyHubs.value = result.data;
+    locationSource.value = result.data.length > 0 ? source : null;
+  } catch {
+    // silently ignore
+  }
+}
+
+async function loadTopHubs() {
+  try {
+    const result = await fetchHubsPaginated({ sort: 'top', limit: 9 });
+    topHubs.value = result.data;
   } catch {
     // silently ignore
   }
@@ -72,10 +109,53 @@ const displayedHubs = computed(() => {
   return hubs.value.filter((h) => isHubOpenNow(h));
 });
 
-// When no search/filters are active and location is available, show only "Near you"
+// When no search/filters are active and location is available, show only nearby hubs
 const showNearbyOnly = computed(
   () => !hasActiveFilters.value && nearbyHubs.value.length > 0
 );
+
+// When no search/filters and no location, show "Top Hubs"
+const showTopHubsOnly = computed(
+  () =>
+    !hasActiveFilters.value &&
+    nearbyHubs.value.length === 0 &&
+    topHubs.value.length > 0
+);
+
+const showLocationNotice = computed(
+  () =>
+    locationDenied.value &&
+    !locationDismissed.value &&
+    locationSource.value !== 'approximate'
+);
+
+const nearbyHeading = computed(() =>
+  locationSource.value === 'precise' ? 'Hubs near you' : 'Hubs near your area'
+);
+
+async function applyApproximateLocation(location: ApproximateLocation) {
+  approximateLocation.value = location;
+
+  if (locationSource.value === 'precise') return;
+
+  userLat.value = location.lat;
+  userLng.value = location.lng;
+
+  await loadNearbyHubs(location.lat, location.lng, 'approximate');
+}
+
+async function initializeApproximateLocation() {
+  const cachedLocation = getCachedApproximateLocation();
+  if (cachedLocation) {
+    await applyApproximateLocation(cachedLocation);
+    return;
+  }
+
+  const resolvedLocation = await fetchApproximateLocation();
+  if (resolvedLocation) {
+    await applyApproximateLocation(resolvedLocation);
+  }
+}
 
 async function loadPage(p: number) {
   if (loading.value) return;
@@ -125,15 +205,22 @@ onMounted(() => {
   );
   if (sentinel.value) observer.observe(sentinel.value);
 
+  loadTopHubs();
+  void initializeApproximateLocation();
+
   if ('geolocation' in navigator) {
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
+      async (pos) => {
         userLat.value = pos.coords.latitude;
         userLng.value = pos.coords.longitude;
-        loadNearbyHubs(pos.coords.latitude, pos.coords.longitude);
+        await loadNearbyHubs(
+          pos.coords.latitude,
+          pos.coords.longitude,
+          'precise'
+        );
       },
       () => {
-        locationDenied.value = true;
+        locationDenied.value = approximateLocation.value === null;
       }
     );
   }
@@ -156,13 +243,6 @@ function applyFilters() {
   page.value = 1;
   loadPage(1);
   filtersOpen.value = false;
-}
-
-function onSearchEnter() {
-  appliedSearch.value = searchInput.value;
-  suggestions.value = [];
-  page.value = 1;
-  loadPage(1);
 }
 
 function clearFilters() {
@@ -198,134 +278,95 @@ const activeFilterCount = computed(
 
 <template>
   <div class="min-h-screen overflow-x-hidden bg-[#f4f6f8] pb-20 text-[#0f1728]">
-    <!-- Page header — sits below the 76px overlay nav -->
+    <!-- Page header — mobile only; desktop heading lives inside the sidebar -->
     <div
-      class="border-b border-[var(--aktiv-border)] bg-white px-4 pb-6 pt-[calc(76px+24px)] md:px-8"
+      class="border-b border-[var(--aktiv-border)] bg-white px-4 py-6 md:px-8 lg:hidden"
     >
-      <div class="mx-auto max-w-[1400px]">
-        <h1 class="text-3xl font-black text-[#0f1728] md:text-4xl">
-          Explore <span class="text-[#0f76bf]">Hubs</span>
-        </h1>
-        <p class="mt-1 text-[15px] text-[#5d7086]">
-          Find the perfect court near you.
-        </p>
-      </div>
+      <h1 class="text-3xl font-black text-[#0f1728] md:text-4xl">
+        Explore <span class="text-[#0f76bf]">Hubs</span>
+      </h1>
+      <p class="mt-1 text-[15px] text-[#5d7086]">
+        Find the perfect court near you.
+      </p>
     </div>
 
-    <div class="mx-auto flex max-w-[1400px] gap-6 px-4 py-8 md:px-8">
-      <!-- ── Desktop filter panel (sticky left sidebar) ── -->
-      <aside class="hidden w-64 shrink-0 lg:block">
-        <div
-          class="sticky top-24 rounded-2xl border border-[var(--aktiv-border)] bg-white p-5"
-        >
-          <div class="mb-4 flex items-center justify-between">
-            <span class="text-sm font-bold text-[#0f1728]">Filters</span>
-            <UButton
-              v-if="hasActiveFilters"
-              variant="ghost"
-              size="xs"
-              color="neutral"
-              @click="clearFilters"
-            >
-              Clear all
-            </UButton>
-          </div>
-
-          <!-- City -->
-          <div class="mb-4">
-            <label
-              class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#5d7086]"
-            >
-              City
-            </label>
-            <USelect
-              v-model="selectedCity"
-              class="w-full"
-              :items="[
-                { label: 'All cities', value: ALL_CITIES },
-                ...availableCities.map((c) => ({ label: c, value: c }))
-              ]"
-            />
-          </div>
-
-          <!-- Sport -->
-          <div class="mb-4">
-            <label
-              class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#5d7086]"
-            >
-              Sport
-            </label>
-            <div class="flex flex-col gap-2">
-              <label
-                v-for="sport in SPORT_OPTIONS"
-                :key="sport.value"
-                class="flex cursor-pointer items-center gap-2 text-sm"
-              >
-                <UCheckbox
-                  :model-value="selectedSports.includes(sport.value)"
-                  @update:model-value="
-                    selectedSports = $event
-                      ? [...selectedSports, sport.value]
-                      : selectedSports.filter((s) => s !== sport.value)
-                  "
-                />
-                {{ sport.label }}
-              </label>
-            </div>
-          </div>
-
-          <!-- Open now -->
-          <div class="mb-4">
-            <label
-              class="flex cursor-pointer items-center justify-between text-sm font-medium"
-            >
-              Open now
-              <USwitch v-model="openNow" />
-            </label>
-          </div>
-
-          <!-- Rating — coming soon -->
+    <div class="mx-auto flex max-w-[1400px] gap-6 px-4 pb-8 pt-8 md:px-8">
+      <!-- ── Desktop filter sidebar ── -->
+      <aside class="hidden w-72 shrink-0 lg:block">
+        <div class="sticky top-8 flex flex-col gap-4">
           <div
-            class="rounded-xl border border-dashed border-[var(--aktiv-border)] p-3"
+            class="flex-1 min-h-0 overflow-y-auto rounded-2xl bg-white p-5 shadow-sm"
           >
-            <div class="mb-1 flex items-center justify-between">
-              <span class="text-sm font-medium text-[#5d7086]">Rating</span>
-              <UBadge variant="soft" color="neutral" size="xs">Soon</UBadge>
+            <!-- Heading -->
+            <div
+              class="-mx-5 -mt-5 rounded-t-2xl border-b border-[var(--aktiv-border)] px-5 pb-4 pt-5"
+            >
+              <h1 class="text-2xl font-black text-[#0f1728]">
+                Explore <span class="text-[#0f76bf]">Hubs</span>
+              </h1>
+              <p class="mt-0.5 text-[13px] text-[#5d7086]">
+                Find the perfect court near you.
+              </p>
             </div>
-            <p class="text-xs text-[#8fa3b8]">
-              Rating filters are coming in the next update.
-            </p>
+
+            <div class="space-y-5 pt-5">
+              <!-- Filters label + clear -->
+              <div class="flex items-center justify-between">
+                <span class="text-sm font-bold text-[#0f1728]">Filters</span>
+                <UButton
+                  v-if="hasActiveFilters"
+                  variant="ghost"
+                  size="xs"
+                  color="neutral"
+                  @click="clearFilters"
+                >
+                  Clear all
+                </UButton>
+              </div>
+
+              <HubFilterPanel
+                v-model:search="searchInput"
+                v-model:city="selectedCity"
+                v-model:sports="selectedSports"
+                v-model:open-now="openNow"
+                :available-cities="availableCities"
+                :has-active-filters="hasActiveFilters"
+                @apply="applyFilters"
+                @clear="clearFilters"
+              />
+
+              <UButton block @click="applyFilters">Update Results</UButton>
+            </div>
           </div>
 
-          <UButton block class="mt-4" @click="applyFilters">
-            Apply Filters
-          </UButton>
+          <div class="mt-auto rounded-2xl bg-[#004e89] p-5">
+            <p
+              class="text-base font-black uppercase italic leading-tight text-white"
+            >
+              List your venue.
+            </p>
+            <p class="mt-1.5 text-xs leading-relaxed text-white/75">
+              Maximize revenue with the premier network of sports facilities.
+            </p>
+            <NuxtLink to="/apply">
+              <UButton
+                block
+                class="mt-4 bg-[#c84b11] font-bold uppercase tracking-wide hover:bg-[#b04010]"
+                color="neutral"
+                variant="solid"
+              >
+                Get Started
+              </UButton>
+            </NuxtLink>
+          </div>
         </div>
       </aside>
 
       <!-- ── Main content ── -->
       <div class="min-w-0 flex-1">
-        <!-- Search bar -->
-        <div class="mb-4">
-          <UFieldGroup class="w-full">
-            <UInput
-              v-model="searchInput"
-              placeholder="Search hubs..."
-              class="w-full"
-              @keyup.enter="onSearchEnter"
-            />
-            <UButton
-              icon="i-heroicons-magnifying-glass"
-              color="primary"
-              class="px-4 sm:px-6"
-              @click="onSearchEnter"
-            />
-          </UFieldGroup>
-        </div>
-
         <!-- Location denied notice -->
         <div
-          v-if="locationDenied && !locationDismissed"
+          v-if="showLocationNotice"
           class="mb-4 flex items-center justify-between gap-3 rounded-xl border border-[var(--aktiv-border)] bg-white px-4 py-3 text-sm text-[#5d7086]"
         >
           <div class="flex items-center gap-2">
@@ -373,16 +414,29 @@ const activeFilterCount = computed(
           {{ meta ? `${meta.total} hubs found` : '\u00a0' }}
         </p>
 
-        <!-- Hubs near you (default view: no search/filters active) -->
+        <!-- Nearby hubs (default view: no search/filters active, approximate or precise location available) -->
         <div v-if="showNearbyOnly" class="mb-8">
           <p
             class="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[#5d7086]"
           >
             <UIcon name="i-heroicons-map-pin" class="h-4 w-4" />
-            Hubs near you
+            {{ nearbyHeading }}
           </p>
           <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             <HubCard v-for="hub in nearbyHubs" :key="hub.id" :hub="hub" />
+          </div>
+        </div>
+
+        <!-- Top Hubs (default view: no search/filters active, location unavailable) -->
+        <div v-else-if="showTopHubsOnly" class="mb-8">
+          <p
+            class="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[#5d7086]"
+          >
+            <UIcon name="i-heroicons-star" class="h-4 w-4" />
+            Top Hubs
+          </p>
+          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <HubCard v-for="hub in topHubs" :key="hub.id" :hub="hub" />
           </div>
         </div>
 
@@ -511,71 +565,42 @@ const activeFilterCount = computed(
           </div>
 
           <!-- Filter content -->
-          <div class="flex-1 overflow-y-auto space-y-5 p-4">
-            <div>
-              <label
-                class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#5d7086]"
-              >
-                City
-              </label>
-              <USelect
-                v-model="selectedCity"
-                class="w-full"
-                :items="[
-                  { label: 'All cities', value: ALL_CITIES },
-                  ...availableCities.map((c) => ({ label: c, value: c }))
-                ]"
-              />
-            </div>
-
-            <div>
-              <label
-                class="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#5d7086]"
-              >
-                Sport
-              </label>
-              <div class="flex flex-col gap-2">
-                <label
-                  v-for="sport in SPORT_OPTIONS"
-                  :key="sport.value"
-                  class="flex cursor-pointer items-center gap-2 text-sm"
-                >
-                  <UCheckbox
-                    :model-value="selectedSports.includes(sport.value)"
-                    @update:model-value="
-                      selectedSports = $event
-                        ? [...selectedSports, sport.value]
-                        : selectedSports.filter((s) => s !== sport.value)
-                    "
-                  />
-                  {{ sport.label }}
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <label
-                class="flex cursor-pointer items-center justify-between text-sm font-medium"
-              >
-                Open now
-                <USwitch v-model="openNow" />
-              </label>
-            </div>
-
-            <div
-              class="rounded-xl border border-dashed border-[var(--aktiv-border)] p-3"
-            >
-              <div class="mb-1 flex items-center justify-between">
-                <span class="text-sm font-medium text-[#5d7086]">Rating</span>
-                <UBadge variant="soft" color="neutral" size="xs">Soon</UBadge>
-              </div>
-              <p class="text-xs text-[#8fa3b8]">Rating filters coming soon.</p>
-            </div>
+          <div class="flex-1 overflow-y-auto p-4 space-y-4">
+            <HubFilterPanel
+              v-model:search="searchInput"
+              v-model:city="selectedCity"
+              v-model:sports="selectedSports"
+              v-model:open-now="openNow"
+              :available-cities="availableCities"
+              :has-active-filters="hasActiveFilters"
+              @apply="applyFilters"
+              @clear="clearFilters"
+            />
+            <UButton block @click="applyFilters">Update Results</UButton>
           </div>
 
-          <!-- Footer -->
+          <!-- Bottom actions -->
           <div class="border-t border-[var(--aktiv-border)] p-4">
-            <UButton block @click="applyFilters">Apply Filters</UButton>
+            <div class="rounded-2xl bg-[#004e89] p-4">
+              <p
+                class="text-sm font-black uppercase italic leading-tight text-white"
+              >
+                List your venue.
+              </p>
+              <p class="mt-1 text-xs leading-relaxed text-white/75">
+                Maximize revenue with the premier network of sports facilities.
+              </p>
+              <NuxtLink to="/apply" @click="filtersOpen = false">
+                <UButton
+                  block
+                  class="mt-3 bg-[#c84b11] font-bold uppercase tracking-wide hover:bg-[#b04010]"
+                  color="neutral"
+                  variant="solid"
+                >
+                  Get Started
+                </UButton>
+              </NuxtLink>
+            </div>
           </div>
         </div>
       </div>

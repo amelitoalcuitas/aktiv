@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\CourtController;
 use App\Http\Controllers\Api\GuestBookingController;
 use App\Http\Controllers\Api\GuestBookingTrackingController;
 use App\Http\Controllers\Api\HubController;
+use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\HubRatingController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OAuthController;
@@ -50,6 +51,7 @@ Route::prefix('auth')->group(function (): void {
 });
 
 // Public hub routes
+Route::get('/location/approx', [LocationController::class, 'approximate'])->name('api.location.approx');
 Route::get('/hubs', [HubController::class, 'index'])->name('api.hubs.index');
 Route::get('/hubs/{hub}', [HubController::class, 'show'])->name('api.hubs.show');
 Route::get('/hubs/{hub}/ratings', [HubRatingController::class, 'index'])->name('api.hubs.ratings.index');

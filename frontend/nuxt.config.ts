@@ -40,6 +40,9 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE ?? '/api',
+      approximateLocationCacheTtlMs: parseInt(
+        process.env.NUXT_PUBLIC_APPROXIMATE_LOCATION_CACHE_TTL_MS ?? '900000'
+      ),
       googleMapsKey: process.env.NUXT_PUBLIC_GOOGLE_MAPS_KEY ?? 'DUMMY_KEY',
       reverbKey: process.env.NUXT_PUBLIC_REVERB_KEY ?? '',
       reverbHost: process.env.NUXT_PUBLIC_REVERB_HOST ?? 'localhost',

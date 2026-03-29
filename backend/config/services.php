@@ -41,4 +41,12 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
 
+    'ip_geolocation' => [
+        'provider' => env('IP_GEOLOCATION_PROVIDER', 'ipwhois'),
+        'base_url' => env('IP_GEOLOCATION_BASE_URL', 'https://ipwho.is'),
+        'token' => env('IP_GEOLOCATION_TOKEN'),
+        'cache_ttl_seconds' => (int) env('IP_GEOLOCATION_CACHE_TTL_SECONDS', 900),
+        'timeout_seconds' => (int) env('IP_GEOLOCATION_TIMEOUT_SECONDS', 3),
+    ],
+
 ];

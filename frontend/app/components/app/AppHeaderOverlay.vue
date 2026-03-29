@@ -37,8 +37,12 @@ onMounted(() => {
         <UButton
           to="/explore"
           variant="ghost"
-          :color="route.path === '/explore' ? 'secondary' : 'neutral'"
-          :class="route.path === '/explore' ? 'underline underline-offset-4 font-semibold' : ''"
+          :color="route.path === '/explore' ? 'primary' : 'neutral'"
+          :class="
+            route.path === '/explore'
+              ? 'underline underline-offset-4 font-semibold'
+              : ''
+          "
         >
           Hubs
         </UButton>

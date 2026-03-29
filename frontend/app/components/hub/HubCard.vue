@@ -1,13 +1,9 @@
 <script setup lang="ts">
 import type { Hub } from '~/types/hub';
-import { isHubOpenNow } from '~/composables/useHubs';
 
 const props = defineProps<{
   hub: Hub;
 }>();
-
-const isOpen = computed(() => isHubOpenNow(props.hub));
-const hasOperatingHours = computed(() => !!props.hub.operating_hours?.length);
 
 const imgSrc = ref(props.hub.cover_image_url ?? props.hub.coverImageUrl ?? '');
 
@@ -35,25 +31,21 @@ const formattedPrice = computed(() => {
 <template>
   <NuxtLink :to="`/hubs/${hub.id}`" class="block h-full w-full min-w-0">
     <div
-      class="flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] transition duration-150 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:cursor-pointer hover:shadow-xl"
+      class="flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition duration-150 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:cursor-pointer hover:shadow-xl"
     >
-      <!-- Cover image or placeholder -->
+      <!-- Cover image -->
       <div
-        class="relative h-[210px] w-full shrink-0 overflow-hidden bg-[var(--aktiv-border)]"
+        class="relative h-[200px] w-full shrink-0 overflow-hidden bg-gray-200"
       >
-        <!-- Promo ribbon -->
+        <!-- Promo badge -->
         <div
           v-if="hub.has_active_promo"
-          class="absolute right-0 top-0 z-10 overflow-hidden"
-          style="width: 110px; height: 110px;"
+          class="absolute right-3 top-3 z-10 flex items-center gap-1 rounded-full bg-orange-500 px-3 py-1 text-xs font-bold text-white shadow"
         >
-          <div
-            class="absolute flex items-center justify-center bg-[#F0A202] text-white text-[12px] font-bold tracking-wide shadow"
-            style="width: 150px; top: 28px; right: -38px; transform: rotate(45deg); padding: 6px 0;"
-          >
-            PROMO
-          </div>
+          <UIcon name="i-heroicons-tag-solid" class="h-3 w-3" />
+          PROMO
         </div>
+
         <img
           v-if="imgSrc"
           :src="imgSrc"
@@ -63,11 +55,11 @@ const formattedPrice = computed(() => {
         />
         <div
           v-else
-          class="flex h-full w-full flex-col items-center justify-center gap-2 text-[var(--aktiv-muted)]"
+          class="flex h-full w-full flex-col items-center justify-center gap-2 text-gray-400"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            class="h-12 w-12 opacity-40"
+            class="h-12 w-12 opacity-30"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -77,62 +69,61 @@ const formattedPrice = computed(() => {
             <circle cx="8.5" cy="8.5" r="1.5" />
             <path d="M21 15l-5-5L5 21" />
           </svg>
-          <span class="text-xs font-medium opacity-50">No photo</span>
+          <span class="text-xs font-medium opacity-40">No photo</span>
         </div>
       </div>
 
+      <!-- Content -->
       <div class="flex flex-1 flex-col p-4">
-        <h3 class="m-0 line-clamp-2 text-xl font-bold text-[var(--aktiv-ink)]">
-          {{ hub.name }}
-        </h3>
-        <p class="mt-1 text-sm text-[var(--aktiv-muted)]">{{ hub.city }}</p>
-        <p class="mt-2 line-clamp-2 text-sm text-[var(--aktiv-muted)]">
-          {{ hub.description }}
-        </p>
-
-        <div class="mt-auto flex flex-col gap-3 pt-4">
-          <div class="flex items-center justify-between gap-3">
-            <UBadge
-              v-if="hasOperatingHours"
-              variant="soft"
-              :color="isOpen ? 'success' : 'error'"
-            >
-              {{ isOpen ? 'Open now' : 'Closed' }}
-            </UBadge>
-            <span v-else />
-            <span
-              class="inline-flex items-center gap-1 text-sm text-[var(--aktiv-muted)]"
-            >
-              <UIcon
-                v-if="hub.rating != null"
-                name="i-heroicons-star-solid"
-                class="h-3.5 w-3.5 text-[#F0A202]"
-              />
-              {{ hub.rating != null ? hub.rating.toFixed(1) : '–' }}
-              <span class="text-xs">({{ hub.reviews_count ?? 0 }})</span>
-            </span>
-          </div>
-
-          <div class="flex items-center justify-between gap-3">
-            <UBadge variant="soft" color="secondary">
-              {{ courtsCount }} Courts
-            </UBadge>
-            <span class="text-sm font-bold text-[var(--aktiv-primary)]">
-              from {{ formattedPrice }}/hr
-            </span>
-          </div>
-
-          <!-- Event badges -->
-          <div
-            v-if="hub.has_active_announcement"
-            class="flex flex-wrap gap-2"
+        <!-- Name + rating -->
+        <div class="flex items-start justify-between gap-2">
+          <h3
+            class="m-0 line-clamp-2 text-lg font-bold leading-tight text-gray-900"
           >
+            {{ hub.name }}
+          </h3>
+          <span
+            v-if="hub.rating != null"
+            class="flex shrink-0 items-center gap-1 text-sm font-semibold text-gray-800"
+          >
+            <UIcon
+              name="i-heroicons-star-solid"
+              class="h-4 w-4 text-yellow-400"
+            />
+            {{ hub.rating.toFixed(1) }}
+          </span>
+        </div>
+
+        <!-- Location -->
+        <div class="mt-1.5 flex items-center gap-1 text-sm text-gray-500">
+          <UIcon
+            name="i-heroicons-map-pin-solid"
+            class="h-3.5 w-3.5 shrink-0"
+          />
+          <span class="truncate">{{ hub.city }}</span>
+        </div>
+
+        <!-- Price + CTA -->
+        <div class="mt-auto flex items-end justify-between gap-3 pt-4">
+          <div class="flex flex-col">
             <span
-              class="inline-flex items-center gap-1 rounded-full bg-[#dbeafe] px-2.5 py-0.5 text-xs font-semibold text-[#1e40af]"
+              class="text-[10px] font-semibold uppercase tracking-widest text-gray-400"
             >
-              Event
+              Starting at
+            </span>
+            <span
+              class="text-3xl font-extrabold leading-tight text-primary-400"
+            >
+              {{ formattedPrice
+              }}<span class="text-base font-bold text-gray-400">/hr</span>
             </span>
           </div>
+
+          <span
+            class="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white"
+          >
+            BOOK NOW
+          </span>
         </div>
       </div>
     </div>

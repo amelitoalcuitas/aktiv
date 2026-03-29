@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import type { SportType } from '~/types/hub';
+import type {
+  RemoteSelectFetchParams,
+  RemoteSelectFetchResult
+} from '~/types/select';
 
 const SPORT_OPTIONS: { value: SportType; label: string }[] = [
   {
@@ -27,8 +31,11 @@ const SPORT_OPTIONS: { value: SportType; label: string }[] = [
 const ALL_CITIES = '__all__';
 
 const props = defineProps<{
-  availableCities: string[];
   hasActiveFilters: boolean;
+  cityQueryKey?: string | number | null;
+  fetchCityOptions: (
+    params: RemoteSelectFetchParams
+  ) => Promise<RemoteSelectFetchResult<{ label: string; value: string; distance_km?: number | null }>>;
 }>();
 
 const emit = defineEmits<{
@@ -41,10 +48,16 @@ const city = defineModel<string>('city', { required: true });
 const sports = defineModel<SportType[]>('sports', { required: true });
 const openNow = defineModel<boolean>('openNow', { required: true });
 
-const cityItems = computed(() => [
-  { label: 'All cities', value: ALL_CITIES },
-  ...props.availableCities.map((c) => ({ label: c, value: c }))
-]);
+const cityItems = computed(() => {
+  if (city.value && city.value !== ALL_CITIES) {
+    return [
+      { label: 'All cities', value: ALL_CITIES },
+      { label: city.value, value: city.value }
+    ];
+  }
+
+  return [{ label: 'All cities', value: ALL_CITIES }];
+});
 
 function toggleSport(sport: SportType) {
   if (sports.value.includes(sport)) {
@@ -80,13 +93,22 @@ function toggleSport(sport: SportType) {
       Location
     </label>
     <div class="relative">
-      <USelectMenu
+      <AppRemoteSelectMenu
         v-model="city"
         class="w-full [&_select]:pl-9"
+        placeholder="Search city"
         value-key="value"
         label-key="label"
-        :items="cityItems"
-      />
+        :page-size="20"
+        :reload-key="cityQueryKey"
+        :static-items="cityItems"
+        :fetch-options="fetchCityOptions"
+        :search-input="{ icon: 'i-heroicons-magnifying-glass', placeholder: 'Search city' }"
+      >
+        <template #item="{ item }">
+          <span class="truncate">{{ item.label }}</span>
+        </template>
+      </AppRemoteSelectMenu>
     </div>
   </div>
 

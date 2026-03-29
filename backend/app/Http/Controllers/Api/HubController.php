@@ -25,6 +25,89 @@ class HubController extends Controller
     {
     }
 
+    public function cities(Request $request): JsonResponse
+    {
+        $query = Hub::query()
+            ->where('is_approved', true)
+            ->where('is_active', true)
+            ->whereNotNull('city');
+
+        $search = $request->string('search')->trim()->value();
+        if ($search) {
+            $query->whereRaw('LOWER(city) LIKE ?', ['%' . mb_strtolower($search) . '%']);
+        }
+
+        $lat = $request->filled('lat') ? (float) $request->input('lat') : null;
+        $lng = $request->filled('lng') ? (float) $request->input('lng') : null;
+        $radius = $request->filled('radius')
+            ? max(1, (int) $request->input('radius'))
+            : null;
+        $perPage = min(max((int) ($request->integer('per_page') ?: 20), 1), 50);
+
+        if ($lat !== null && $lng !== null) {
+            $distanceSql = $this->distanceSql();
+
+            $cityDistances = $query
+                ->selectRaw(
+                    "city, MIN(CASE WHEN lat IS NOT NULL AND lng IS NOT NULL THEN {$distanceSql} ELSE NULL END) AS distance_km",
+                    [$lat, $lng, $lat, $lat, $lng, $lat]
+                )
+                ->groupBy('city');
+
+            $cities = Hub::query()
+                ->fromSub($cityDistances, 'city_distances')
+                ->select(['city', 'distance_km'])
+                ->when(
+                    $radius !== null,
+                    fn ($cityQuery) => $cityQuery->where('distance_km', '<=', $radius)
+                )
+                ->orderByRaw('distance_km IS NULL ASC')
+                ->orderBy('distance_km')
+                ->orderBy('city')
+                ->paginate($perPage)
+                ->through(fn ($city): array => [
+                    'city' => $city->city,
+                    'distance_km' => $city->distance_km !== null
+                        ? round((float) $city->distance_km, 2)
+                        : null,
+                ]);
+
+            return response()->json([
+                'data' => $cities->items(),
+                'meta' => [
+                    'total' => $cities->total(),
+                    'current_page' => $cities->currentPage(),
+                    'last_page' => $cities->lastPage(),
+                    'per_page' => $cities->perPage(),
+                ],
+            ]);
+        }
+
+        $distinctCities = $query
+            ->select('city')
+            ->distinct();
+
+        $cities = Hub::query()
+            ->fromSub($distinctCities, 'distinct_cities')
+            ->select('city')
+            ->orderBy('city')
+            ->paginate($perPage)
+            ->through(fn ($city): array => [
+                'city' => $city->city,
+                'distance_km' => null,
+            ]);
+
+        return response()->json([
+            'data' => $cities->items(),
+            'meta' => [
+                'total' => $cities->total(),
+                'current_page' => $cities->currentPage(),
+                'last_page' => $cities->lastPage(),
+                'per_page' => $cities->perPage(),
+            ],
+        ]);
+    }
+
     /**
      * Public list of approved hubs with optional filtering and pagination.
      *
@@ -110,18 +193,24 @@ class HubController extends Controller
         ";
 
         if ($lat !== null && $lng !== null) {
-            $haversine = '(6371 * acos(LEAST(1, cos(radians(?)) * cos(radians(lat)) * cos(radians(lng) - radians(?)) + sin(radians(?)) * sin(radians(lat)))))';
-            $radius = max(1, (int) ($request->input('radius') ?: 50));
-            $query->whereRaw("{$haversine} < ?", [$lat, $lng, $lat, $radius]);
+            $haversine = $this->distanceSql();
+            $radius = $request->filled('radius')
+                ? max(1, (int) $request->input('radius'))
+                : null;
+
+            if ($radius !== null) {
+                $query->whereRaw("{$haversine} < ?", [$lat, $lng, $lat, $lat, $lng, $lat, $radius]);
+            }
+
             if ($search) {
                 $query->orderByRaw(
                     'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province)) DESC, ' . $haversine . ' ASC',
-                    [$search, $search, $search, $lat, $lng, $lat]
+                    [$search, $search, $search, $lat, $lng, $lat, $lat, $lng, $lat]
                 );
             } elseif ($sort === 'top') {
                 $query->orderByRaw("{$topScoreSql} DESC");
             } else {
-                $query->orderByRaw("{$haversine} ASC", [$lat, $lng, $lat]);
+                $query->orderByRaw("{$haversine} ASC", [$lat, $lng, $lat, $lat, $lng, $lat]);
             }
         } else {
             if ($search) {
@@ -169,6 +258,15 @@ class HubController extends Controller
             ],
             'suggestions' => $suggestions,
         ]);
+    }
+
+    private function distanceSql(): string
+    {
+        return '(6371 * acos(CASE
+            WHEN (cos(radians(?)) * cos(radians(lat)) * cos(radians(lng) - radians(?)) + sin(radians(?)) * sin(radians(lat))) > 1
+                THEN 1
+            ELSE (cos(radians(?)) * cos(radians(lat)) * cos(radians(lng) - radians(?)) + sin(radians(?)) * sin(radians(lat)))
+        END))';
     }
 
     /**
@@ -574,7 +672,7 @@ class HubController extends Controller
             $suggestionQuery->whereHas('sports', fn ($q) => $q->whereIn('sport', $appliedSports));
         }
 
-        $haversine = '(6371 * acos(LEAST(1, cos(radians(?)) * cos(radians(lat)) * cos(radians(lng) - radians(?)) + sin(radians(?)) * sin(radians(lat)))))';
+        $haversine = $this->distanceSql();
 
         $suggestionQuery->where(function ($q) use ($search, $sportWords, $lat, $lng, $haversine): void {
             $q->whereRaw('word_similarity(?, name) > 0.25', [$search])
@@ -588,7 +686,7 @@ class HubController extends Controller
             }
 
             if ($lat !== null && $lng !== null) {
-                $q->orWhereRaw("{$haversine} < 50", [$lat, $lng, $lat]);
+                $q->orWhereRaw("{$haversine} < 50", [$lat, $lng, $lat, $lat, $lng, $lat]);
             }
         });
 
@@ -596,7 +694,7 @@ class HubController extends Controller
         if ($lat !== null && $lng !== null) {
             $suggestionQuery->orderByRaw(
                 'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province), word_similarity(?, address)) DESC, ' . $haversine . ' ASC',
-                [$search, $search, $search, $search, $lat, $lng, $lat]
+                [$search, $search, $search, $search, $lat, $lng, $lat, $lat, $lng, $lat]
             );
         } else {
             $suggestionQuery->orderByRaw(

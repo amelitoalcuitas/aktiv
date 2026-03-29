@@ -2,10 +2,14 @@
 import type { Hub, PaginationMeta, SportType } from '~/types/hub';
 import { isHubOpenNow } from '~/composables/useHubs';
 import type { ApproximateLocation } from '~/composables/useApproximateLocation';
+import type {
+  RemoteSelectFetchParams,
+  RemoteSelectFetchResult
+} from '~/types/select';
 
 definePageMeta({ layout: 'explore' });
 
-const { fetchHubsPaginated } = useHubs();
+const { fetchHubsPaginated, fetchHubCities } = useHubs();
 const { fetchApproximateLocation, getCachedApproximateLocation } =
   useApproximateLocation();
 const route = useRoute();
@@ -13,6 +17,7 @@ const route = useRoute();
 // ── Filters ────────────────────────────────────────────────────────────────
 
 const ALL_CITIES = '__all__';
+const REGIONAL_CITY_RADIUS_KM = 250;
 
 // ── Draft state (what's shown in the UI) ───────────────────────────────────
 
@@ -74,6 +79,7 @@ async function loadNearbyHubs(
     const result = await fetchHubsPaginated({
       lat,
       lng,
+      radius: 50,
       sort: 'top',
       limit: 6
     });
@@ -96,12 +102,6 @@ async function loadTopHubs() {
 const hasMore = computed(
   () => !meta.value || page.value < meta.value.last_page
 );
-
-// Unique cities derived from loaded results for the city dropdown
-const availableCities = computed(() => {
-  const cities = hubs.value.map((h) => h.city).filter(Boolean);
-  return [...new Set(cities)].sort();
-});
 
 // Client-side open-now filter applied on top of server results
 const displayedHubs = computed(() => {
@@ -165,6 +165,7 @@ async function loadPage(p: number) {
     const result = await fetchHubsPaginated({
       page: p,
       per_page: 12,
+      sort: 'top',
       search: appliedSearch.value || undefined,
       city: appliedCity.value !== ALL_CITIES ? appliedCity.value : undefined,
       sports: appliedSports.value.length ? appliedSports.value : undefined,
@@ -184,6 +185,41 @@ async function loadPage(p: number) {
     loading.value = false;
   }
 }
+
+async function fetchCityOptions(
+  params: RemoteSelectFetchParams
+): Promise<
+  RemoteSelectFetchResult<{
+    label: string;
+    value: string;
+    distance_km?: number | null;
+  }>
+> {
+  const result = await fetchHubCities({
+    search: params.search,
+    page: params.page,
+    per_page: params.perPage,
+    lat: userLat.value ?? undefined,
+    lng: userLng.value ?? undefined,
+    radius:
+      userLat.value != null && userLng.value != null
+        ? REGIONAL_CITY_RADIUS_KM
+        : undefined
+  });
+
+  return {
+    items: result.items.map((item) => ({
+      label: item.city,
+      value: item.city,
+      distance_km: item.distance_km
+    })),
+    hasMore: result.hasMore
+  };
+}
+
+const cityQueryKey = computed(() =>
+  [userLat.value ?? 'none', userLng.value ?? 'none'].join(':')
+);
 
 // Initial load
 await loadPage(1);
@@ -329,8 +365,9 @@ const activeFilterCount = computed(
                 v-model:city="selectedCity"
                 v-model:sports="selectedSports"
                 v-model:open-now="openNow"
-                :available-cities="availableCities"
                 :has-active-filters="hasActiveFilters"
+                :city-query-key="cityQueryKey"
+                :fetch-city-options="fetchCityOptions"
                 @apply="applyFilters"
                 @clear="clearFilters"
               />
@@ -571,8 +608,9 @@ const activeFilterCount = computed(
               v-model:city="selectedCity"
               v-model:sports="selectedSports"
               v-model:open-now="openNow"
-              :available-cities="availableCities"
               :has-active-filters="hasActiveFilters"
+              :city-query-key="cityQueryKey"
+              :fetch-city-options="fetchCityOptions"
               @apply="applyFilters"
               @clear="clearFilters"
             />

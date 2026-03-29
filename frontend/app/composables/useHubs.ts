@@ -8,6 +8,9 @@ import type {
   OperatingHoursEntry,
   PaginationMeta
 } from '~/types/hub';
+import type {
+  RemoteSelectFetchResult
+} from '~/types/select';
 import { useApi } from '~/utils/api';
 
 /**
@@ -29,6 +32,11 @@ export function isHubOpenNow(hub: Hub): boolean {
 
 export const HUB_IMAGE_MAX_SIZE_MB = 10;
 export const HUB_IMAGE_MAX_BYTES = HUB_IMAGE_MAX_SIZE_MB * 1024 * 1024;
+
+export interface HubCityOption {
+  city: string;
+  distance_km: number | null;
+}
 
 export function useHubs() {
   const { apiFetch } = useApi();
@@ -197,6 +205,34 @@ export function useHubs() {
   async function fetchHub(id: number | string): Promise<Hub> {
     const res = await apiFetch<{ data: Hub }>(`/hubs/${id}`);
     return res.data;
+  }
+
+  async function fetchHubCities(params?: {
+    search?: string;
+    page?: number;
+    per_page?: number;
+    lat?: number;
+    lng?: number;
+    radius?: number;
+  }): Promise<RemoteSelectFetchResult<HubCityOption>> {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.per_page) query.set('per_page', String(params.per_page));
+    if (params?.lat != null) query.set('lat', String(params.lat));
+    if (params?.lng != null) query.set('lng', String(params.lng));
+    if (params?.radius != null) query.set('radius', String(params.radius));
+    const qs = query.toString();
+    const res = await apiFetch<{ data: HubCityOption[]; meta?: PaginationMeta }>(
+      `/hubs/cities${qs ? `?${qs}` : ''}`
+    );
+
+    const meta = res.meta;
+
+    return {
+      items: res.data,
+      hasMore: meta ? meta.current_page < meta.last_page : false
+    };
   }
 
   async function fetchMyHubs(): Promise<Hub[]> {
@@ -487,6 +523,7 @@ export function useHubs() {
   return {
     fetchHubs,
     fetchHubsPaginated,
+    fetchHubCities,
     fetchHub,
     fetchMyHubs,
     createHub,

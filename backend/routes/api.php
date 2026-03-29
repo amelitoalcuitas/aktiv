@@ -28,6 +28,7 @@ Route::prefix('auth')->group(function (): void {
     Route::post('/login', [AuthController::class, 'login'])->name('api.auth.login');
     Route::get('/google/redirect', [OAuthController::class, 'redirect'])->name('api.auth.google.redirect');
     Route::get('/google/callback', [OAuthController::class, 'callback'])->name('api.auth.google.callback');
+    Route::get('/google/deletion-callback', [OAuthController::class, 'deletionCallback'])->name('api.auth.google.deletion-callback');
 
     Route::post('/password/forgot', [PasswordResetController::class, 'forgotPassword'])->name('api.auth.password.forgot');
     Route::post('/password/reset', [PasswordResetController::class, 'resetPassword'])->name('api.auth.password.reset');
@@ -40,7 +41,9 @@ Route::prefix('auth')->group(function (): void {
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::get('/me', [AuthController::class, 'me'])->name('api.auth.me');
         Route::post('/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
-        Route::post('/email/resend-verification', [AuthController::class, 'resendVerification'])->middleware('throttle:1,5')->name('api.auth.email.resend');
+        Route::get('/email/resend-verification/status', [AuthController::class, 'resendVerificationStatus'])->name('api.auth.email.resend.status');
+        Route::post('/email/resend-verification', [AuthController::class, 'resendVerification'])->name('api.auth.email.resend');
+        Route::get('/google/deletion-redirect', [OAuthController::class, 'redirectForDeletion'])->name('api.auth.google.deletion-redirect');
     });
 });
 
@@ -87,6 +90,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::put('/profile', [ProfileController::class, 'update'])->name('api.profile.update');
     Route::post('/profile/avatar', [ProfileController::class, 'uploadAvatar'])->name('api.profile.avatar');
     Route::post('/profile/banner', [ProfileController::class, 'uploadBanner'])->name('api.profile.banner');
+    Route::get('/profile/change-password/status', [ProfileController::class, 'changePasswordStatus'])->name('api.profile.change-password.status');
+    Route::post('/profile/change-password', [ProfileController::class, 'changePassword'])->name('api.profile.change-password');
+    Route::post('/profile/request-deletion', [ProfileController::class, 'requestDeletion'])->name('api.profile.request-deletion');
+    Route::post('/profile/cancel-deletion', [ProfileController::class, 'cancelDeletion'])->name('api.profile.cancel-deletion');
 
     // Hearts
     Route::post('/users/{user}/heart', [UserController::class, 'toggleHeart'])->name('api.users.heart');

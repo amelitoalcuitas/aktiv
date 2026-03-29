@@ -2,8 +2,37 @@
 import { useAuth } from '~/composables/useAuth';
 
 const { isAuthenticated } = useAuth();
+const authStore = useAuthStore();
+const { cancelDeletion } = useSettings();
+const toast = useToast();
 const route = useRoute();
 const scrolled = ref(false);
+
+const pendingDeletion = computed(() => authStore.user?.deletion_scheduled_at ?? null);
+
+function formatDeletionDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-PH', {
+    timeZone: 'Asia/Manila',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+const cancellingDeletion = ref(false);
+
+async function handleCancelDeletion() {
+  cancellingDeletion.value = true;
+  try {
+    const res = await cancelDeletion() as { data?: { deletion_scheduled_at?: string | null } } | undefined;
+    authStore.user!.deletion_scheduled_at = res?.data?.deletion_scheduled_at ?? null;
+    toast.add({ title: 'Account deletion cancelled. Welcome back!', color: 'success' });
+  } catch {
+    toast.add({ title: 'Failed to cancel deletion. Please try again.', color: 'error' });
+  } finally {
+    cancellingDeletion.value = false;
+  }
+}
 
 onMounted(() => {
   const onScroll = () => {
@@ -15,6 +44,25 @@ onMounted(() => {
 </script>
 
 <template>
+  <div
+    v-if="pendingDeletion"
+    class="flex items-center justify-center gap-3 bg-amber-50 px-4 py-2.5 text-sm text-amber-800"
+  >
+    <UIcon name="i-heroicons-exclamation-triangle" class="h-4 w-4 flex-shrink-0" />
+    <span>
+      Your account is scheduled for deletion on
+      <strong>{{ formatDeletionDate(pendingDeletion) }}</strong>.
+    </span>
+    <UButton
+      size="xs"
+      color="warning"
+      variant="soft"
+      :loading="cancellingDeletion"
+      @click="handleCancelDeletion"
+    >
+      Cancel deletion
+    </UButton>
+  </div>
   <header
     :class="[
       'inset-x-0 sticky top-0 z-30 bg-[var(--aktiv-surface)] transition-shadow duration-300',

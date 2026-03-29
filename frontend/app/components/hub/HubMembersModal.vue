@@ -125,21 +125,30 @@ watch(
         <!-- Grid -->
         <div v-else class="p-4">
           <div class="grid grid-cols-5 gap-3 sm:grid-cols-6">
-            <NuxtLink
-              v-for="member in members"
-              :key="member.id"
-              :to="`/profile/${member.username}`"
-              class="flex flex-col items-center"
-              @click="isOpen = false"
-            >
-              <AppAvatar
-                :src="member.avatar_thumb_url"
-                :alt="member.name"
-                size="3xl"
-                :premium="member.is_premium"
-                class="transition-opacity hover:opacity-80"
-              />
-            </NuxtLink>
+            <template v-for="member in members" :key="member.id">
+              <NuxtLink
+                v-if="member.username"
+                :to="`/profile/${member.username}`"
+                class="flex flex-col items-center"
+                @click="isOpen = false"
+              >
+                <AppAvatar
+                  :src="member.avatar_thumb_url"
+                  :alt="member.name"
+                  size="3xl"
+                  :premium="member.is_premium"
+                  class="transition-opacity hover:opacity-80"
+                />
+              </NuxtLink>
+              <div v-else class="flex flex-col items-center">
+                <AppAvatar
+                  :src="null"
+                  alt="?"
+                  size="3xl"
+                  class="opacity-50"
+                />
+              </div>
+            </template>
           </div>
         </div>
 

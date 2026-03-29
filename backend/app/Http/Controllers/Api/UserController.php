@@ -11,14 +11,19 @@ use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
-    public function show(User $user): JsonResponse
+    public function show(Request $request, User $user): JsonResponse
     {
+        abort_if($user->isPendingDeletion(), 404);
+
         return response()->json(['data' => new PublicUserResource($user)]);
     }
 
     public function resolveUsername(string $username): JsonResponse
     {
-        $user = User::query()->where('username', $username)->firstOrFail();
+        $user = User::query()
+            ->whereNull('deletion_scheduled_at')
+            ->where('username', $username)
+            ->firstOrFail();
 
         return response()->json(['data' => ['id' => $user->id]]);
     }

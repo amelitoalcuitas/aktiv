@@ -9,11 +9,14 @@ class HubMemberResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $privacy = $this->user->resolvedPrivacy();
+        $hidden  = ($privacy['profile_visible_to'] ?? 'everyone') === 'no_one';
+
         return [
             'id'               => $this->user->id,
-            'name'             => $this->user->name,
+            'name'             => $hidden ? null : (($privacy['show_full_name'] ?? true) ? $this->user->name : ($this->user->username ? '@' . $this->user->username : null)),
             'username'         => $this->user->username,
-            'avatar_thumb_url' => $this->user->avatar_thumb_url,
+            'avatar_thumb_url' => $hidden ? null : $this->user->avatar_thumb_url,
         ];
     }
 }

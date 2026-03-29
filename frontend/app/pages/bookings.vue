@@ -5,7 +5,7 @@ import type {
   CalendarBooking
 } from '~/types/booking';
 
-definePageMeta({ middleware: ['auth'] });
+definePageMeta({ middleware: ['auth'], layout: 'page' });
 
 useHead({ title: 'My Bookings · Aktiv' });
 
@@ -283,7 +283,7 @@ function canUploadReceipt(booking: UserBooking): boolean {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl px-4 py-8">
+  <div class="mx-auto">
     <h1 class="mb-6 text-2xl font-bold text-[var(--aktiv-ink)]">My Bookings</h1>
 
     <!-- Ban notice -->
@@ -308,8 +308,9 @@ function canUploadReceipt(booking: UserBooking): boolean {
         class="mt-0.5 h-4 w-4 shrink-0"
       />
       <span>
-        Please upload your payment receipt before your scheduled booking time. Repeatedly
-        letting bookings expire may result in a temporary booking restriction.
+        Please upload your payment receipt before your scheduled booking time.
+        Repeatedly letting bookings expire may result in a temporary booking
+        restriction.
       </span>
     </div>
 
@@ -414,7 +415,10 @@ function canUploadReceipt(booking: UserBooking): boolean {
             >
               —
             </p>
-            <p class="mt-0.5 truncate text-sm md:text-base text-[var(--aktiv-muted)]" :title="booking.court?.name">
+            <p
+              class="mt-0.5 truncate text-sm md:text-base text-[var(--aktiv-muted)]"
+              :title="booking.court?.name"
+            >
               {{ booking.court?.name ?? '—' }}
             </p>
             <p class="mt-1 text-sm md:text-base text-[var(--aktiv-ink)]">
@@ -467,7 +471,9 @@ function canUploadReceipt(booking: UserBooking): boolean {
                 v-if="booking.discount_amount"
                 class="rounded-full bg-[#fde68a] px-2.5 py-0.5 text-xs font-semibold text-[#854d0e]"
               >
-                Saved ₱{{ Number(booking.discount_amount).toLocaleString('en-PH') }}
+                Saved ₱{{
+                  Number(booking.discount_amount).toLocaleString('en-PH')
+                }}
               </span>
             </template>
           </div>
@@ -486,7 +492,9 @@ function canUploadReceipt(booking: UserBooking): boolean {
           />
           <div>
             <p class="text-xs text-[var(--aktiv-muted)]">Booking Code</p>
-            <p class="font-mono font-bold tracking-widest text-[var(--aktiv-ink)]">
+            <p
+              class="font-mono font-bold tracking-widest text-[var(--aktiv-ink)]"
+            >
               {{ booking.booking_code }}
             </p>
           </div>

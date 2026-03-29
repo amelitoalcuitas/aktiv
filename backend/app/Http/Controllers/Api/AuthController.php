@@ -6,17 +6,20 @@ use App\Http\Controllers\Controller;
 use App\Enums\UserRole;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
-use App\Http\Resources\UserResource;
+use App\Http\Resources\ProfileResource;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    private const VERIFICATION_EMAIL_COOLDOWN_SECONDS = 300;
+
     public function register(RegisterRequest $request): JsonResponse
     {
         $user = User::query()->create(array_merge($request->validated(), ['role' => UserRole::User]));
@@ -25,7 +28,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user'                 => new UserResource($user),
+            'user'                 => new ProfileResource($user),
             'token'                => $token,
             'token_type'           => 'Bearer',
             'requires_verification' => true,
@@ -47,7 +50,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'user'       => new UserResource($user),
+            'user'       => new ProfileResource($user),
             'token'      => $token,
             'token_type' => 'Bearer',
         ]);
@@ -56,7 +59,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return response()->json([
-            'user' => new UserResource($request->user()),
+            'user' => new ProfileResource($request->user()),
         ]);
     }
 
@@ -98,8 +101,51 @@ class AuthController extends Controller
             return response()->json(['already_verified' => true]);
         }
 
-        $user->sendEmailVerificationNotification();
+        $cooldown = $this->verificationCooldown($request);
 
-        return response()->json(['message' => 'Verification email sent.']);
+        if ($cooldown['is_active']) {
+            return response()
+                ->json([
+                    'message' => 'Please wait before requesting another verification email.',
+                    'cooldown' => $cooldown,
+                ], 429)
+                ->header('Retry-After', (string) $cooldown['remaining_seconds']);
+        }
+
+        $user->sendEmailVerificationNotification();
+        RateLimiter::hit($this->verificationThrottleKey($request), self::VERIFICATION_EMAIL_COOLDOWN_SECONDS);
+
+        return response()->json([
+            'message' => 'Verification email sent.',
+            'cooldown' => $this->verificationCooldown($request),
+        ]);
+    }
+
+    public function resendVerificationStatus(Request $request): JsonResponse
+    {
+        return response()->json([
+            'cooldown' => $this->verificationCooldown($request),
+        ]);
+    }
+
+    private function verificationThrottleKey(Request $request): string
+    {
+        return 'auth:email-resend:' . $request->user()->getAuthIdentifier();
+    }
+
+    /**
+     * @return array{is_active: bool, remaining_seconds: int, available_at: ?string}
+     */
+    private function verificationCooldown(Request $request): array
+    {
+        $remainingSeconds = RateLimiter::availableIn($this->verificationThrottleKey($request));
+
+        return [
+            'is_active' => $remainingSeconds > 0,
+            'remaining_seconds' => $remainingSeconds,
+            'available_at' => $remainingSeconds > 0
+                ? now()->addSeconds($remainingSeconds)->toIso8601String()
+                : null,
+        ];
     }
 }

@@ -5,14 +5,23 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateProfileRequest;
 use App\Http\Resources\ProfileResource;
+use App\Mail\AccountDeletionScheduled;
+use App\Notifications\ChangePasswordNotification;
 use App\Services\ImageUploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 class ProfileController extends Controller
 {
+    private const CHANGE_PASSWORD_EMAIL_COOLDOWN_SECONDS = 300;
+
     public function __construct(
         private readonly ImageUploadService $imageUploadService,
     ) {}
@@ -73,6 +82,54 @@ class ProfileController extends Controller
         return response()->json(['data' => new ProfileResource($user->fresh())]);
     }
 
+    public function requestDeletion(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $isGoogleOnly = $user->google_id && ! $user->password;
+
+        if ($isGoogleOnly) {
+            $request->validate([
+                'deletion_token' => ['required', 'string'],
+            ]);
+
+            $cacheKey = 'deletion_token:' . $user->id;
+            $storedToken = Cache::get($cacheKey);
+
+            if (! $storedToken || ! hash_equals($storedToken, $request->deletion_token)) {
+                throw ValidationException::withMessages([
+                    'deletion_token' => ['Invalid or expired verification token. Please re-authenticate with Google.'],
+                ]);
+            }
+
+            Cache::forget($cacheKey);
+        } else {
+            $request->validate([
+                'current_password' => ['required', 'string'],
+            ]);
+
+            if (! Hash::check($request->current_password, $user->password)) {
+                throw ValidationException::withMessages([
+                    'current_password' => ['The password you entered is incorrect.'],
+                ]);
+            }
+        }
+
+        $user->update(['deletion_scheduled_at' => now()->addDays(30)]);
+        $user->tokens()->delete();
+
+        Mail::to($user)->queue(new AccountDeletionScheduled($user->fresh()));
+
+        return response()->json(['message' => 'Account deletion scheduled.']);
+    }
+
+    public function cancelDeletion(Request $request): JsonResponse
+    {
+        $request->user()->update(['deletion_scheduled_at' => null]);
+
+        return response()->json(['data' => new ProfileResource($request->user()->fresh())]);
+    }
+
     public function uploadAvatar(Request $request): JsonResponse
     {
         $request->validate([
@@ -116,6 +173,58 @@ class ProfileController extends Controller
         $user->update(['banner_url' => $result['url']]);
 
         return response()->json(['data' => new ProfileResource($user->fresh())]);
+    }
+
+    public function changePassword(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $cooldown = $this->changePasswordCooldown($request);
+
+        if ($cooldown['is_active']) {
+            return response()
+                ->json([
+                    'message' => 'Please wait before requesting another password change email.',
+                    'cooldown' => $cooldown,
+                ], 429)
+                ->header('Retry-After', (string) $cooldown['remaining_seconds']);
+        }
+
+        $token = Password::createToken($user);
+        $user->notify(new ChangePasswordNotification($token));
+        RateLimiter::hit($this->changePasswordThrottleKey($request), self::CHANGE_PASSWORD_EMAIL_COOLDOWN_SECONDS);
+
+        return response()->json([
+            'message' => 'A password change link has been sent to your email.',
+            'cooldown' => $this->changePasswordCooldown($request),
+        ]);
+    }
+
+    public function changePasswordStatus(Request $request): JsonResponse
+    {
+        return response()->json([
+            'cooldown' => $this->changePasswordCooldown($request),
+        ]);
+    }
+
+    private function changePasswordThrottleKey(Request $request): string
+    {
+        return 'profile:change-password:' . $request->user()->getAuthIdentifier();
+    }
+
+    /**
+     * @return array{is_active: bool, remaining_seconds: int, available_at: ?string}
+     */
+    private function changePasswordCooldown(Request $request): array
+    {
+        $remainingSeconds = RateLimiter::availableIn($this->changePasswordThrottleKey($request));
+
+        return [
+            'is_active' => $remainingSeconds > 0,
+            'remaining_seconds' => $remainingSeconds,
+            'available_at' => $remainingSeconds > 0
+                ? now()->addSeconds($remainingSeconds)->toIso8601String()
+                : null,
+        ];
     }
 
     private function isStorageUrl(string $url): bool

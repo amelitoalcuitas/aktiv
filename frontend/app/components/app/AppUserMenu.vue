@@ -39,7 +39,8 @@ const menuItems = computed(() => {
       icon: 'i-heroicons-calendar-days',
       to: '/bookings'
     },
-    { label: 'Profile', icon: 'i-heroicons-user', to: profileLink }
+    { label: 'Profile', icon: 'i-heroicons-user', to: profileLink },
+    { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: '/settings' }
   ]);
 
   items.push([

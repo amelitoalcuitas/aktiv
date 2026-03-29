@@ -10,12 +10,33 @@ class PublicUserResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $privacy = $this->resolvedPrivacy();
+        $privacy  = $this->resolvedPrivacy();
+        $isOwner  = Auth::guard('sanctum')->id() === $this->id;
+        $isPrivate = ($privacy['profile_visible_to'] ?? 'everyone') === 'no_one' && !$isOwner;
+
+        if ($isPrivate) {
+            return [
+                'id'          => $this->id,
+                'username'    => $this->username,
+                'first_name'  => $this->first_name,
+                'last_name'   => $this->last_name,
+                'avatar_url'  => $this->avatar_url,
+                'banner_url'  => $this->banner_url,
+                'bio'         => $this->bio,
+                'is_hub_owner' => $this->hubs()->exists(),
+                'hearts_count' => $this->heartsReceived()->count(),
+                'has_hearted'  => false,
+                'created_at'  => $this->created_at,
+                'is_private'  => true,
+                'privacy'     => $privacy,
+            ];
+        }
 
         return [
+            'is_private' => false,
             'id'             => $this->id,
-            'first_name'     => $this->first_name,
-            'last_name'      => $this->last_name,
+            'first_name'     => ($privacy['show_full_name'] ?? true) ? $this->first_name : null,
+            'last_name'      => ($privacy['show_full_name'] ?? true) ? $this->last_name  : null,
             'username'       => $this->username,
             'avatar_url'     => $this->avatar_url,
             'banner_url'     => $this->banner_url,

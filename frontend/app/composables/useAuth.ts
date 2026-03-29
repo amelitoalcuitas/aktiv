@@ -1,5 +1,10 @@
 import { useAuthStore } from '~/stores/auth';
 import type { User } from '~/types/user';
+import type { EmailActionCooldown } from '~/composables/useCooldownTimer';
+
+interface EmailActionCooldownResponse {
+  cooldown: EmailActionCooldown;
+}
 
 export function useAuth() {
   const authStore = useAuthStore();
@@ -52,9 +57,18 @@ export function useAuth() {
     await router.push('/');
   }
 
-  async function resendVerification(): Promise<void> {
-    await $fetch('/api/auth/email/resend-verification', {
+  async function resendVerification(): Promise<EmailActionCooldownResponse> {
+    return await $fetch<EmailActionCooldownResponse>('/api/auth/email/resend-verification', {
       method: 'POST',
+      headers: authStore.token
+        ? { Authorization: `Bearer ${authStore.token}` }
+        : {}
+    });
+  }
+
+  async function resendVerificationStatus(): Promise<EmailActionCooldownResponse> {
+    return await $fetch<EmailActionCooldownResponse>('/api/auth/email/resend-verification/status', {
+      method: 'GET',
       headers: authStore.token
         ? { Authorization: `Bearer ${authStore.token}` }
         : {}
@@ -85,5 +99,5 @@ export function useAuth() {
     }
   }
 
-  return { isAuthenticated, isAdmin, isSuperAdmin, user, login, register, logout, init, resendVerification, forgotPassword, resetPassword, setupPassword };
+  return { isAuthenticated, isAdmin, isSuperAdmin, user, login, register, logout, init, resendVerification, resendVerificationStatus, forgotPassword, resetPassword, setupPassword };
 }

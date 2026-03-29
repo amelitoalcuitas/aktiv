@@ -17,6 +17,8 @@ export interface SocialLinks {
 }
 
 export interface ProfilePrivacy {
+  profile_visible_to: 'everyone' | 'no_one';
+  show_full_name: boolean;
   show_owned_hubs: boolean;
   show_visited_hubs: boolean;
   show_leaderboard: boolean;
@@ -71,10 +73,13 @@ export interface User {
   hub_display_order: string[];
   hearts_count: number;
   created_at: string;
+  deletion_scheduled_at: string | null;
+  has_password: boolean;
 }
 
 export interface PublicUser {
   id: string;
+  is_private?: boolean;
   first_name: string;
   last_name: string;
   username: string | null;

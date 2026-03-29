@@ -14,9 +14,10 @@ class HubMemberController extends Controller
 {
     public function index(Hub $hub): JsonResponse
     {
-        $total = $hub->members()->count();
-        $preview = $hub->members()
-            ->with('user:id,first_name,last_name,username,avatar_thumb_url')
+        $activeMembers = $hub->members()->whereHas('user', fn ($q) => $q->whereNull('deletion_scheduled_at'));
+        $total   = $activeMembers->count();
+        $preview = $activeMembers
+            ->with('user:id,first_name,last_name,username,avatar_thumb_url,profile_privacy')
             ->limit(5)
             ->get();
 
@@ -32,7 +33,8 @@ class HubMemberController extends Controller
 
         return HubMemberResource::collection(
             $hub->members()
-                ->with('user:id,first_name,last_name,username,avatar_thumb_url')
+                ->whereHas('user', fn ($q) => $q->whereNull('deletion_scheduled_at'))
+                ->with('user:id,first_name,last_name,username,avatar_thumb_url,profile_privacy')
                 ->cursorPaginate($perPage)
         );
     }
@@ -49,7 +51,7 @@ class HubMemberController extends Controller
         );
 
         $member = HubMember::create(['hub_id' => $hub->id, 'user_id' => $user->id]);
-        $member->load('user:id,first_name,last_name,username,avatar_thumb_url');
+        $member->load('user:id,first_name,last_name,username,avatar_thumb_url,profile_privacy');
 
         return response()->json(['data' => new HubMemberResource($member)], 201);
     }

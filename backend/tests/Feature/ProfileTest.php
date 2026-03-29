@@ -4,8 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\UserHeart;
+use App\Notifications\ChangePasswordNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -376,5 +379,52 @@ class ProfileTest extends TestCase
             ->postJson('/api/profile/banner', ['banner' => $file])
             ->assertOk()
             ->assertJsonStructure(['data' => ['banner_url']]);
+    }
+
+    public function test_change_password_sends_email_and_returns_cooldown(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/profile/change-password')
+            ->assertOk()
+            ->assertJsonPath('cooldown.is_active', true)
+            ->assertJsonPath('cooldown.remaining_seconds', 300);
+
+        Notification::assertSentTo($user, ChangePasswordNotification::class);
+    }
+
+    public function test_change_password_is_rate_limited_for_five_minutes(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/profile/change-password')
+            ->assertOk();
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/profile/change-password')
+            ->assertStatus(429)
+            ->assertHeader('Retry-After')
+            ->assertJsonPath('cooldown.is_active', true);
+
+        Notification::assertSentToTimes($user, ChangePasswordNotification::class, 1);
+    }
+
+    public function test_change_password_status_returns_remaining_cooldown(): void
+    {
+        $user = User::factory()->create();
+
+        RateLimiter::hit('profile:change-password:' . $user->id, 300);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/profile/change-password/status')
+            ->assertOk()
+            ->assertJsonPath('cooldown.is_active', true)
+            ->assertJsonPath('cooldown.remaining_seconds', 300);
     }
 }

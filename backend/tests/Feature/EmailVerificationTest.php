@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Notifications\VerifyEmailNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
@@ -120,5 +121,40 @@ class EmailVerificationTest extends TestCase
              ->assertJsonFragment(['already_verified' => true]);
 
         Notification::assertNothingSent();
+    }
+
+    public function test_resend_verification_is_rate_limited_for_five_minutes(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->unverified()->create();
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/auth/email/resend-verification')
+            ->assertOk()
+            ->assertJsonPath('cooldown.is_active', true);
+
+        Notification::assertSentToTimes($user, VerifyEmailNotification::class, 1);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/auth/email/resend-verification')
+            ->assertStatus(429)
+            ->assertHeader('Retry-After')
+            ->assertJsonPath('cooldown.is_active', true);
+
+        Notification::assertSentToTimes($user, VerifyEmailNotification::class, 1);
+    }
+
+    public function test_resend_verification_status_returns_remaining_cooldown(): void
+    {
+        $user = User::factory()->unverified()->create();
+
+        RateLimiter::hit('auth:email-resend:' . $user->id, 300);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/auth/email/resend-verification/status')
+            ->assertOk()
+            ->assertJsonPath('cooldown.is_active', true)
+            ->assertJsonPath('cooldown.remaining_seconds', 300);
     }
 }

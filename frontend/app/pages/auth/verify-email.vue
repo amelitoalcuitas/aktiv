@@ -3,24 +3,47 @@ import { useAuth } from '~/composables/useAuth';
 
 definePageMeta({ layout: 'auth', middleware: 'auth' });
 
-const { user, resendVerification, logout } = useAuth();
+const { user, resendVerification, resendVerificationStatus, logout } = useAuth();
 const toast = useToast();
 const resending = ref(false);
+const { remainingSeconds, isCoolingDown, sync } = useCooldownTimer();
+
+const resendLabel = computed(() => {
+  if (!isCoolingDown.value) return 'Resend verification email';
+
+  const minutes = Math.floor(remainingSeconds.value / 60);
+  const seconds = String(remainingSeconds.value % 60).padStart(2, '0');
+
+  return `Resend in ${minutes}:${seconds}`;
+});
+
+onMounted(async () => {
+  try {
+    const response = await resendVerificationStatus();
+    sync(response.cooldown);
+  } catch {
+    sync(null);
+  }
+});
 
 async function handleResend() {
   resending.value = true;
   try {
-    await resendVerification();
+    const response = await resendVerification();
+    sync(response.cooldown);
     toast.add({
       title: 'Email sent',
       description: 'A new verification link has been sent to your inbox.',
       color: 'success'
     });
   } catch (err: any) {
+    sync(err?.data?.cooldown ?? null);
+
     const is429 = err?.response?.status === 429 || err?.status === 429;
     if (is429) {
       const retryAfter = Number(
-        err?.response?.headers?.get('Retry-After') ??
+        err?.data?.cooldown?.remaining_seconds ??
+        err?.response?.headers?.get?.('Retry-After') ??
           err?.response?.headers?.['retry-after'] ??
           0
       );
@@ -59,10 +82,11 @@ async function handleResend() {
       <UButton
         block
         :loading="resending"
+        :disabled="isCoolingDown"
         class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
         @click="handleResend"
       >
-        Resend verification email
+        {{ resendLabel }}
       </UButton>
 
       <UButton block variant="ghost" color="neutral" @click="logout">

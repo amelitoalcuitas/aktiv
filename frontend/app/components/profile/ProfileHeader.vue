@@ -114,11 +114,12 @@ const showHearts = computed(() => {
   return priv?.show_hearts !== false;
 });
 
-const name = computed(
-  () =>
-    props.profile.first_name +
-    (props.profile.last_name ? ` ${props.profile.last_name}` : '')
-);
+const name = computed(() => {
+  const first = props.profile.first_name;
+  const last = props.profile.last_name;
+  if (!first && !last) return props.profile.username ? `@${props.profile.username}` : 'Unknown';
+  return first + (last ? ` ${last}` : '');
+});
 </script>
 
 <template>

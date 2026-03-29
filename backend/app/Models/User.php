@@ -48,6 +48,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'is_disabled',
         'email_notifications_enabled',
         'inapp_notifications_enabled',
+        'deletion_scheduled_at',
     ];
 
     /**
@@ -81,6 +82,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'social_links'                => 'array',
             'profile_privacy'             => 'array',
             'hub_display_order'           => 'array',
+            'deletion_scheduled_at'       => 'datetime',
         ];
     }
 
@@ -112,6 +114,11 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return $username;
+    }
+
+    public function isPendingDeletion(): bool
+    {
+        return $this->deletion_scheduled_at !== null;
     }
 
     public function isBookingBanned(): bool
@@ -162,6 +169,8 @@ class User extends Authenticatable implements MustVerifyEmail
     public function defaultPrivacy(): array
     {
         return [
+            'profile_visible_to'   => 'everyone',
+            'show_full_name'       => true,
             'show_owned_hubs'      => true,
             'show_visited_hubs'    => true,
             'show_leaderboard'     => true,

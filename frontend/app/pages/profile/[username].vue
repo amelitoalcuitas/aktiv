@@ -52,9 +52,13 @@ const isOwnProfile = computed(
   () => authStore.user?.id === publicProfile.value?.id
 );
 
+const isPrivateProfile = computed(
+  () => publicProfile.value?.is_private === true && !isOwnProfile.value
+);
+
 useHead(() => ({
   title: publicProfile.value
-    ? `${publicProfile.value.first_name} ${publicProfile.value.last_name}'s Profile`
+    ? `${publicProfile.value.first_name ?? publicProfile.value.username ?? 'User'}'s Profile`
     : 'Profile'
 }));
 
@@ -66,7 +70,6 @@ const { data: ownProfile, refresh: refreshOwn } = isOwnProfile.value
 
 const editing = ref(false);
 const editModalOpen = ref(false);
-const savingPrivacy = ref(false);
 
 const privacy = computed(() => ({
   show_owned_hubs: true,
@@ -119,17 +122,6 @@ function onProfileSaved(updated: User) {
   refreshOwn();
 }
 
-async function togglePrivacy(key: string, val: boolean) {
-  savingPrivacy.value = true;
-  try {
-    const updated = await updateProfile({ profile_privacy: { [key]: val } });
-    authStore.setUser(updated);
-    await refreshOwn();
-  } finally {
-    savingPrivacy.value = false;
-  }
-}
-
 // ── Public profile ────────────────────────────────────────────────────────────
 
 const publicPrivacy = computed(
@@ -177,8 +169,13 @@ async function onToggleHeart() {
       @edit-info="editModalOpen = true"
     />
 
-    <div class="mx-auto max-w-5xl px-4 pb-12 md:px-6">
+    <div class="mx-auto w-full max-w-5xl flex-1 px-4 pb-8 md:px-8">
       <div class="mb-5 flex items-center justify-end gap-2">
+        <NuxtLink v-if="editing" to="/settings?tab=privacy">
+          <UButton variant="ghost" color="neutral" size="sm" icon="i-heroicons-eye">
+            Visibility Settings
+          </UButton>
+        </NuxtLink>
         <UButton
           v-if="editing"
           icon="i-heroicons-check"
@@ -233,9 +230,7 @@ async function onToggleHeart() {
           <ProfileJoinedHubsCard
             :hubs="ownProfile.joined_hubs"
             :hidden="!privacy.show_joined_hubs"
-            :editing="editing"
             :show-eye="true"
-            @toggle-privacy="(val) => togglePrivacy('show_joined_hubs', val)"
           />
 
           <!-- Hubs Owned -->
@@ -245,7 +240,7 @@ async function onToggleHeart() {
             :hidden="!privacy.show_owned_hubs"
             :editing="editing"
             :show-eye="true"
-            @toggle-privacy="(val) => togglePrivacy('show_owned_hubs', val)"
+            :show-privacy-toggle="false"
             @reorder="saveHubOrder"
             @toggle-hub-visibility="toggleHubVisibility"
           />
@@ -253,76 +248,10 @@ async function onToggleHeart() {
 
         <!-- Right column -->
         <div class="space-y-4">
-          <!-- Visibility Settings (edit mode) -->
-          <div
-            v-if="editing"
-            class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4"
-          >
-            <h3 class="mb-3 text-lg font-bold text-[var(--aktiv-ink)]">
-              More Visibility Settings
-            </h3>
-            <div class="space-y-3">
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-sm font-medium text-[var(--aktiv-ink)]">
-                    Hearts
-                  </p>
-                  <p class="text-xs text-[var(--aktiv-muted)]">
-                    Show your heart count on your public profile
-                  </p>
-                </div>
-                <USwitch
-                  :model-value="privacy.show_hearts"
-                  :disabled="savingPrivacy"
-                  @update:model-value="
-                    (val) => togglePrivacy('show_hearts', val)
-                  "
-                />
-              </div>
-              <div class="flex items-center justify-between gap-3">
-                <div>
-                  <p class="text-sm font-medium text-[var(--aktiv-ink)]">
-                    Favorite Sports
-                  </p>
-                  <p class="text-xs text-[var(--aktiv-muted)]">
-                    Show your most-played sports
-                  </p>
-                </div>
-                <USwitch
-                  :model-value="privacy.show_favorite_sports"
-                  :disabled="savingPrivacy"
-                  @update:model-value="
-                    (val) => togglePrivacy('show_favorite_sports', val)
-                  "
-                />
-              </div>
-            </div>
-          </div>
-
-          <ProfileVisitedHubs
-            :hidden="!privacy.show_visited_hubs"
-            :editing="editing"
-            :show-eye="true"
-            @toggle-privacy="(val) => togglePrivacy('show_visited_hubs', val)"
-          />
-          <ProfileStatsCard
-            :hidden="!privacy.show_leaderboard"
-            :editing="editing"
-            :show-eye="true"
-            @toggle-privacy="(val) => togglePrivacy('show_leaderboard', val)"
-          />
-          <ProfileTournamentsCard
-            :hidden="!privacy.show_tournaments"
-            :editing="editing"
-            :show-eye="true"
-            @toggle-privacy="(val) => togglePrivacy('show_tournaments', val)"
-          />
-          <ProfileOpenPlayCard
-            :hidden="!privacy.show_open_play"
-            :editing="editing"
-            :show-eye="true"
-            @toggle-privacy="(val) => togglePrivacy('show_open_play', val)"
-          />
+          <ProfileVisitedHubs :hidden="!privacy.show_visited_hubs" :show-eye="true" />
+          <ProfileStatsCard :hidden="!privacy.show_leaderboard" :show-eye="true" />
+          <ProfileTournamentsCard :hidden="!privacy.show_tournaments" :show-eye="true" />
+          <ProfileOpenPlayCard :hidden="!privacy.show_open_play" :show-eye="true" />
         </div>
       </div>
     </div>
@@ -332,6 +261,45 @@ async function onToggleHeart() {
       :user="ownProfile"
       @saved="onProfileSaved"
     />
+  </div>
+
+  <!-- Private profile -->
+  <div
+    v-else-if="isPrivateProfile && publicProfile"
+    class="min-h-screen bg-[var(--aktiv-background)]"
+  >
+    <ProfileHeader
+      :profile="publicProfile"
+      :is-own="false"
+      :is-authenticated="false"
+    />
+
+    <div class="mx-auto max-w-5xl px-4 pb-12 md:px-6">
+      <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
+        <!-- Left column -->
+        <div class="space-y-4">
+          <!-- About -->
+          <div class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4 md:p-6">
+            <h3 class="mb-1 text-lg font-bold text-[var(--aktiv-ink)]">About</h3>
+            <p
+              v-if="publicProfile.bio"
+              class="mt-1 whitespace-pre-wrap text-base leading-relaxed text-[var(--aktiv-muted)]"
+            >
+              {{ publicProfile.bio }}
+            </p>
+            <p v-else class="mt-1 text-sm italic text-[var(--aktiv-muted)]">
+              No bio yet.
+            </p>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div class="rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] px-6 py-10 text-center">
+          <UIcon name="i-heroicons-lock-closed" class="mx-auto mb-3 h-8 w-8 text-[var(--aktiv-muted)] opacity-40" />
+          <p class="text-sm text-[var(--aktiv-muted)]">This profile is private.</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Public profile (read-only) -->

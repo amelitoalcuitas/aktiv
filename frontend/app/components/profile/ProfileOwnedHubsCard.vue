@@ -6,6 +6,7 @@ const props = defineProps<{
   hidden?: boolean;
   editing?: boolean;
   showEye?: boolean;
+  showPrivacyToggle?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -63,7 +64,7 @@ const visibleHubs = computed(() =>
           :class="hidden ? 'text-[var(--aktiv-muted)]' : 'text-[var(--aktiv-primary)]'"
         />
       </div>
-      <div v-if="editing" class="flex items-center gap-2">
+      <div v-if="editing && showPrivacyToggle !== false" class="flex items-center gap-2">
         <span class="text-sm text-[var(--aktiv-muted)]">Visibility</span>
         <USwitch
           :model-value="!hidden"

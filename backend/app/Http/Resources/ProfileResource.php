@@ -50,6 +50,8 @@ class ProfileResource extends JsonResource
             'created_at'              => $this->created_at,
             'expired_booking_strikes' => $this->expired_booking_strikes ?? 0,
             'booking_banned_until'    => $this->booking_banned_until?->toIso8601String(),
+            'deletion_scheduled_at'   => $this->deletion_scheduled_at?->toIso8601String(),
+            'has_password'            => (bool) $this->password,
         ];
     }
 }

@@ -501,19 +501,16 @@ onUnmounted(() => {
   <div>
     <HubTabNav :tabs="manageTabs" />
 
-    <!-- Loading skeleton -->
-    <template v-if="loadingHub">
-      <USkeleton class="h-[168px] w-full sm:h-[260px]" />
-      <div class="mx-auto w-full max-w-[1400px] px-3 py-6 md:px-6">
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-[2fr_1.2fr]">
-          <USkeleton class="h-[500px] rounded-2xl" />
-          <div class="space-y-4">
-            <USkeleton class="h-[280px] rounded-2xl" />
-            <USkeleton class="h-[320px] rounded-2xl" />
-          </div>
-        </div>
+    <div
+      v-if="loadingHub"
+      class="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 text-center text-[#64748b]"
+    >
+      <UIcon name="i-heroicons-arrow-path" class="h-8 w-8 animate-spin" />
+      <div>
+        <p class="text-sm font-medium text-[#0f1728]">Loading hub details...</p>
+        <p class="text-sm">Please wait while we prepare the edit form.</p>
       </div>
-    </template>
+    </div>
 
     <form v-else @submit.prevent="handleSubmit">
       <!-- ── Hero / Cover Image ─────────────────────────────────────────────── -->

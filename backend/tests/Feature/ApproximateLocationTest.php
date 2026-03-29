@@ -62,6 +62,35 @@ it('uses the first trusted public forwarded ip', function () {
     Http::assertSent(fn ($request) => $request->url() === 'https://ipwho.is/1.1.1.1');
 });
 
+it('prefers cloudflare connecting ip over proxy-resolved addresses', function () {
+    Http::fake([
+        'https://ipwho.is/8.8.8.8' => Http::response([
+            'success' => true,
+            'latitude' => 14.5995,
+            'longitude' => 120.9842,
+            'city' => 'Manila',
+            'region' => 'Metro Manila',
+            'country' => 'Philippines',
+            'timezone' => ['id' => 'Asia/Manila'],
+        ]),
+    ]);
+
+    $response = $this->withHeaders([
+        'CF-Connecting-IP' => '8.8.8.8',
+        'X-Forwarded-For' => '1.1.1.1',
+    ])->getJson('/api/location/approx');
+
+    $response->assertOk()->assertJson([
+        'data' => [
+            'city' => 'Manila',
+            'country' => 'Philippines',
+            'timezone' => 'Asia/Manila',
+        ],
+    ]);
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://ipwho.is/8.8.8.8');
+});
+
 it('returns null and skips provider lookup for private or missing ips', function () {
     Http::fake();
 

@@ -44,7 +44,14 @@ class ApproximateLocationService
 
     public function extractClientIp(Request $request): ?string
     {
-        foreach (array_unique(array_filter([$request->ip(), ...$request->ips()])) as $candidate) {
+        $candidates = [
+            $request->header('CF-Connecting-IP'),
+            $request->header('True-Client-IP'),
+            $request->ip(),
+            ...$request->ips(),
+        ];
+
+        foreach (array_unique(array_filter($candidates)) as $candidate) {
             $normalizedIp = $this->normalizePublicIp($candidate);
 
             if ($normalizedIp !== null) {

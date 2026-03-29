@@ -13,9 +13,13 @@ class HubOwnerApplicationRejected extends Mailable
 {
     use Queueable, SerializesModels;
 
+    public readonly string $frontendUrl;
+
     public function __construct(
         public readonly HubOwnerRequest $hubOwnerRequest,
-    ) {}
+    ) {
+        $this->frontendUrl = config('app.frontend_url');
+    }
 
     public function envelope(): Envelope
     {

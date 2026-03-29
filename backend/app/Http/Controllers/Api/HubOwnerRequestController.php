@@ -43,12 +43,6 @@ class HubOwnerRequestController extends Controller
             'You already have a hub owner request pending review.'
         );
 
-        abort_if(
-            $latestRequest?->status === HubOwnerRequestStatus::Rejected,
-            409,
-            'Your previous hub owner request has already been reviewed.'
-        );
-
         $hubOwnerRequest = HubOwnerRequest::query()->create([
             'user_id' => $user->id,
             'status' => HubOwnerRequestStatus::Pending,

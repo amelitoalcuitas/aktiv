@@ -16,6 +16,11 @@ function makeSuperAdmin(array $attributes = []): User
     ], $attributes));
 }
 
+function validApplicationMessage(): string
+{
+    return 'I manage this venue and want to onboard our courts, schedules, and player bookings through Aktiv.';
+}
+
 it('regular user can create a hub owner request', function () {
     Mail::fake();
 
@@ -28,7 +33,7 @@ it('regular user can create a hub owner request', function () {
         'hub_name' => 'Baseline Sports Hub',
         'city' => 'Manila',
         'contact_number' => '09171234567',
-        'message' => 'I want to onboard our local courts.',
+        'message' => validApplicationMessage(),
     ]);
 
     $response->assertCreated()
@@ -52,7 +57,7 @@ it('queues one submission email per super admin when a request is created', func
     $superAdminTwo = makeSuperAdmin(['email' => 'sa2@example.com']);
 
     $this->actingAs($user, 'sanctum')->postJson('/api/hub-owner-request', [
-        'message' => 'Please approve me as a hub owner.',
+        'message' => validApplicationMessage(),
     ])->assertCreated();
 
     Mail::assertQueued(HubOwnerApplicationSubmitted::class, 2);
@@ -71,27 +76,84 @@ it('blocks duplicate pending hub owner requests', function () {
     ]);
 
     $this->actingAs($user, 'sanctum')->postJson('/api/hub-owner-request', [
-        'message' => 'Trying again.',
+        'message' => validApplicationMessage(),
     ])->assertStatus(409);
 
     Mail::assertNothingQueued();
 });
 
-it('blocks resubmission after a rejected request in this pass', function () {
+it('requires a detailed application message', function () {
     Mail::fake();
 
     $user = User::factory()->create();
 
-    HubOwnerRequest::factory()->create([
-        'user_id' => $user->id,
-        'status' => HubOwnerRequestStatus::Rejected,
-    ]);
-
     $this->actingAs($user, 'sanctum')->postJson('/api/hub-owner-request', [
-        'message' => 'Trying again.',
-    ])->assertStatus(409);
+        'message' => 'Too short for review.',
+    ])->assertStatus(422)
+        ->assertJsonValidationErrors(['message']);
 
     Mail::assertNothingQueued();
+});
+
+it('does not count repeated spaces toward the detailed application message minimum', function () {
+    Mail::fake();
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user, 'sanctum')->postJson('/api/hub-owner-request', [
+        'message' => 'word                word                word                word',
+    ])->assertStatus(422)
+        ->assertJsonValidationErrors(['message'])
+        ->assertJsonPath('errors.message.0', 'The message field must be at least 50 characters without using repeated spaces to pad it.');
+
+    Mail::assertNothingQueued();
+});
+
+it('counts normal spacing toward the detailed application message minimum', function () {
+    Mail::fake();
+
+    $user = User::factory()->create();
+    makeSuperAdmin();
+
+    $this->actingAs($user, 'sanctum')->postJson('/api/hub-owner-request', [
+        'message' => 'I manage this venue and want to onboard our courts with Aktiv now.',
+    ])->assertCreated();
+
+    Mail::assertQueued(HubOwnerApplicationSubmitted::class);
+});
+
+it('allows resubmission after a rejected request', function () {
+    Mail::fake();
+
+    $user = User::factory()->create();
+    makeSuperAdmin();
+
+    $previousRequest = HubOwnerRequest::factory()->create([
+        'user_id' => $user->id,
+        'status' => HubOwnerRequestStatus::Rejected,
+        'message' => 'First try.',
+    ]);
+
+    $response = $this->actingAs($user, 'sanctum')->postJson('/api/hub-owner-request', [
+        'hub_name' => 'Retry Sports Hub',
+        'city' => 'Pasig',
+        'contact_number' => '09171230000',
+        'message' => 'I manage this sports venue directly and I am reapplying with fuller details about our courts, staff, and booking operations.',
+    ]);
+
+    $response->assertCreated()
+        ->assertJsonPath('data.status', 'pending')
+        ->assertJsonPath('data.hub_name', 'Retry Sports Hub')
+        ->assertJsonPath('data.message', 'I manage this sports venue directly and I am reapplying with fuller details about our courts, staff, and booking operations.');
+
+    $newRequestId = $response->json('data.id');
+
+    expect(HubOwnerRequest::query()->where('user_id', $user->id)->count())->toBe(2)
+        ->and($newRequestId)->not->toBe($previousRequest->id)
+        ->and(HubOwnerRequest::query()->find($newRequestId)?->status)->toBe(HubOwnerRequestStatus::Pending)
+        ->and(HubOwnerRequest::query()->find($newRequestId)?->message)->toBe('I manage this sports venue directly and I am reapplying with fuller details about our courts, staff, and booking operations.');
+
+    Mail::assertQueued(HubOwnerApplicationSubmitted::class);
 });
 
 it('admin cannot create a hub owner request', function () {
@@ -100,7 +162,7 @@ it('admin cannot create a hub owner request', function () {
     $admin = User::factory()->admin()->create();
 
     $this->actingAs($admin, 'sanctum')->postJson('/api/hub-owner-request', [
-        'message' => 'I should not be allowed.',
+        'message' => validApplicationMessage(),
     ])->assertForbidden();
 });
 
@@ -110,7 +172,7 @@ it('super admin cannot create a hub owner request', function () {
     $superAdmin = makeSuperAdmin();
 
     $this->actingAs($superAdmin, 'sanctum')->postJson('/api/hub-owner-request', [
-        'message' => 'I should not be allowed.',
+        'message' => validApplicationMessage(),
     ])->assertForbidden();
 });
 
@@ -260,7 +322,8 @@ it('super admin can reject a pending request without changing the user role', fu
         $rendered = $mail->render();
 
         return $mail->hasTo($user->email)
-            && str_contains($rendered, 'Please complete your venue details first.');
+            && str_contains($rendered, 'Please complete your venue details first.')
+            && str_contains($rendered, '/apply');
     });
 });
 

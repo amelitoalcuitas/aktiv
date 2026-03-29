@@ -41,6 +41,33 @@ const statusOptions = [
   { label: 'Rejected', value: 'rejected' as const }
 ];
 
+const rejectReasonItems = [
+  {
+    label: 'Incomplete hub details',
+    value: 'Please add more complete information about the hub, including its name, location, and what facilities you manage.'
+  },
+  {
+    label: 'Insufficient ownership context',
+    value: 'Please provide more context about your connection to the venue and your role in managing the hub.'
+  },
+  {
+    label: 'Missing contact verification details',
+    value: 'Please share a valid contact number and any other details we can use to verify your application.'
+  },
+  {
+    label: 'Application message too brief',
+    value: 'Please add more detail about the venue, the sports offered, and how you plan to use Aktiv as a hub owner.'
+  },
+  {
+    label: 'Hub is not ready for onboarding',
+    value: 'Please reapply once the hub is ready for onboarding with clearer operational details and availability.'
+  },
+  {
+    label: 'Custom reason',
+    value: '__custom__'
+  }
+];
+
 const approveModal = ref({
   open: false,
   item: null as PanelHubOwnerRequest | null,
@@ -51,6 +78,7 @@ const rejectModal = ref({
   open: false,
   item: null as PanelHubOwnerRequest | null,
   loading: false,
+  selectedReason: '',
   notes: ''
 });
 
@@ -98,8 +126,14 @@ function openRejectModal(item: PanelHubOwnerRequest) {
     open: true,
     item,
     loading: false,
+    selectedReason: '',
     notes: ''
   };
+}
+
+function handleRejectReasonChange(value: string) {
+  rejectModal.value.selectedReason = value;
+  rejectModal.value.notes = value === '__custom__' ? '' : value;
 }
 
 async function submitApprove() {
@@ -386,6 +420,15 @@ onMounted(fetchRequests);
           </p>
 
           <UFormField label="Review note (optional)">
+            <USelect
+              :model-value="rejectModal.selectedReason"
+              :items="rejectReasonItems"
+              value-key="value"
+              label-key="label"
+              class="mb-3 w-full"
+              placeholder="Choose a premade reason"
+              @update:model-value="handleRejectReasonChange"
+            />
             <UTextarea
               v-model="rejectModal.notes"
               :rows="5"

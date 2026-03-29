@@ -50,7 +50,7 @@
     </div>
 
     <div style="text-align:center; margin:28px 0 8px;">
-        <a href="{{ $frontendUrl }}/panel/hub-owner-requests" style="display:inline-block; background:#004e89; color:#fff; text-decoration:none; padding:12px 28px; border-radius:8px; font-size:0.9375rem; font-weight:600;">Review Requests</a>
+        <a href="{{ $frontendUrl }}/panel/requests" style="display:inline-block; background:#004e89; color:#fff; text-decoration:none; padding:12px 28px; border-radius:8px; font-size:0.9375rem; font-weight:600;">Review Requests</a>
     </div>
 @endsection
 

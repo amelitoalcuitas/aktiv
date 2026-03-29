@@ -39,27 +39,42 @@ onMounted(async () => {
 
     <div v-else-if="stats" class="grid gap-4 sm:grid-cols-3">
       <!-- Total Hubs -->
-      <NuxtLink
-        to="/panel/hubs"
-        class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5 transition hover:shadow-md"
+      <div
+        class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5 transition"
       >
-        <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#e8f0f8]">
-          <UIcon name="i-heroicons-building-office-2" class="h-6 w-6 text-[#004e89]" />
+        <div
+          class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#e8f0f8]"
+        >
+          <UIcon
+            name="i-heroicons-building-office-2"
+            class="h-6 w-6 text-[#004e89]"
+          />
         </div>
         <div>
           <p class="text-sm text-[#64748b]">Total Hubs</p>
-          <p class="text-2xl font-bold text-[#0f1728]">{{ stats.total_hubs }}</p>
+          <p class="text-2xl font-bold text-[#0f1728]">
+            {{ stats.total_hubs }}
+          </p>
         </div>
-      </NuxtLink>
+      </div>
 
       <!-- Active Hubs -->
-      <div class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5">
-        <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-green-50">
-          <UIcon name="i-heroicons-check-circle" class="h-6 w-6 text-green-600" />
+      <div
+        class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5"
+      >
+        <div
+          class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-green-50"
+        >
+          <UIcon
+            name="i-heroicons-check-circle"
+            class="h-6 w-6 text-green-600"
+          />
         </div>
         <div>
           <p class="text-sm text-[#64748b]">Active Hubs</p>
-          <p class="text-2xl font-bold text-[#0f1728]">{{ stats.active_hubs }}</p>
+          <p class="text-2xl font-bold text-[#0f1728]">
+            {{ stats.active_hubs }}
+          </p>
         </div>
       </div>
 
@@ -68,12 +83,16 @@ onMounted(async () => {
         to="/panel/users"
         class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5 transition hover:shadow-md"
       >
-        <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-purple-50">
+        <div
+          class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-purple-50"
+        >
           <UIcon name="i-heroicons-users" class="h-6 w-6 text-purple-600" />
         </div>
         <div>
           <p class="text-sm text-[#64748b]">Total Users</p>
-          <p class="text-2xl font-bold text-[#0f1728]">{{ stats.total_users }}</p>
+          <p class="text-2xl font-bold text-[#0f1728]">
+            {{ stats.total_users }}
+          </p>
         </div>
       </NuxtLink>
     </div>

@@ -59,13 +59,11 @@ export function useHubOwnerRequest() {
 
   const canApply = computed(() => authStore.user?.role === 'user');
   const hasPendingRequest = computed(() => currentStatus.value === 'pending');
-  const applyCtaLabel = computed(() =>
-    hasPendingRequest.value ? 'Request Pending' : 'Apply as Hub Owner'
-  );
+  const applyCtaLabel = computed(() => 'Start Your Hub');
   const applyRoute = computed(() =>
     isAuthenticated.value
-      ? '/apply-hub-owner'
-      : '/auth/login?redirect=/apply-hub-owner'
+      ? '/apply'
+      : '/auth/login?redirect=/apply'
   );
 
   async function fetchCurrentRequest(force = false): Promise<HubOwnerRequest | null> {

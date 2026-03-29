@@ -13,6 +13,10 @@
         Thanks for your interest in becoming a hub owner on Aktiv. After review, your request was not approved at this time.
     </p>
 
+    <div style="text-align:center; margin:28px 0;">
+        <a href="{{ $frontendUrl }}/apply" style="display:inline-block; background:#004e89; color:#fff; text-decoration:none; font-size:0.9375rem; font-weight:600; padding:12px 32px; border-radius:8px;">Update and Apply Again</a>
+    </div>
+
     @if ($hubOwnerRequest->review_notes)
     <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:14px 16px; font-size:0.875rem; color:#991b1b; margin:20px 0;">
         <strong>Review note:</strong> {{ $hubOwnerRequest->review_notes }}

@@ -15,7 +15,7 @@ const navGroups = [
       {
         label: 'Owner Requests',
         icon: 'i-heroicons-inbox-stack',
-        to: '/panel/hub-owner-requests'
+        to: '/panel/requests'
       }
     ]
   }
@@ -65,7 +65,11 @@ watch(() => route.path, close);
 
     <!-- Panel label -->
     <div class="border-b border-[#dbe4ef] px-6 py-3">
-      <p class="text-[10px] font-semibold uppercase tracking-widest text-[#94a3b8]">Super Admin</p>
+      <p
+        class="text-[10px] font-semibold uppercase tracking-widest text-[#94a3b8]"
+      >
+        Super Admin
+      </p>
     </div>
 
     <!-- Nav -->

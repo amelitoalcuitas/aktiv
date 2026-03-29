@@ -6,8 +6,7 @@ definePageMeta({ layout: 'explore' });
 const exploreSection = ref<HTMLElement | null>(null);
 
 const { fetchHubsPaginated } = useHubs();
-const authStore = useAuthStore();
-const { applyRoute, hasPendingRequest } = useHubOwnerRequest();
+const { applyRoute } = useHubOwnerRequest();
 
 const { data: hubs, error: hubsError } = await useAsyncData<Hub[]>(
   'hubs-home',
@@ -21,13 +20,7 @@ const scrollToExploreSection = () => {
   exploreSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
-const hubOwnerCtaLabel = computed(() => {
-  if (!authStore.user || authStore.user.role !== 'user') {
-    return 'Become a Hub Owner';
-  }
-
-  return hasPendingRequest.value ? 'Request Pending' : 'Become a Hub Owner';
-});
+const hubOwnerCtaLabel = computed(() => 'Start Your Hub');
 </script>
 
 <template>

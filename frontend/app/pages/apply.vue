@@ -28,6 +28,16 @@ const errors = reactive({
   message: ''
 });
 
+const isRejected = computed(() => currentStatus.value === 'rejected');
+
+function normalizeMessage(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function getMessageCharacterCount(value: string): number {
+  return normalizeMessage(value).length;
+}
+
 function resetErrors() {
   Object.assign(errors, {
     hub_name: '',
@@ -40,8 +50,13 @@ function resetErrors() {
 function validate(): boolean {
   resetErrors();
 
-  if (!form.message.trim()) {
+  const normalizedMessage = normalizeMessage(form.message);
+
+  if (!normalizedMessage) {
     errors.message = 'Tell us a bit about the hub you want to add.';
+  } else if (normalizedMessage.length < 50) {
+    errors.message =
+      'Please provide at least 50 characters. Extra repeated spaces do not count toward the minimum.';
   }
 
   return !errors.message;
@@ -54,7 +69,7 @@ const isAdminUser = computed(
 
 async function bootstrap() {
   if (!authStore.isAuthenticated) {
-    await navigateTo('/auth/login?redirect=/apply-hub-owner');
+    await navigateTo('/auth/login?redirect=/apply');
     return;
   }
 
@@ -75,7 +90,14 @@ async function bootstrap() {
   form.contact_number = authStore.user?.contact_number ?? '';
 
   try {
-    await fetchCurrentRequest(true);
+    const request = await fetchCurrentRequest(true);
+
+    if (request?.status === 'rejected') {
+      form.hub_name = request.hub_name ?? '';
+      form.city = request.city ?? '';
+      form.contact_number = request.contact_number ?? form.contact_number;
+      form.message = request.message;
+    }
   } finally {
     loading.value = false;
   }
@@ -235,67 +257,73 @@ await bootstrap();
       </UCard>
 
       <UCard
-        v-else-if="currentStatus === 'rejected'"
-        class="rounded-3xl border border-[#dbe4ef] bg-white"
-        :ui="{ root: 'ring-0 divide-y-0' }"
-      >
-        <div class="text-center">
-          <div
-            class="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-100"
-          >
-            <UIcon
-              name="i-heroicons-envelope-open"
-              class="h-7 w-7 text-rose-700"
-            />
-          </div>
-          <h2 class="mt-5 text-2xl font-bold text-[#0f1728]">
-            Application Reviewed
-          </h2>
-          <p class="mx-auto mt-2 max-w-xl text-sm leading-7 text-[#64748b]">
-            Your most recent hub owner application has already been reviewed. At
-            the moment, this page is read-only and does not allow another
-            submission.
-          </p>
-
-          <div
-            v-if="currentRequest"
-            class="mx-auto mt-6 max-w-xl rounded-2xl border border-[#fee2e2] bg-[#fff8f8] p-5 text-left"
-          >
-            <p
-              class="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]"
-            >
-              Reviewed
-            </p>
-            <p class="mt-2 text-sm text-[#0f1728]">
-              {{ formatDateTime(currentRequest.reviewed_at) }}
-            </p>
-            <div v-if="currentRequest.review_notes" class="mt-4">
-              <p
-                class="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]"
-              >
-                Review Note
-              </p>
-              <p class="mt-2 text-sm leading-7 text-[#7f1d1d]">
-                {{ currentRequest.review_notes }}
-              </p>
-            </div>
-          </div>
-        </div>
-      </UCard>
-
-      <UCard
         v-else
         class="rounded-3xl border border-[#dbe4ef] bg-white"
         :ui="{ root: 'ring-0 divide-y-0' }"
       >
         <div class="grid gap-8 md:grid-cols-[1.2fr_0.8fr]">
           <div>
+            <div
+              v-if="isRejected && currentRequest"
+              class="mb-6 rounded-2xl border border-[#fecaca] bg-[#fff1f2] p-5"
+            >
+              <div class="flex items-start gap-3">
+                <div
+                  class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100"
+                >
+                  <UIcon
+                    name="i-heroicons-arrow-path-rounded-square"
+                    class="h-5 w-5 text-rose-700"
+                  />
+                </div>
+                <div>
+                  <h2 class="text-lg font-bold text-[#0f1728]">
+                    Update and reapply
+                  </h2>
+                  <p class="mt-1 text-sm leading-6 text-[#5d7086]">
+                    Your last application was reviewed. You can update the
+                    details below and submit a new request anytime.
+                  </p>
+                </div>
+              </div>
+
+              <div
+                class="mt-4 rounded-2xl border border-[#fee2e2] bg-white/70 p-4"
+              >
+                <p
+                  class="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]"
+                >
+                  Reviewed
+                </p>
+                <p class="mt-2 text-sm text-[#0f1728]">
+                  {{ formatDateTime(currentRequest.reviewed_at) }}
+                </p>
+                <div v-if="currentRequest.review_notes" class="mt-4">
+                  <p
+                    class="text-xs font-semibold uppercase tracking-[0.18em] text-[#94a3b8]"
+                  >
+                    Review Note
+                  </p>
+                  <p class="mt-2 text-sm leading-7 text-[#7f1d1d]">
+                    {{ currentRequest.review_notes }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <h2 class="text-2xl font-bold text-[#0f1728]">
-              Send your application
+              {{
+                isRejected
+                  ? 'Submit a new application'
+                  : 'Send your application'
+              }}
             </h2>
             <p class="mt-2 text-sm leading-7 text-[#64748b]">
-              Keep it simple for now. Share a few details about the venue you
-              want to bring on board and why you want owner access.
+              {{
+                isRejected
+                  ? 'We prefilled your last submission so you can revise it quickly. Add the missing context from the review and send it back for another look.'
+                  : 'Keep it simple for now. Share a few details about the venue you want to bring on board and why you want owner access.'
+              }}
             </p>
 
             <form class="mt-6 space-y-5" @submit.prevent="handleSubmit">
@@ -348,9 +376,17 @@ await bootstrap();
                 <UTextarea
                   v-model="form.message"
                   :rows="6"
+                  :maxlength="1000"
                   placeholder="Tell us about your venue, what you plan to manage, and how you’ll use Aktiv."
                   class="w-full"
                 />
+
+                <div
+                  class="justify-between flex mt-1 text-right text-xs text-[#64748b]"
+                >
+                  <p>(Min. 50 characters, repeated spaces do not count)</p>
+                  <p>{{ getMessageCharacterCount(form.message) }} / 1000 characters</p>
+                </div>
               </UFormField>
 
               <UButton
@@ -358,7 +394,7 @@ await bootstrap();
                 :loading="submitting"
                 class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
               >
-                Submit Application
+                {{ isRejected ? 'Reapply for Review' : 'Submit Application' }}
               </UButton>
             </form>
           </div>

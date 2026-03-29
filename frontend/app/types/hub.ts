@@ -1,3 +1,5 @@
+import type { LinkPlatform, LinkRow } from '~/types/links';
+
 export type SportType =
   | 'tennis'
   | 'badminton'
@@ -18,9 +20,9 @@ export interface HubContactNumber {
   number: string;
 }
 
-export interface HubWebsite {
-  url: string;
-}
+export type HubLinkPlatform = LinkPlatform;
+
+export interface HubWebsite extends LinkRow {}
 
 export interface OperatingHoursEntry {
   day_of_week: number; // 0 = Sunday … 6 = Saturday

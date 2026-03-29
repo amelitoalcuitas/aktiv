@@ -1,4 +1,5 @@
 import type { BookingStatus } from '~/types/booking';
+import type { HubWebsite } from '~/types/hub';
 import { useApi } from '~/utils/api';
 
 export interface GuestTrackingBooking {
@@ -15,7 +16,7 @@ export interface GuestTrackingBooking {
   receipt_uploaded_at: string | null;
   payment_note: string | null;
   court: { id: string; name: string };
-  hub: { id: string; name: string; slug: string; phones: string[]; websites: string[] };
+  hub: { id: string; name: string; slug: string; phones: string[]; websites: HubWebsite[] };
 }
 
 export function useGuestTracking() {

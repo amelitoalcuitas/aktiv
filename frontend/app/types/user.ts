@@ -1,11 +1,11 @@
+import type { LinkPlatform, LinkRow } from '~/types/links';
+
 export type UserRole = 'user' | 'admin' | 'super_admin';
+export type HubOwnerRequestStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
-export type SocialPlatform = 'facebook' | 'instagram' | 'x' | 'youtube' | 'threads' | 'other';
+export type SocialPlatform = LinkPlatform;
 
-export interface SocialLink {
-  platform: SocialPlatform;
-  url: string;
-}
+export interface SocialLink extends LinkRow {}
 
 export interface SocialLinks {
   facebook?: string | null;
@@ -74,6 +74,7 @@ export interface User {
   hearts_count: number;
   created_at: string;
   deletion_scheduled_at: string | null;
+  hub_owner_request_status: HubOwnerRequestStatus;
   has_password: boolean;
 }
 

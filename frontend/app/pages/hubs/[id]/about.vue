@@ -474,25 +474,19 @@ onUnmounted(() => {
               </ul>
             </div>
 
-            <!-- Websites -->
+            <!-- Links -->
             <div
               v-if="hub.websites && hub.websites.length > 0"
               class="p-4 md:p-6"
             >
               <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">
-                Websites
+                Links
               </h2>
-              <ul class="mt-2 space-y-1">
-                <li v-for="(site, i) in hub.websites" :key="i">
-                  <a
-                    :href="site.url"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="break-all text-sm text-[var(--aktiv-primary)] hover:underline"
-                    >{{ site.url }}</a
-                  >
-                </li>
-              </ul>
+              <AppLinksList
+                :links="hub.websites"
+                list-class="mt-2 flex flex-wrap items-center gap-3"
+                icon-class="h-5 w-5"
+              />
             </div>
           </div>
 

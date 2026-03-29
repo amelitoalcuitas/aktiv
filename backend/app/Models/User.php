@@ -151,6 +151,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Hub::class, 'owner_id');
     }
 
+    public function hubOwnerRequests(): HasMany
+    {
+        return $this->hasMany(HubOwnerRequest::class);
+    }
+
     public function joinedHubs(): BelongsToMany
     {
         return $this->belongsToMany(Hub::class, 'hub_members', 'user_id', 'hub_id')->withPivot('created_at');

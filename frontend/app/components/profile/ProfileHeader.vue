@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { User, PublicUser } from '~/types/user';
+import type { LinkPlatform, LinkRow } from '~/types/links';
 
 const props = defineProps<{
   profile: User | PublicUser;
@@ -73,25 +74,11 @@ const memberSince = computed(() => {
   });
 });
 
-const PLATFORM_ICONS: Record<string, string> = {
-  facebook: 'i-simple-icons-facebook',
-  instagram: 'i-simple-icons-instagram',
-  x: 'i-simple-icons-x',
-  youtube: 'i-simple-icons-youtube',
-  threads: 'i-simple-icons-threads',
-  other: 'i-heroicons-globe-alt'
-};
-
-const socialPlatforms = computed(() => {
+const socialPlatforms = computed<LinkRow[]>(() => {
   const links = props.profile.social_links ?? {};
-  return (Object.entries(links) as [string, string | null | undefined][])
+  return (Object.entries(links) as [LinkPlatform, string | null | undefined][])
     .filter(([, url]) => url)
-    .map(([platform, url]) => ({
-      key: platform,
-      icon: PLATFORM_ICONS[platform] ?? 'i-heroicons-globe-alt',
-      label: platform.charAt(0).toUpperCase() + platform.slice(1),
-      href: url!
-    }));
+    .map(([platform, url]) => ({ platform, url: url! }));
 });
 
 const heartsCount = computed(() => {
@@ -235,17 +222,10 @@ const name = computed(() => {
           v-if="socialPlatforms.length"
           class="mt-2 flex items-center justify-center gap-3"
         >
-          <a
-            v-for="social in socialPlatforms"
-            :key="social.key"
-            :href="social.href"
-            :title="social.label"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="text-[var(--aktiv-muted)] hover:text-[var(--aktiv-primary)] transition"
-          >
-            <UIcon :name="social.icon" class="h-5 w-5" />
-          </a>
+          <AppLinksList
+            :links="socialPlatforms"
+            list-class="flex items-center justify-center gap-3"
+          />
           <button
             v-if="isOwn && editing"
             type="button"

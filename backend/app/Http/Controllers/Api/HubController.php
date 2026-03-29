@@ -427,7 +427,7 @@ class HubController extends Controller
     /**
      * Sync hub_websites to the exact provided list.
      *
-     * @param  list<array{url: string}>  $websites
+     * @param  list<array{platform: string, url: string}>  $websites
      */
     private function syncWebsites(Hub $hub, array $websites): void
     {
@@ -435,8 +435,9 @@ class HubController extends Controller
 
         foreach ($websites as $entry) {
             HubWebsite::query()->create([
-                'hub_id' => $hub->id,
-                'url'    => $entry['url'],
+                'hub_id'   => $hub->id,
+                'platform' => $entry['platform'],
+                'url'      => $entry['url'],
             ]);
         }
     }
@@ -695,7 +696,10 @@ class HubController extends Controller
                 ])->values()
                 : [],
             'websites'             => $hub->websites
-                ? $hub->websites->map(fn (HubWebsite $w): array => ['url' => $w->url])->values()
+                ? $hub->websites->map(fn (HubWebsite $w): array => [
+                    'platform' => $w->platform,
+                    'url' => $w->url,
+                ])->values()
                 : [],
             'courts_count'         => $hub->courts_count ?? 0,
             'lowest_price_per_hour' => $hub->courts_min_price_per_hour,

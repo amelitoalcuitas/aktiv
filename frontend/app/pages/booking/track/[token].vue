@@ -387,17 +387,12 @@ const statusConfig: Record<
                     <UIcon name="i-heroicons-phone" class="h-3.5 w-3.5" />
                     {{ phone }}
                   </a>
-                  <a
-                    v-for="site in booking.hub.websites"
-                    :key="site"
-                    :href="site"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="flex items-center gap-1.5 font-medium underline"
-                  >
-                    <UIcon name="i-heroicons-globe-alt" class="h-3.5 w-3.5" />
-                    {{ site }}
-                  </a>
+                  <AppLinksList
+                    :links="booking.hub.websites"
+                    list-class="flex flex-wrap items-center gap-3"
+                    link-class="text-[#0f1728] transition hover:text-[var(--aktiv-primary)]"
+                    icon-class="h-4 w-4"
+                  />
                 </div>
               </div>
             </div>

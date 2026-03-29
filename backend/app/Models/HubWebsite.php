@@ -16,6 +16,7 @@ class HubWebsite extends Model
      */
     protected $fillable = [
         'hub_id',
+        'platform',
         'url',
     ];
 

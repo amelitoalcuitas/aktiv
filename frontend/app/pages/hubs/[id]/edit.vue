@@ -11,6 +11,7 @@ import {
   HUB_IMAGE_MAX_BYTES,
   HUB_IMAGE_MAX_SIZE_MB
 } from '~/composables/useHubs';
+import { LINK_PLATFORMS } from '~/types/links';
 
 definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
 
@@ -105,6 +106,19 @@ const DAY_NAMES = [
   'Thursday',
   'Friday',
   'Saturday'
+];
+
+const CONTACT_TYPE_OPTIONS = [
+  {
+    value: 'mobile' as const,
+    label: 'Mobile',
+    icon: 'i-heroicons-device-phone-mobile'
+  },
+  {
+    value: 'landline' as const,
+    label: 'Landline',
+    icon: 'i-heroicons-phone'
+  }
 ];
 
 function defaultOperatingHours(): OperatingHoursEntry[] {
@@ -204,7 +218,10 @@ function populateForm(hub: Hub) {
   form.lat = hub.lat ? parseFloat(hub.lat) : null;
   form.lng = hub.lng ? parseFloat(hub.lng) : null;
   form.contact_numbers = hub.contact_numbers.map((c) => ({ ...c }));
-  form.websites = (hub.websites ?? []).map((w) => ({ url: w.url }));
+  form.websites = (hub.websites ?? []).map((w) => ({
+    platform: w.platform ?? 'other',
+    url: w.url
+  }));
   form.is_active = hub.is_active ?? true;
   currentCoverUrl.value = hub.cover_image_url ?? '';
   pendingCoverFile.value = null;
@@ -286,6 +303,7 @@ const hubFormSchema = z.object({
   websites: z
     .array(
       z.object({
+        platform: z.enum(LINK_PLATFORMS),
         url: z
           .string()
           .url('Please enter a valid URL (e.g. https://example.com).')
@@ -309,7 +327,10 @@ function contactNumberError(index: number) {
 }
 
 function websiteError(index: number) {
-  return fieldErrors.value[`websites.${index}.url`]?.[0];
+  return (
+    fieldErrors.value[`websites.${index}.url`]?.[0] ??
+    fieldErrors.value[`websites.${index}.platform`]?.[0]
+  );
 }
 
 // ── Contact / Website helpers ─────────────────────────────────────────────────
@@ -323,12 +344,20 @@ function removeContactNumber(index: number) {
 function contactNumberMaxLength(type: 'mobile' | 'landline') {
   return type === 'mobile' ? 11 : 10;
 }
-function addWebsite() {
-  if (form.websites.length < 5) form.websites.push({ url: '' });
+
+function contactTypeIcon(type: 'mobile' | 'landline') {
+  return CONTACT_TYPE_OPTIONS.find((option) => option.value === type)?.icon
+    ?? 'i-heroicons-phone';
 }
-function removeWebsite(index: number) {
-  form.websites.splice(index, 1);
+
+function contactTypeLabel(type: 'mobile' | 'landline') {
+  return CONTACT_TYPE_OPTIONS.find((option) => option.value === type)?.label
+    ?? 'Contact type';
 }
+
+const websiteErrors = computed(() =>
+  form.websites.map((_, index) => websiteError(index))
+);
 
 // ── Location picker ───────────────────────────────────────────────────────────
 function onPinUpdate(coords: { lat: number | null; lng: number | null }) {
@@ -654,14 +683,29 @@ onUnmounted(() => {
                     :key="index"
                     class="flex items-start gap-2"
                   >
-                    <USelect
-                      v-model="entry.type"
-                      :items="[
-                        { label: 'Mobile', value: 'mobile' },
-                        { label: 'Landline', value: 'landline' }
-                      ]"
-                      class="w-25 shrink-0"
-                    />
+                    <UDropdownMenu
+                      :items="
+                        CONTACT_TYPE_OPTIONS.map((option) => ({
+                          label: option.label,
+                          icon: option.icon,
+                          onSelect: () => {
+                            entry.type = option.value;
+                          }
+                        }))
+                      "
+                    >
+                      <UButton
+                        variant="ghost"
+                        color="neutral"
+                        class="w-9 shrink-0 justify-center border border-[var(--aktiv-border)] px-0"
+                        :aria-label="contactTypeLabel(entry.type)"
+                      >
+                        <UIcon
+                          :name="contactTypeIcon(entry.type)"
+                          class="h-4 w-4 text-[var(--aktiv-muted)]"
+                        />
+                      </UButton>
+                    </UDropdownMenu>
                     <div class="min-w-0 flex-1">
                       <UInput
                         v-model="entry.number"
@@ -706,56 +750,17 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <!-- Websites -->
+              <!-- Links -->
               <div class="p-4 md:p-6">
                 <h2 class="mb-3 text-lg font-bold text-[var(--aktiv-ink)]">
-                  Websites
+                  Links
                 </h2>
-                <div class="space-y-2">
-                  <div
-                    v-for="(entry, index) in form.websites"
-                    :key="index"
-                    class="flex items-start gap-2"
-                  >
-                    <div class="min-w-0 flex-1">
-                      <UInput
-                        v-model="entry.url"
-                        placeholder="https://example.com"
-                        class="w-full"
-                        :ui="{
-                          base: websiteError(index)
-                            ? 'ring-1 ring-[var(--aktiv-danger-fg)]'
-                            : ''
-                        }"
-                      />
-                      <p
-                        v-if="websiteError(index)"
-                        class="mt-0.5 text-xs text-[var(--aktiv-danger-fg)]"
-                      >
-                        {{ websiteError(index) }}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      class="mt-1.5 shrink-0 text-[var(--aktiv-muted)] hover:text-[var(--aktiv-danger-fg)]"
-                      aria-label="Remove website"
-                      @click="removeWebsite(index)"
-                    >
-                      <UIcon name="i-heroicons-x-mark" class="h-4 w-4" />
-                    </button>
-                  </div>
-                  <UButton
-                    v-if="form.websites.length < 5"
-                    type="button"
-                    variant="ghost"
-                    color="neutral"
-                    size="xs"
-                    icon="i-heroicons-plus"
-                    @click="addWebsite"
-                  >
-                    Add
-                  </UButton>
-                </div>
+                <AppLinksEditor
+                  v-model="form.websites"
+                  :errors="websiteErrors"
+                  placeholder="https://example.com"
+                  add-label="Add another"
+                />
               </div>
             </div>
 

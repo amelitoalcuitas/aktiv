@@ -3,10 +3,11 @@ import type { Hub } from '~/types/hub';
 
 definePageMeta({ layout: 'explore' });
 
-
 const exploreSection = ref<HTMLElement | null>(null);
 
 const { fetchHubsPaginated } = useHubs();
+const authStore = useAuthStore();
+const { applyRoute, hasPendingRequest } = useHubOwnerRequest();
 
 const { data: hubs, error: hubsError } = await useAsyncData<Hub[]>(
   'hubs-home',
@@ -19,6 +20,14 @@ const filteredHubs = computed(() => hubs.value ?? []);
 const scrollToExploreSection = () => {
   exploreSection.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
+
+const hubOwnerCtaLabel = computed(() => {
+  if (!authStore.user || authStore.user.role !== 'user') {
+    return 'Become a Hub Owner';
+  }
+
+  return hasPendingRequest.value ? 'Request Pending' : 'Become a Hub Owner';
+});
 </script>
 
 <template>
@@ -58,15 +67,29 @@ const scrollToExploreSection = () => {
         </div>
 
         <div class="mt-10 flex w-full justify-center px-4 md:px-6">
-          <UButton
-            type="button"
-            size="xl"
-            @click="scrollToExploreSection"
-            class="h-14 rounded-2xl bg-[#0f76bf] px-8 text-base font-bold text-white shadow-[0_16px_32px_rgba(12,102,167,0.3)] transition hover:bg-[#0b66a5]"
-            :ui="{ base: 'justify-center' }"
+          <div
+            class="flex w-full max-w-[620px] flex-col justify-center gap-3 sm:flex-row"
           >
-            Explore Now
-          </UButton>
+            <UButton
+              type="button"
+              size="xl"
+              @click="scrollToExploreSection"
+              class="h-14 rounded-2xl bg-[#0f76bf] px-8 text-base font-bold text-white shadow-[0_16px_32px_rgba(12,102,167,0.3)] transition hover:bg-[#0b66a5]"
+              :ui="{ base: 'justify-center' }"
+            >
+              Explore Now
+            </UButton>
+            <UButton
+              :to="applyRoute"
+              size="xl"
+              color="neutral"
+              variant="solid"
+              class="h-14 rounded-2xl border border-white/60 bg-white px-8 text-base font-bold text-[#0f76bf] shadow-[0_16px_32px_rgba(12,102,167,0.3)] transition hover:bg-[#f4fbff] active:bg-[#e0f7ff] disabled:cursor-not-allowed disabled:bg-white/50 disabled:text-[#0f76bf]/50"
+              :ui="{ base: 'justify-center' }"
+            >
+              {{ hubOwnerCtaLabel }}
+            </UButton>
+          </div>
         </div>
       </div>
     </section>
@@ -75,9 +98,7 @@ const scrollToExploreSection = () => {
       ref="exploreSection"
       class="mx-auto w-full max-w-[1160px] px-4 pt-16 md:px-6"
     >
-      <div
-        class="mb-8 flex flex-col items-start justify-between gap-4 md:flex-row md:items-end"
-      >
+      <div class="mb-8">
         <div>
           <h2
             class="mt-2 text-3xl font-black leading-tight text-[#0f1728] md:text-5xl"
@@ -88,13 +109,6 @@ const scrollToExploreSection = () => {
             The most active hubs in the city — pick your next court.
           </p>
         </div>
-
-        <ULink
-          to="#"
-          class="text-[var(--aktiv-primary)] hover:text-[var(--aktiv-primary-hover)]"
-        >
-          Wanna add your own hub?
-        </ULink>
       </div>
 
       <div class="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
@@ -116,11 +130,10 @@ const scrollToExploreSection = () => {
         class="mt-6 rounded-2xl border border-[#dde5ef] bg-white p-5 shadow-[0_14px_32px_rgba(15,33,64,0.08)]"
         :ui="{ root: 'ring-0 divide-y-0' }"
       >
-        <p class="m-0 text-[var(--aktiv-muted)]">
-          Hubs are on their way!
-        </p>
+        <p class="m-0 text-[var(--aktiv-muted)]">Hubs are on their way!</p>
         <small class="mt-1 inline-block text-[var(--aktiv-muted)]"
-          >We're just getting started — check back soon for courts near you.</small
+          >We're just getting started — check back soon for courts near
+          you.</small
         >
       </UCard>
 

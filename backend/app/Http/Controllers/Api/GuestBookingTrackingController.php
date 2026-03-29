@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\HubWebsite;
 use App\Services\BookingNotificationService;
 use App\Services\ImageUploadService;
 use Illuminate\Http\JsonResponse;
@@ -124,11 +125,14 @@ class GuestBookingTrackingController extends Controller
                 'name' => $court->name,
             ],
             'hub' => [
-                'id'      => $hub->id,
-                'name'    => $hub->name,
-                'slug'    => $hub->slug,
-                'phones'  => $hub->contactNumbers->pluck('number')->values(),
-                'websites' => $hub->websites->pluck('url')->values(),
+                'id'       => $hub->id,
+                'name'     => $hub->name,
+                'slug'     => $hub->slug,
+                'phones'   => $hub->contactNumbers->pluck('number')->values(),
+                'websites' => $hub->websites->map(fn (HubWebsite $website): array => [
+                    'platform' => $website->platform,
+                    'url' => $website->url,
+                ])->values(),
             ],
         ];
     }

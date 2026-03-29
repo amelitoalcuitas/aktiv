@@ -9,6 +9,8 @@ class UserResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $latestHubOwnerRequest = $this->hubOwnerRequests()->latest()->first();
+
         return [
             'id'                      => $this->id,
             'first_name'              => $this->first_name,
@@ -24,6 +26,7 @@ class UserResource extends JsonResource
             'expired_booking_strikes' => $this->expired_booking_strikes ?? 0,
             'booking_banned_until'    => $this->booking_banned_until?->toIso8601String(),
             'deletion_scheduled_at'   => $this->deletion_scheduled_at?->toIso8601String(),
+            'hub_owner_request_status' => $latestHubOwnerRequest?->status->value ?? 'none',
             'created_at'              => $this->created_at,
         ];
     }

@@ -49,6 +49,7 @@ class UpdateHubRequest extends FormRequest
             'contact_numbers.*.type'    => ['required', 'string', 'in:mobile,landline'],
             'contact_numbers.*.number'  => ['required', 'string', 'max:20'],
             'websites'                  => ['sometimes', 'nullable', 'array', 'max:5'],
+            'websites.*.platform'       => ['required', 'string', 'in:facebook,instagram,x,youtube,threads,other'],
             'websites.*.url'            => ['required', 'string', 'url', 'max:2048'],
             'operating_hours'                       => ['sometimes', 'nullable', 'array', 'max:7'],
             'operating_hours.*.day_of_week'         => ['required', 'integer', 'between:0,6'],

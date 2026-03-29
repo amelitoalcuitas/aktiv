@@ -115,6 +115,7 @@ export function useHubs() {
       formData.append(`contact_numbers[${i}][number]`, entry.number);
     });
     (payload.websites ?? []).forEach((entry, i) => {
+      formData.append(`websites[${i}][platform]`, entry.platform);
       formData.append(`websites[${i}][url]`, entry.url);
     });
     (payload.gallery_images ?? []).forEach((image) => {

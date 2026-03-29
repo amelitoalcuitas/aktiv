@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import type { User, SocialPlatform, SocialLink } from '~/types/user';
+import type { User } from '~/types/user';
+import type { LinkPlatform, LinkRow } from '~/types/links';
+import {
+  LINK_PLATFORMS,
+  isValidExternalUrl
+} from '~/types/links';
 
 const props = defineProps<{
   open: boolean;
@@ -19,23 +24,10 @@ const {
   nextUsernameChangeDate
 } = useProfile();
 
-const PLATFORM_OPTIONS: {
-  value: SocialPlatform;
-  label: string;
-  icon: string;
-}[] = [
-  { value: 'facebook', label: 'Facebook', icon: 'i-simple-icons-facebook' },
-  { value: 'instagram', label: 'Instagram', icon: 'i-simple-icons-instagram' },
-  { value: 'x', label: 'X (Twitter)', icon: 'i-simple-icons-x' },
-  { value: 'youtube', label: 'YouTube', icon: 'i-simple-icons-youtube' },
-  { value: 'threads', label: 'Threads', icon: 'i-simple-icons-threads' },
-  { value: 'other', label: 'Other', icon: 'i-heroicons-globe-alt' }
-];
-
-function socialLinksToRows(links: User['social_links']): SocialLink[] {
+function socialLinksToRows(links: User['social_links']): LinkRow[] {
   if (!links) return [];
   return (
-    Object.entries(links) as [SocialPlatform, string | null | undefined][]
+    Object.entries(links) as [LinkPlatform, string | null | undefined][]
   )
     .filter(([, url]) => url)
     .map(([platform, url]) => ({ platform, url: url! }));
@@ -48,7 +40,7 @@ const form = reactive({
   last_name: props.user.last_name,
   contact_number: props.user.contact_number ?? '',
   bio: props.user.bio ?? '',
-  links: socialLinksToRows(props.user.social_links) as SocialLink[]
+  links: socialLinksToRows(props.user.social_links) as LinkRow[]
 });
 
 // Tracks which field groups are currently being edited
@@ -115,6 +107,7 @@ watch(
       form.bio = props.user.bio ?? '';
       form.links = socialLinksToRows(props.user.social_links);
       editing.value = new Set();
+      touched.value = new Set();
       error.value = '';
     }
   }
@@ -141,46 +134,13 @@ const usernameLockedUntil = computed(() =>
   formatDate(nextUsernameChangeDate(props.user))
 );
 
-// ── social links ─────────────────────────────────────────────
-function addLink() {
-  const used = new Set(form.links.map((l) => l.platform));
-  const next = PLATFORM_OPTIONS.find((p) => !used.has(p.value));
-  if (next) form.links.push({ platform: next.value, url: '' });
-}
-
-function removeLink(index: number) {
-  form.links.splice(index, 1);
-}
-
-function availableOptions(current: SocialPlatform) {
-  const used = new Set(form.links.map((l) => l.platform));
-  return PLATFORM_OPTIONS.filter(
-    (p) => p.value === current || !used.has(p.value)
-  );
-}
-
-function iconFor(platform: SocialPlatform) {
-  return (
-    PLATFORM_OPTIONS.find((p) => p.value === platform)?.icon ??
-    'i-heroicons-globe-alt'
-  );
-}
-
-const canAddMore = computed(() => form.links.length < PLATFORM_OPTIONS.length);
-
 // ── url validation ───────────────────────────────────────────
 const saving = ref(false);
 const error = ref('');
 const touched = ref<Set<number>>(new Set());
 
 function isValidUrl(val: string): boolean {
-  if (!val.trim()) return true;
-  try {
-    const url = new URL(val.trim());
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
+  return isValidExternalUrl(val);
 }
 
 function urlError(index: number): string {
@@ -194,6 +154,10 @@ const hasUrlErrors = computed(() =>
   form.links.some((row) => row.url.trim() && !isValidUrl(row.url))
 );
 
+const linkErrors = computed(() =>
+  form.links.map((_, index) => urlError(index))
+);
+
 // ── save ──────────────────────────────────────────────────────
 async function save() {
   form.links.forEach((_, i) => touched.value.add(i));
@@ -203,14 +167,10 @@ async function save() {
   error.value = '';
   try {
     const clean = (v: string) => v.trim() || null;
-    const social_links: Record<string, string | null> = {
-      facebook: null,
-      instagram: null,
-      x: null,
-      youtube: null,
-      threads: null,
-      other: null
-    };
+    const social_links = Object.fromEntries(
+      LINK_PLATFORMS.map((platform) => [platform, null])
+    ) as Record<LinkPlatform, string | null>;
+
     for (const row of form.links) {
       if (row.url.trim()) social_links[row.platform] = row.url.trim();
     }
@@ -479,84 +439,22 @@ async function save() {
           </div>
         </div>
 
-        <!-- Social Links -->
+        <!-- Links -->
         <div class="border-t border-[var(--aktiv-border)] pt-4">
           <p class="mb-3 font-semibold text-[var(--aktiv-ink)]">
-            Social Links
+            Links
             <span class="ml-1 text-xs font-normal text-[var(--aktiv-muted)]"
               >(optional)</span
             >
           </p>
 
-          <div class="space-y-2">
-            <div
-              v-for="(row, index) in form.links"
-              :key="index"
-              class="flex items-center gap-2"
-            >
-              <UDropdownMenu
-                :items="
-                  availableOptions(row.platform).map((opt) => ({
-                    label: opt.label,
-                    icon: opt.icon,
-                    onSelect: () => {
-                      row.platform = opt.value as SocialPlatform;
-                    }
-                  }))
-                "
-              >
-                <UButton
-                  variant="ghost"
-                  color="neutral"
-                  class="w-9 shrink-0 px-0 justify-center border border-[var(--aktiv-border)]"
-                  :aria-label="row.platform"
-                >
-                  <UIcon
-                    :name="iconFor(row.platform)"
-                    class="h-4 w-4 text-[var(--aktiv-muted)]"
-                  />
-                </UButton>
-              </UDropdownMenu>
-
-              <div class="min-w-0 flex-1">
-                <UInput
-                  v-model="row.url"
-                  placeholder="https://..."
-                  class="w-full"
-                  :color="urlError(index) ? 'error' : undefined"
-                  @blur="touched.add(index)"
-                />
-                <p
-                  v-if="urlError(index)"
-                  class="mt-0.5 text-xs text-[var(--aktiv-danger-fg)]"
-                >
-                  {{ urlError(index) }}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                class="shrink-0 text-[var(--aktiv-muted)] hover:text-[var(--aktiv-danger-fg)] transition"
-                aria-label="Remove"
-                @click="removeLink(index)"
-              >
-                <UIcon name="i-heroicons-x-mark" class="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-
-          <UButton
-            v-if="canAddMore"
-            type="button"
-            variant="ghost"
-            color="neutral"
-            size="xs"
-            icon="i-heroicons-plus"
-            class="mt-2"
-            @click="addLink"
-          >
-            Add another
-          </UButton>
+          <AppLinksEditor
+            v-model="form.links"
+            :errors="linkErrors"
+            placeholder="https://..."
+            add-label="Add another"
+            @blur="touched.add($event)"
+          />
         </div>
       </div>
     </template>

@@ -4,6 +4,7 @@ import { useAuth } from '~/composables/useAuth';
 const props = defineProps<{ variant?: 'sidebar' | 'header' }>();
 
 const { user, logout, isAdmin, isSuperAdmin } = useAuth();
+const { canApply, applyCtaLabel, applyRoute, hasPendingRequest } = useHubOwnerRequest();
 
 const fullName = computed(() =>
   user.value ? `${user.value.first_name} ${user.value.last_name}`.trim() : ''
@@ -56,46 +57,68 @@ const menuItems = computed(() => {
 </script>
 
 <template>
-  <UDropdownMenu
+  <div
     v-if="user"
-    :modal="false"
-    :items="menuItems"
-    :ui="{ content: 'w-52' }"
+    :class="
+      variant === 'sidebar'
+        ? 'flex w-full flex-col gap-2'
+        : 'flex items-center gap-2'
+    "
   >
-    <!-- Sidebar variant: avatar + name + ellipsis -->
-    <button
-      v-if="variant === 'sidebar'"
-      class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#3a4a5c] transition hover:bg-[#f0f4f8] hover:text-[#004e89]"
-    >
-      <AppAvatar
-        :src="user?.avatar_thumb_url"
-        :name="fullName"
-        :alt="fullName"
-        size="sm"
-        :premium="user?.is_premium ?? false"
-        class="flex-shrink-0"
-      />
-      <span class="min-w-0 flex-1 truncate text-left">{{ fullName }}</span>
-      <UIcon
-        name="i-heroicons-ellipsis-horizontal"
-        class="h-4 w-4 flex-shrink-0"
-      />
-    </button>
-
-    <!-- Header variant: name + avatar -->
     <UButton
-      v-else
-      variant="ghost"
-      color="neutral"
-      class="flex items-center gap-2 rounded-full"
+      v-if="canApply && variant !== 'header'"
+      :to="applyRoute"
+      color="primary"
+      :variant="hasPendingRequest ? 'soft' : 'solid'"
+      :class="
+        variant === 'sidebar'
+          ? 'w-full justify-center rounded-xl bg-[var(--aktiv-primary)] font-semibold text-white hover:bg-[var(--aktiv-primary-hover)]'
+          : 'rounded-full bg-[var(--aktiv-primary)] px-4 font-semibold text-white hover:bg-[var(--aktiv-primary-hover)]'
+      "
     >
-      <span class="hidden text-sm font-medium sm:block">{{ fullName }}</span>
-      <AppAvatar
-        :src="user?.avatar_thumb_url"
-        :name="fullName"
-        :alt="fullName"
-        :premium="user?.is_premium ?? false"
-      />
+      {{ applyCtaLabel }}
     </UButton>
-  </UDropdownMenu>
+
+    <UDropdownMenu
+      :modal="false"
+      :items="menuItems"
+      :ui="{ content: 'w-52' }"
+    >
+      <!-- Sidebar variant: avatar + name + ellipsis -->
+      <button
+        v-if="variant === 'sidebar'"
+        class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#3a4a5c] transition hover:bg-[#f0f4f8] hover:text-[#004e89]"
+      >
+        <AppAvatar
+          :src="user?.avatar_thumb_url"
+          :name="fullName"
+          :alt="fullName"
+          size="sm"
+          :premium="user?.is_premium ?? false"
+          class="flex-shrink-0"
+        />
+        <span class="min-w-0 flex-1 truncate text-left">{{ fullName }}</span>
+        <UIcon
+          name="i-heroicons-ellipsis-horizontal"
+          class="h-4 w-4 flex-shrink-0"
+        />
+      </button>
+
+      <!-- Header variant: name + avatar -->
+      <UButton
+        v-else
+        variant="ghost"
+        color="neutral"
+        class="flex items-center gap-2 rounded-full"
+      >
+        <span class="hidden text-sm font-medium sm:block">{{ fullName }}</span>
+        <AppAvatar
+          :src="user?.avatar_thumb_url"
+          :name="fullName"
+          :alt="fullName"
+          :premium="user?.is_premium ?? false"
+        />
+      </UButton>
+    </UDropdownMenu>
+  </div>
 </template>

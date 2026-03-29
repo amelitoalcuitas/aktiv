@@ -11,7 +11,12 @@ const navGroups = [
   {
     label: 'Platform',
     items: [
-      { label: 'Users', icon: 'i-heroicons-users', to: '/panel/users' }
+      { label: 'Users', icon: 'i-heroicons-users', to: '/panel/users' },
+      {
+        label: 'Owner Requests',
+        icon: 'i-heroicons-inbox-stack',
+        to: '/panel/hub-owner-requests'
+      }
     ]
   }
 ];

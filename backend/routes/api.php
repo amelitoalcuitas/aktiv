@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HubMemberController;
+use App\Http\Controllers\Api\HubOwnerRequestController;
 use App\Http\Controllers\Api\SuperAdminController;
+use App\Http\Controllers\Api\SuperAdminHubOwnerRequestController;
 use App\Http\Controllers\Api\HubEventController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CourtController;
@@ -95,6 +97,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/profile/change-password', [ProfileController::class, 'changePassword'])->name('api.profile.change-password');
     Route::post('/profile/request-deletion', [ProfileController::class, 'requestDeletion'])->name('api.profile.request-deletion');
     Route::post('/profile/cancel-deletion', [ProfileController::class, 'cancelDeletion'])->name('api.profile.cancel-deletion');
+    Route::get('/hub-owner-request', [HubOwnerRequestController::class, 'show'])->name('api.hub-owner-request.show');
+    Route::post('/hub-owner-request', [HubOwnerRequestController::class, 'store'])->name('api.hub-owner-request.store');
 
     // Hearts
     Route::post('/users/{user}/heart', [UserController::class, 'toggleHeart'])->name('api.users.heart');
@@ -150,6 +154,9 @@ Route::middleware(['auth:sanctum', 'super_admin'])->prefix('panel')->group(funct
     Route::patch('/users/{user}/verify-email', [SuperAdminController::class, 'verifyEmail'])->name('api.panel.users.verify-email');
     Route::patch('/users/{user}/role', [SuperAdminController::class, 'updateRole'])->name('api.panel.users.update-role');
     Route::delete('/users/{user}', [SuperAdminController::class, 'destroy'])->name('api.panel.users.destroy');
+    Route::get('/hub-owner-requests', [SuperAdminHubOwnerRequestController::class, 'index'])->name('api.panel.hub-owner-requests');
+    Route::post('/hub-owner-requests/{hubOwnerRequest}/approve', [SuperAdminHubOwnerRequestController::class, 'approve'])->name('api.panel.hub-owner-requests.approve');
+    Route::post('/hub-owner-requests/{hubOwnerRequest}/reject', [SuperAdminHubOwnerRequestController::class, 'reject'])->name('api.panel.hub-owner-requests.reject');
 });
 
 Route::get('/status', static fn (): array => ['ok' => true])->name('api.status');

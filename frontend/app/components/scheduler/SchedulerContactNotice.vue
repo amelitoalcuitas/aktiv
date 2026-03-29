@@ -39,19 +39,13 @@ defineProps<{
 
       <div
         v-if="websites.length > 0"
-        class="mt-1.5 flex flex-wrap gap-x-5 gap-y-1"
+        class="mt-1.5"
       >
-        <a
-          v-for="(site, i) in websites"
-          :key="i"
-          :href="site.url"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="inline-flex items-center gap-1.5 text-sm underline underline-offset-2"
-        >
-          <UIcon name="i-heroicons-globe-alt" class="h-4 w-4 shrink-0" />
-          <span>{{ site.url }}</span>
-        </a>
+        <AppLinksList
+          :links="websites"
+          list-class="flex flex-wrap items-center gap-3"
+          icon-class="h-4 w-4"
+        />
       </div>
     </template>
   </UAlert>

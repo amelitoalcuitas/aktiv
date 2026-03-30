@@ -2,7 +2,7 @@
 import { z } from 'zod';
 import { useAuth } from '~/composables/useAuth';
 
-definePageMeta({ layout: 'auth' });
+definePageMeta({ layout: 'auth', middleware: 'guest' });
 
 const { login, isSuperAdmin } = useAuth();
 const route = useRoute();

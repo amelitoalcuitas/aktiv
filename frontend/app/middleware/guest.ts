@@ -4,7 +4,7 @@ export default defineNuxtRouteMiddleware(async () => {
   const authStore = useAuthStore();
 
   if (!authStore.isAuthenticated) {
-    return navigateTo('/auth/login');
+    return;
   }
 
   if (!authStore.user) {
@@ -12,10 +12,13 @@ export default defineNuxtRouteMiddleware(async () => {
   }
 
   if (!authStore.isAuthenticated) {
-    return navigateTo('/auth/login');
+    return;
   }
 
-  if (authStore.user && !authStore.user.email_verified_at) {
+  if (!authStore.user?.email_verified_at) {
     return navigateTo('/auth/verify-email');
   }
+
+  const destination = authStore.user.role === 'super_admin' ? '/panel' : '/dashboard';
+  return navigateTo(destination);
 });

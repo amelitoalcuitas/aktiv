@@ -23,7 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         );
         $middleware->redirectGuestsTo(fn () => null);
         $middleware->alias([
-            'admin'       => \App\Http\Middleware\EnsureUserIsAdmin::class,
+            'owner'       => \App\Http\Middleware\EnsureUserIsOwner::class,
             'super_admin' => \App\Http\Middleware\EnsureUserIsSuperAdmin::class,
         ]);
     })

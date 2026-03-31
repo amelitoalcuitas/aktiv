@@ -19,7 +19,7 @@ class HubFactory extends Factory
     public function definition(): array
     {
         return [
-            'owner_id' => User::factory()->state(['role' => UserRole::Admin]),
+            'owner_id' => User::factory()->state(['role' => UserRole::Owner]),
             'name' => fake()->company(),
             'description' => fake()->sentence(16),
             'city' => fake()->city(),

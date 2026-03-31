@@ -11,7 +11,7 @@ use App\Models\User;
 
 function makeOwnerWithHub(): array
 {
-    $owner = User::factory()->create(['role' => 'admin']);
+    $owner = User::factory()->create(['role' => 'owner']);
     $hub   = Hub::factory()->create(['owner_id' => $owner->id, 'is_approved' => true, 'is_active' => true]);
 
     return [$owner, $hub];
@@ -19,7 +19,7 @@ function makeOwnerWithHub(): array
 
 function makeOtherOwner(): User
 {
-    return User::factory()->create(['role' => 'admin']);
+    return User::factory()->create(['role' => 'owner']);
 }
 
 // ── CRUD — Index ─────────────────────────────────────────────────

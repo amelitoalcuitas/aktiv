@@ -1,10 +1,10 @@
 <?php
 
-use App\Mail\AdminBookingNotification;
 use App\Mail\BookingConfirmation;
 use App\Mail\BookingStatusUpdate;
 use App\Mail\GuestBookingVerification;
 use App\Mail\OwnerCancelledBookingNotification;
+use App\Mail\OwnerBookingNotification;
 use App\Mail\WalkInBookingConfirmation;
 use App\Models\Booking;
 use App\Models\Court;
@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Notification;
 
 function nsMakeHub(): Hub
 {
-    $owner = User::factory()->create(['role' => 'admin']);
+    $owner = User::factory()->create(['role' => 'owner']);
     return Hub::factory()->create(['owner_id' => $owner->id, 'is_approved' => true, 'is_active' => true]);
 }
 
@@ -47,7 +47,7 @@ it('notifyNewBooking queues confirmation to user and alert to owner, notifies ow
     app(BookingNotificationService::class)->notifyNewBooking($booking);
 
     Mail::assertQueued(BookingConfirmation::class, fn ($m) => $m->hasTo($booker->email));
-    Mail::assertQueued(AdminBookingNotification::class, fn ($m) => $m->hasTo($hub->owner->email));
+    Mail::assertQueued(OwnerBookingNotification::class, fn ($m) => $m->hasTo($hub->owner->email));
     Notification::assertSentTo($hub->owner, BookingActivityNotification::class);
 });
 
@@ -68,7 +68,7 @@ it('notifyNewBooking queues confirmation to guest_email when no registered booke
     app(BookingNotificationService::class)->notifyNewBooking($booking);
 
     Mail::assertQueued(BookingConfirmation::class, fn ($m) => $m->hasTo('guest@example.com'));
-    Mail::assertQueued(AdminBookingNotification::class, fn ($m) => $m->hasTo($hub->owner->email));
+    Mail::assertQueued(OwnerBookingNotification::class, fn ($m) => $m->hasTo($hub->owner->email));
 });
 
 // ── notifyReceiptUploaded ────────────────────────────────────────
@@ -383,7 +383,7 @@ it('new user booking via API queues confirmation and owner alert', function () {
     ])->assertCreated();
 
     Mail::assertQueued(BookingConfirmation::class, fn ($m) => $m->hasTo($booker->email));
-    Mail::assertQueued(AdminBookingNotification::class, fn ($m) => $m->hasTo($hub->owner->email));
+    Mail::assertQueued(OwnerBookingNotification::class, fn ($m) => $m->hasTo($hub->owner->email));
     Notification::assertSentTo($hub->owner, BookingActivityNotification::class);
 });
 

@@ -3,7 +3,7 @@ import type { HubOwnerRequest } from '~/composables/useHubOwnerRequest';
 
 definePageMeta({ layout: 'panel', middleware: ['auth', 'superadmin'] });
 
-useHead({ title: 'Hub Owner Requests · Admin Panel · Aktiv' });
+useHead({ title: 'Hub Owner Requests · Super Admin Panel · Aktiv' });
 
 interface PanelHubOwnerRequest extends HubOwnerRequest {
   user: {
@@ -397,7 +397,7 @@ onMounted(fetchRequests);
         <p class="text-sm leading-7 text-[#0f1728]">
           Approve hub owner access for
           <strong>{{ approveModal.item?.user.name }}</strong
-          >? This will promote the user to admin and send their approval email.
+          >? This will promote the user to owner and send their approval email.
         </p>
       </template>
     </AppModal>

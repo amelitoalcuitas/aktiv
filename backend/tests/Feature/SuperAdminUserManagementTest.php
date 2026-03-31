@@ -89,7 +89,7 @@ class SuperAdminUserManagementTest extends TestCase
                 'country' => 'Philippines',
                 'province' => 'Metro Manila',
                 'city' => 'Pasig',
-                'role' => 'admin',
+                'role' => 'owner',
             ])
             ->assertOk()
             ->assertJsonPath('first_name', 'Jamie')
@@ -97,7 +97,7 @@ class SuperAdminUserManagementTest extends TestCase
             ->assertJsonPath('contact_number', '+63 999 888 7777')
             ->assertJsonPath('province', 'Metro Manila')
             ->assertJsonPath('city', 'Pasig')
-            ->assertJsonPath('role', 'admin');
+            ->assertJsonPath('role', 'owner');
 
         $user->refresh();
 
@@ -106,7 +106,7 @@ class SuperAdminUserManagementTest extends TestCase
         $this->assertSame('+63 999 888 7777', $user->contact_number);
         $this->assertSame('Metro Manila', $user->province);
         $this->assertSame('Pasig', $user->city);
-        $this->assertSame(UserRole::Admin, $user->role);
+        $this->assertSame(UserRole::Owner, $user->role);
     }
 
     public function test_super_admin_user_update_requires_location_fields(): void

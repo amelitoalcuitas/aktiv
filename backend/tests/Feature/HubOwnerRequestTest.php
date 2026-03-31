@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Mail;
 
 function makeSuperAdmin(array $attributes = []): User
 {
-    return User::factory()->admin()->create(array_merge([
+    return User::factory()->owner()->create(array_merge([
         'role' => UserRole::SuperAdmin,
     ], $attributes));
 }
@@ -156,12 +156,12 @@ it('allows resubmission after a rejected request', function () {
     Mail::assertQueued(HubOwnerApplicationSubmitted::class);
 });
 
-it('admin cannot create a hub owner request', function () {
+it('owner cannot create a hub owner request', function () {
     Mail::fake();
 
-    $admin = User::factory()->admin()->create();
+    $owner = User::factory()->owner()->create();
 
-    $this->actingAs($admin, 'sanctum')->postJson('/api/hub-owner-request', [
+    $this->actingAs($owner, 'sanctum')->postJson('/api/hub-owner-request', [
         'message' => validApplicationMessage(),
     ])->assertForbidden();
 });
@@ -244,14 +244,14 @@ it('super admin can list hub owner requests', function () {
 });
 
 it('non super admin cannot list hub owner requests', function () {
-    $user = User::factory()->admin()->create();
+    $user = User::factory()->owner()->create();
 
     $this->actingAs($user, 'sanctum')
         ->getJson('/api/panel/hub-owner-requests')
         ->assertForbidden();
 });
 
-it('super admin can approve a pending request and promote the user to admin', function () {
+it('super admin can approve a pending request and promote the user to owner', function () {
     Mail::fake();
 
     $superAdmin = makeSuperAdmin();
@@ -278,7 +278,7 @@ it('super admin can approve a pending request and promote the user to admin', fu
     expect($hubOwnerRequest->status)->toBe(HubOwnerRequestStatus::Approved)
         ->and($hubOwnerRequest->reviewed_by)->toBe($superAdmin->id)
         ->and($hubOwnerRequest->reviewed_at)->not->toBeNull()
-        ->and($user->fresh()->role)->toBe(UserRole::Admin);
+        ->and($user->fresh()->role)->toBe(UserRole::Owner);
 
     Mail::assertQueued(HubOwnerApplicationApproved::class, function (HubOwnerApplicationApproved $mail) use ($user) {
         $html = $mail->buildViewData();
@@ -328,14 +328,14 @@ it('super admin can reject a pending request without changing the user role', fu
 });
 
 it('non super admin cannot approve or reject hub owner requests', function () {
-    $admin = User::factory()->admin()->create();
+    $owner = User::factory()->owner()->create();
     $hubOwnerRequest = HubOwnerRequest::factory()->create();
 
-    $this->actingAs($admin, 'sanctum')
+    $this->actingAs($owner, 'sanctum')
         ->postJson("/api/panel/hub-owner-requests/{$hubOwnerRequest->id}/approve")
         ->assertForbidden();
 
-    $this->actingAs($admin, 'sanctum')
+    $this->actingAs($owner, 'sanctum')
         ->postJson("/api/panel/hub-owner-requests/{$hubOwnerRequest->id}/reject")
         ->assertForbidden();
 });

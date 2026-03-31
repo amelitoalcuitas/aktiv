@@ -62,9 +62,9 @@ function validate(): boolean {
   return !errors.message;
 }
 
-const isAdminUser = computed(
+const isOwnerUser = computed(
   () =>
-    authStore.user?.role === 'admin' || authStore.user?.role === 'super_admin'
+    authStore.user?.role === 'owner' || authStore.user?.role === 'super_admin'
 );
 
 async function bootstrap() {
@@ -82,7 +82,7 @@ async function bootstrap() {
     return;
   }
 
-  if (isAdminUser.value) {
+  if (isOwnerUser.value) {
     loading.value = false;
     return;
   }
@@ -183,7 +183,7 @@ await bootstrap();
       </UCard>
 
       <UCard
-        v-else-if="isAdminUser"
+        v-else-if="isOwnerUser"
         class="rounded-3xl border border-[#dbe4ef] bg-white"
         :ui="{ root: 'ring-0 divide-y-0' }"
       >

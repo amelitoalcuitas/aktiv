@@ -5,11 +5,11 @@ namespace App\Enums;
 enum UserRole: string
 {
     case User       = 'user';
-    case Admin      = 'admin';
+    case Owner      = 'owner';
     case SuperAdmin = 'super_admin';
 
-    public function isAdmin(): bool
+    public function isOwner(): bool
     {
-        return $this === self::Admin || $this === self::SuperAdmin;
+        return $this === self::Owner || $this === self::SuperAdmin;
     }
 }

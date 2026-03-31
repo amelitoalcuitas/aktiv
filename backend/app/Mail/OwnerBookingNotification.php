@@ -10,7 +10,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class AdminBookingNotification extends Mailable
+class OwnerBookingNotification extends Mailable
 {
     use Queueable, SerializesModels;
 
@@ -34,7 +34,7 @@ class AdminBookingNotification extends Mailable
     public function content(): Content
     {
         return new Content(
-            view: 'emails.admin-booking-notification',
+            view: 'emails.owner-booking-notification',
         );
     }
 }

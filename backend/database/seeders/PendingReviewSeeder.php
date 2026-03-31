@@ -13,11 +13,11 @@ class PendingReviewSeeder extends Seeder
     public function run(): void
     {
         $user = User::query()->where('email', 'user@user.com')->firstOrFail();
-        $admin = User::query()->where('email', 'admin@admin.com')->first();
+        $owner = User::query()->where('email', 'owner@owner.com')->first();
 
-        // Create 5 hubs (with courts) owned by admin, each with one past confirmed booking for the user
+        // Create 5 hubs (with courts) owned by owner, each with one past confirmed booking for the user
         Hub::factory(5)
-            ->create(['owner_id' => $admin?->id ?? $user->id])
+            ->create(['owner_id' => $owner?->id ?? $user->id])
             ->each(function (Hub $hub) use ($user): void {
                 $court = Court::factory()->create(['hub_id' => $hub->id]);
 

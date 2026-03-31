@@ -134,9 +134,9 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->isBookingBanned() ? $this->booking_banned_until : null;
     }
 
-    public function isAdmin(): bool
+    public function isOwner(): bool
     {
-        return $this->role->isAdmin();
+        return $this->role->isOwner();
     }
 
     public function sendEmailVerificationNotification(): void

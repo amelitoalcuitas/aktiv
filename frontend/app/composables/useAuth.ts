@@ -11,7 +11,7 @@ export function useAuth() {
   const router = useRouter();
 
   const isAuthenticated = computed(() => authStore.isAuthenticated);
-  const isAdmin = computed(() => authStore.isAdmin);
+  const isOwner = computed(() => authStore.isOwner);
   const isSuperAdmin = computed(() => authStore.user?.role === 'super_admin');
   const user = computed(() => authStore.user);
 
@@ -111,5 +111,5 @@ export function useAuth() {
     }
   }
 
-  return { isAuthenticated, isAdmin, isSuperAdmin, user, login, register, logout, init, resendVerification, resendVerificationStatus, forgotPassword, resetPassword, setupPassword };
+  return { isAuthenticated, isOwner, isSuperAdmin, user, login, register, logout, init, resendVerification, resendVerificationStatus, forgotPassword, resetPassword, setupPassword };
 }

@@ -45,7 +45,7 @@ class SuperAdminHubOwnerRequestController extends Controller
             ])->save();
 
             $hubOwnerRequest->user()->update([
-                'role' => UserRole::Admin,
+                'role' => UserRole::Owner,
             ]);
         });
 

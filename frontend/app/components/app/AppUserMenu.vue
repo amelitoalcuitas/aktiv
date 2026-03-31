@@ -3,7 +3,7 @@ import { useAuth } from '~/composables/useAuth';
 
 const props = defineProps<{ variant?: 'sidebar' | 'header' }>();
 
-const { user, logout, isAdmin, isSuperAdmin } = useAuth();
+const { user, logout, isOwner, isSuperAdmin } = useAuth();
 const { canApply, applyCtaLabel, applyRoute, hasPendingRequest } = useHubOwnerRequest();
 
 const fullName = computed(() =>
@@ -23,11 +23,11 @@ const menuItems = computed(() => {
 
   if (isSuperAdmin.value) {
     items.push([
-      { label: 'Admin Panel', icon: 'i-heroicons-shield-check', to: '/panel' }
+      { label: 'Super Admin Panel', icon: 'i-heroicons-shield-check', to: '/panel' }
     ]);
   }
 
-  if (isAdmin.value) {
+  if (isOwner.value) {
     items.push([
       { label: 'Dashboard', icon: 'i-heroicons-squares-2x2', to: '/dashboard' }
     ]);

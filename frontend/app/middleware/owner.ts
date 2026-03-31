@@ -12,7 +12,7 @@ export default defineNuxtRouteMiddleware(async () => {
     await authStore.fetchUser();
   }
 
-  if (!authStore.isAdmin) {
+  if (!authStore.isOwner) {
     return navigateTo('/');
   }
 });

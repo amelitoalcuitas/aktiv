@@ -20,7 +20,7 @@ class StoreUserRequest extends FormRequest
             'country'        => ['required', 'string', 'max:255'],
             'province'       => ['required', 'string', 'max:255'],
             'city'           => ['required', 'string', 'max:255'],
-            'role'           => ['nullable', 'in:user,admin'],
+            'role'           => ['nullable', 'in:user,owner'],
             'contact_number' => ['nullable', 'string', 'max:20'],
         ];
     }

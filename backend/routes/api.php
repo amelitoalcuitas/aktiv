@@ -119,8 +119,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/notifications/{id}', [NotificationController::class, 'toggle'])->name('api.notifications.toggle');
 });
 
-// Admin-only routes (admin + super_admin, email verified)
-Route::middleware(['auth:sanctum', 'admin'])->group(function (): void {
+// Owner-only routes (owner + super_admin, email verified)
+Route::middleware(['auth:sanctum', 'owner'])->group(function (): void {
     Route::get('/dashboard/hubs', [HubController::class, 'myHubs'])->name('api.dashboard.hubs');
     Route::post('/hubs', [HubController::class, 'store'])->name('api.hubs.store');
     Route::match(['put', 'post'], '/hubs/{hub}', [HubController::class, 'update'])->name('api.hubs.update');

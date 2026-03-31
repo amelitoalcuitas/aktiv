@@ -1,7 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'panel', middleware: ['auth', 'superadmin'] });
 
-useHead({ title: 'Admin Panel · Aktiv' });
+useHead({ title: 'Super Admin Panel · Aktiv' });
 
 const { apiFetch } = useApi();
 

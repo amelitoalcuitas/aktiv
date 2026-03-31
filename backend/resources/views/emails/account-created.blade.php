@@ -10,7 +10,7 @@
     </div>
 
     <p style="font-size:0.875rem; color:#64748b; margin:24px 0; line-height:1.6;">
-        An admin has created an Aktiv account for you. Click the button below to set your password and get started.
+        A super admin has created an Aktiv account for you. Click the button below to set your password and get started.
     </p>
 
     <div style="text-align:center; margin:28px 0;">

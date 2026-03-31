@@ -11,11 +11,11 @@ class HubLinksTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_can_create_hub_with_platform_aware_links(): void
+    public function test_owner_can_create_hub_with_platform_aware_links(): void
     {
-        $admin = User::factory()->admin()->create();
+        $owner = User::factory()->owner()->create();
 
-        $this->actingAs($admin)
+        $this->actingAs($owner)
             ->postJson('/api/hubs', [
                 'name' => 'Center Court Hub',
                 'description' => 'A great place to play.',
@@ -50,10 +50,10 @@ class HubLinksTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_update_hub_links_with_duplicate_platforms(): void
+    public function test_owner_can_update_hub_links_with_duplicate_platforms(): void
     {
-        $admin = User::factory()->admin()->create();
-        $hub = Hub::factory()->for($admin, 'owner')->create([
+        $owner = User::factory()->owner()->create();
+        $hub = Hub::factory()->for($owner, 'owner')->create([
             'zip_code' => '1108',
             'province' => 'Metro Manila',
             'country' => 'Philippines',
@@ -63,7 +63,7 @@ class HubLinksTest extends TestCase
             ['platform' => 'other', 'url' => 'https://old.example.com'],
         ]);
 
-        $this->actingAs($admin)
+        $this->actingAs($owner)
             ->putJson("/api/hubs/{$hub->id}", [
                 'websites' => [
                     ['platform' => 'threads', 'url' => 'https://threads.net/@centercourt'],
@@ -94,9 +94,9 @@ class HubLinksTest extends TestCase
 
     public function test_hub_link_platform_must_be_supported(): void
     {
-        $admin = User::factory()->admin()->create();
+        $owner = User::factory()->owner()->create();
 
-        $this->actingAs($admin)
+        $this->actingAs($owner)
             ->postJson('/api/hubs', [
                 'name' => 'Center Court Hub',
                 'city' => 'Quezon City',

@@ -19,9 +19,9 @@ class RoleMiddlewareTest extends TestCase
              ->assertForbidden();
     }
 
-    public function test_admin_role_can_access_dashboard_routes(): void
+    public function test_owner_role_can_access_dashboard_routes(): void
     {
-        $user = User::factory()->admin()->create();
+        $user = User::factory()->owner()->create();
 
         $this->actingAs($user, 'sanctum')
              ->getJson('/api/dashboard/hubs')
@@ -30,16 +30,16 @@ class RoleMiddlewareTest extends TestCase
 
     public function test_super_admin_role_can_access_dashboard_routes(): void
     {
-        $user = User::factory()->admin()->create(['role' => \App\Enums\UserRole::SuperAdmin]);
+        $user = User::factory()->owner()->create(['role' => \App\Enums\UserRole::SuperAdmin]);
 
         $this->actingAs($user, 'sanctum')
              ->getJson('/api/dashboard/hubs')
              ->assertOk();
     }
 
-    public function test_unverified_admin_cannot_access_dashboard_routes(): void
+    public function test_unverified_owner_cannot_access_dashboard_routes(): void
     {
-        $user = User::factory()->admin()->unverified()->create();
+        $user = User::factory()->owner()->unverified()->create();
 
         $this->actingAs($user, 'sanctum')
              ->getJson('/api/dashboard/hubs')

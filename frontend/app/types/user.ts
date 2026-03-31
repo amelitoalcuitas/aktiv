@@ -1,6 +1,6 @@
 import type { LinkPlatform, LinkRow } from '~/types/links';
 
-export type UserRole = 'user' | 'admin' | 'super_admin';
+export type UserRole = 'user' | 'owner' | 'super_admin';
 export type HubOwnerRequestStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
 export type SocialPlatform = LinkPlatform;

@@ -53,10 +53,10 @@ class UserFactory extends Factory
         ]);
     }
 
-    public function admin(): static
+    public function owner(): static
     {
         return $this->state(fn (array $attributes) => [
-            'role'              => UserRole::Admin,
+            'role'              => UserRole::Owner,
             'email_verified_at' => now(),
         ]);
     }

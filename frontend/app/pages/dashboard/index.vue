@@ -2,7 +2,7 @@
 import type { BookingDetail } from '~/types/booking';
 import { useHubStore } from '~/stores/hub';
 
-definePageMeta({ layout: 'dashboard', middleware: ['auth', 'admin'] });
+definePageMeta({ layout: 'dashboard', middleware: ['auth', 'owner'] });
 
 useHead({ title: 'Dashboard · Aktiv' });
 

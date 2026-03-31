@@ -16,7 +16,7 @@ beforeEach(function () {
 
 function makeOwnerAndHub(): array
 {
-    $owner = User::factory()->create(['role' => 'admin']);
+    $owner = User::factory()->create(['role' => 'owner']);
     $hub   = Hub::factory()->create(['owner_id' => $owner->id, 'is_approved' => true, 'is_active' => true]);
     $court = Court::factory()->create(['hub_id' => $hub->id]);
     return [$owner, $hub, $court];
@@ -111,7 +111,7 @@ it('returns 422 when trying to cancel an already cancelled booking', function ()
 
 it('returns 403 when a non-owner tries to cancel', function () {
     [$owner, $hub, $court] = makeOwnerAndHub();
-    $other = User::factory()->create(['role' => 'admin']);
+    $other = User::factory()->create(['role' => 'owner']);
 
     $booking = Booking::factory()->create([
         'court_id'  => $court->id,

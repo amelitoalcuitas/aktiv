@@ -4,11 +4,11 @@ namespace App\Services;
 
 use App\Events\BookingSlotUpdated;
 use App\Events\NotificationBroadcast;
-use App\Mail\AdminBookingNotification;
 use App\Mail\BookingConfirmation;
 use App\Mail\BookingStatusUpdate;
 use App\Mail\GuestBookingVerification;
 use App\Mail\OwnerCancelledBookingNotification;
+use App\Mail\OwnerBookingNotification;
 use App\Mail\WalkInBookingConfirmation;
 use App\Models\Booking;
 use App\Models\Hub;
@@ -39,7 +39,7 @@ class BookingNotificationService
 
         $owner = $hub->owner;
         if ($owner) {
-            Mail::to($owner->email)->queue(new AdminBookingNotification($booking, $hub, $booking->court->name));
+            Mail::to($owner->email)->queue(new OwnerBookingNotification($booking, $hub, $booking->court->name));
             $this->sendActivityNotification($owner, $booking, 'booking_created');
         }
     }

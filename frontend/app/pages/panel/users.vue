@@ -3,7 +3,7 @@ import { COUNTRY_OPTIONS } from '~/constants/countries';
 
 definePageMeta({ layout: 'panel', middleware: ['auth', 'superadmin'] });
 
-useHead({ title: 'Users · Admin Panel · Aktiv' });
+useHead({ title: 'Users · Super Admin Panel · Aktiv' });
 
 const { apiFetch } = useApi();
 
@@ -73,7 +73,7 @@ function formatDate(iso: string) {
 
 const roleConfig: Record<string, { label: string; color: string }> = {
   super_admin: { label: 'Super Admin', color: 'bg-purple-100 text-purple-700' },
-  admin: { label: 'Admin', color: 'bg-[#e8f0f8] text-[#004e89]' },
+  owner: { label: 'Owner', color: 'bg-[#e8f0f8] text-[#004e89]' },
   user: { label: 'User', color: 'bg-[#f0f4f8] text-[#64748b]' }
 };
 
@@ -125,7 +125,7 @@ function openEdit(user: PanelUser) {
     province: user.province,
     city: user.city,
     contact_number: user.contact_number ?? '',
-    role: user.role === 'admin' ? 'admin' : 'user'
+    role: user.role === 'owner' ? 'owner' : 'user'
   });
 
   Object.assign(editErrors, {
@@ -258,7 +258,7 @@ function patchUser(updated: PanelUser) {
 
 const roleOptions = [
   { label: 'User', value: 'user' },
-  { label: 'Admin', value: 'admin' }
+  { label: 'Owner', value: 'owner' }
 ];
 
 async function submitVerifyEmail() {

@@ -23,7 +23,7 @@ class UpdateUserRequest extends FormRequest
             'country'        => ['required', 'string', 'max:255'],
             'province'       => ['required', 'string', 'max:255'],
             'city'           => ['required', 'string', 'max:255'],
-            'role'           => ['required', 'in:user,admin'],
+            'role'           => ['required', 'in:user,owner'],
             'contact_number' => ['nullable', 'string', 'max:20'],
         ];
     }

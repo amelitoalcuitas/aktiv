@@ -6,7 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureUserIsAdmin
+class EnsureUserIsOwner
 {
     public function handle(Request $request, Closure $next): Response
     {
@@ -20,7 +20,7 @@ class EnsureUserIsAdmin
             return response()->json(['message' => 'Email not verified.'], 403);
         }
 
-        if (! $user->isAdmin()) {
+        if (! $user->isOwner()) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 

@@ -23,20 +23,20 @@ class DevSeeder extends Seeder
             ]
         );
 
-        $admin = User::query()->updateOrCreate(
-            ['email' => 'admin@admin.com'],
+        $owner = User::query()->updateOrCreate(
+            ['email' => 'owner@owner.com'],
             [
                 'first_name'        => 'Test',
-                'last_name'         => 'Admin',
-                'username'          => 'testadmin',
+                'last_name'         => 'Owner',
+                'username'          => 'testowner',
                 'password'          => Hash::make('Test123!'),
                 'email_verified_at' => now(),
             ]
         );
 
-        $admin->update(['role' => \App\Enums\UserRole::Admin]);
+        $owner->update(['role' => \App\Enums\UserRole::Owner]);
 
-        $hubs = Hub::factory(3)->create(['owner_id' => $admin->id]);
+        $hubs = Hub::factory(3)->create(['owner_id' => $owner->id]);
 
         $courtNames = ['Court A', 'Court B', 'Court C'];
 

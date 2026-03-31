@@ -17,7 +17,7 @@ beforeEach(function () {
 
 function makeGuestBookingForTracking(): array
 {
-    $owner = User::factory()->create(['role' => 'admin']);
+    $owner = User::factory()->create(['role' => 'owner']);
     $hub   = Hub::factory()->create(['owner_id' => $owner->id, 'is_approved' => true, 'is_active' => true]);
     $court = Court::factory()->create(['hub_id' => $hub->id]);
 

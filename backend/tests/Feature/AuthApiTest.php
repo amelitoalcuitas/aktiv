@@ -154,13 +154,32 @@ class AuthApiTest extends TestCase
 
         $this->assertNotNull($location);
         $this->assertStringContainsString('/auth/google/callback', $location);
-        $this->assertStringContainsString('status=success', $location);
+        $this->assertStringContainsString('status=needs_profile', $location);
         $this->assertStringContainsString('redirect=%2Fbookings', $location);
-        $this->assertStringContainsString('token=', $location);
+
+        $pendingToken = $this->extractQueryValue($location, 'pending_token');
+        $this->assertNotNull($pendingToken);
+
+        $completionResponse = $this->postJson('/api/auth/google/complete', [
+            'pending_token' => $pendingToken,
+            'country' => 'Philippines',
+            'province' => 'Zamboanga del Sur',
+            'city' => 'Pagadian',
+        ]);
+
+        $completionResponse
+            ->assertSuccessful()
+            ->assertJsonPath('user.email', 'google-user@example.com')
+            ->assertJsonPath('user.google_id', 'google-123')
+            ->assertJsonPath('user.country', 'Philippines')
+            ->assertJsonPath('token_type', 'Bearer');
 
         $this->assertDatabaseHas('users', [
             'email' => 'google-user@example.com',
             'google_id' => 'google-123',
+            'country' => 'Philippines',
+            'province' => 'Zamboanga del Sur',
+            'city' => 'Pagadian',
         ]);
 
         Mockery::close();
@@ -194,6 +213,60 @@ class AuthApiTest extends TestCase
         $this->assertSame('google-123', $user->google_id);
         $this->assertNotNull($user->email_verified_at);
         $this->assertDatabaseCount('users', 1);
+
+        Mockery::close();
+    }
+
+    public function test_google_callback_redirects_incomplete_existing_user_to_profile_completion(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'google-user@example.com',
+            'password' => null,
+            'google_id' => null,
+            'country' => null,
+            'province' => null,
+            'city' => null,
+            'email_verified_at' => null,
+        ]);
+
+        $socialiteUser = new SocialiteUser();
+        $socialiteUser->id = 'google-123';
+        $socialiteUser->email = 'google-user@example.com';
+        $socialiteUser->name = 'Google User';
+        $socialiteUser->avatar = 'https://example.com/avatar.png';
+
+        Socialite::shouldReceive('driver')->with('google')->andReturnSelf();
+        Socialite::shouldReceive('stateless')->andReturnSelf();
+        Socialite::shouldReceive('user')->andReturn($socialiteUser);
+
+        $response = $this->get('/api/auth/google/callback');
+
+        $response->assertRedirect();
+
+        $location = $response->headers->get('Location');
+        $this->assertNotNull($location);
+        $this->assertStringContainsString('status=needs_profile', $location);
+
+        $pendingToken = $this->extractQueryValue($location, 'pending_token');
+        $this->assertNotNull($pendingToken);
+
+        $completionResponse = $this->postJson('/api/auth/google/complete', [
+            'pending_token' => $pendingToken,
+            'country' => 'Philippines',
+            'province' => 'Zamboanga del Sur',
+            'city' => 'Pagadian',
+        ]);
+
+        $completionResponse
+            ->assertSuccessful()
+            ->assertJsonPath('user.id', $user->id)
+            ->assertJsonPath('user.google_id', 'google-123');
+
+        $user->refresh();
+        $this->assertSame('google-123', $user->google_id);
+        $this->assertSame('Philippines', $user->country);
+        $this->assertSame('Zamboanga del Sur', $user->province);
+        $this->assertSame('Pagadian', $user->city);
 
         Mockery::close();
     }
@@ -247,5 +320,28 @@ class AuthApiTest extends TestCase
         $this->assertStringContainsString('redirect=%2Fbookings', $location);
 
         Mockery::close();
+    }
+
+    public function test_google_complete_signup_rejects_expired_pending_token(): void
+    {
+        $this->postJson('/api/auth/google/complete', [
+            'pending_token' => 'expired-token',
+            'country' => 'Philippines',
+            'province' => 'Zamboanga del Sur',
+            'city' => 'Pagadian',
+        ])->assertUnprocessable()->assertJsonValidationErrors('pending_token');
+    }
+
+    private function extractQueryValue(string $location, string $key): ?string
+    {
+        $queryString = parse_url($location, PHP_URL_QUERY);
+
+        if (! is_string($queryString) || $queryString === '') {
+            return null;
+        }
+
+        parse_str($queryString, $query);
+
+        return isset($query[$key]) && is_string($query[$key]) ? $query[$key] : null;
     }
 }

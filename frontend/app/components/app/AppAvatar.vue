@@ -13,9 +13,17 @@ const props = withDefaults(
 );
 
 const isFull = computed(() => props.size === 'full');
+const imageFailed = ref(false);
 
 const fallbackInitial = computed(() =>
   props.name ? props.name.charAt(0).toUpperCase() : '?'
+);
+
+watch(
+  () => props.src,
+  () => {
+    imageFailed.value = false;
+  }
 );
 </script>
 
@@ -35,10 +43,13 @@ const fallbackInitial = computed(() =>
       :class="props.premium ? 'premium-avatar__inner' : ''"
     >
       <img
-        v-if="src"
+        v-if="src && !imageFailed"
         :src="src"
         :alt="alt"
+        referrerpolicy="no-referrer"
+        crossorigin="anonymous"
         class="h-full w-full object-cover"
+        @error="imageFailed = true"
       />
       <span
         v-else
@@ -49,7 +60,7 @@ const fallbackInitial = computed(() =>
     </div>
   </div>
 
-  <!-- UAvatar-based sizes: sm / md / xl / 3xl -->
+  <!-- Compact sizes: sm / md / xl / 3xl -->
   <div
     v-else
     class="inline-flex rounded-full"
@@ -63,12 +74,33 @@ const fallbackInitial = computed(() =>
       class="rounded-full overflow-hidden"
       :class="props.premium ? 'premium-avatar__inner' : ''"
     >
-      <UAvatar
-        :src="src ?? undefined"
+      <img
+        v-if="src && !imageFailed"
+        :src="src"
         :alt="alt"
-        :size="size"
-        icon="i-heroicons-user"
+        referrerpolicy="no-referrer"
+        crossorigin="anonymous"
+        class="rounded-full object-cover"
+        :class="{
+          'h-8 w-8': size === 'sm',
+          'h-10 w-10': size === 'md',
+          'h-12 w-12': size === 'xl',
+          'h-16 w-16': size === '3xl'
+        }"
+        @error="imageFailed = true"
       />
+      <div
+        v-else
+        class="flex items-center justify-center rounded-full bg-[var(--aktiv-border)] text-[var(--aktiv-muted)] font-black uppercase"
+        :class="{
+          'h-8 w-8 text-xs': size === 'sm',
+          'h-10 w-10 text-sm': size === 'md',
+          'h-12 w-12 text-base': size === 'xl',
+          'h-16 w-16 text-lg': size === '3xl'
+        }"
+      >
+        {{ fallbackInitial }}
+      </div>
     </div>
   </div>
 </template>

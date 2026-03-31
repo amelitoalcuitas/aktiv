@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -98,24 +97,42 @@ class OAuthController extends Controller
                 ]);
             }
 
-            $user = User::query()->firstOrNew([
-                'email' => $email,
-            ]);
+            $user = User::query()->where('email', $email)->first();
 
-            if (! $user->exists) {
-                $parts = explode(' ', $socialiteUser->getName() ?: 'Google User', 2);
-                $user->first_name = $parts[0];
-                $user->last_name = $parts[1] ?? '';
-                $user->role = UserRole::User;
-                $user->username = User::generateUsername($user->first_name, $user->last_name);
+            if ($user && $this->hasCompleteLocation($user)) {
+                if (! $user->username) {
+                    $user->username = User::generateUsername(
+                        $user->first_name ?: 'Google',
+                        $user->last_name ?: 'User'
+                    );
+                }
+
+                $user->google_id = $socialiteUser->getId();
+                $user->avatar_url = $user->avatar_url ?: $socialiteUser->getAvatar();
+                $user->email_verified_at = $user->email_verified_at ?: now();
+                $user->save();
+
+                $token = $user->createToken('auth_token')->plainTextToken;
+            } else {
+                $pendingToken = $this->createPendingGoogleSignup([
+                    'email' => $email,
+                    'google_id' => $socialiteUser->getId(),
+                    'first_name' => $this->googleFirstName($socialiteUser->getName()),
+                    'last_name' => $this->googleLastName($socialiteUser->getName()),
+                    'avatar_url' => $socialiteUser->getAvatar(),
+                    'user_id' => $user?->id,
+                ]);
+
+                return redirect($this->buildFrontendCallbackUrl(
+                    $frontendBase,
+                    $frontendPath,
+                    [
+                        'status' => 'needs_profile',
+                        'pending_token' => $pendingToken,
+                        'redirect' => $redirectPath,
+                    ]
+                ));
             }
-
-            $user->google_id = $socialiteUser->getId();
-            $user->avatar_url = $user->avatar_url ?: $socialiteUser->getAvatar();
-            $user->email_verified_at = $user->email_verified_at ?: now();
-            $user->save();
-
-            $token = $user->createToken('auth_token')->plainTextToken;
         } catch (\Throwable) {
             return redirect($this->buildFrontendCallbackUrl(
                 $frontendBase,
@@ -178,6 +195,38 @@ class OAuthController extends Controller
         }
 
         return is_array($json) ? $json : null;
+    }
+
+    private function hasCompleteLocation(User $user): bool
+    {
+        return filled($user->country) && filled($user->province) && filled($user->city);
+    }
+
+    private function createPendingGoogleSignup(array $payload): string
+    {
+        $token = Str::random(64);
+        Cache::put($this->pendingGoogleSignupCacheKey($token), $payload, now()->addMinutes(15));
+
+        return $token;
+    }
+
+    private function pendingGoogleSignupCacheKey(string $token): string
+    {
+        return 'google_signup:' . $token;
+    }
+
+    private function googleFirstName(?string $name): string
+    {
+        $parts = explode(' ', trim((string) $name), 2);
+
+        return $parts[0] !== '' ? $parts[0] : 'Google';
+    }
+
+    private function googleLastName(?string $name): string
+    {
+        $parts = explode(' ', trim((string) $name), 2);
+
+        return $parts[1] ?? '';
     }
 
     /**

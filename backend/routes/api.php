@@ -31,6 +31,7 @@ Route::prefix('auth')->group(function (): void {
     Route::post('/login', [AuthController::class, 'login'])->name('api.auth.login');
     Route::get('/google/redirect', [OAuthController::class, 'redirect'])->name('api.auth.google.redirect');
     Route::get('/google/callback', [OAuthController::class, 'callback'])->name('api.auth.google.callback');
+    Route::post('/google/complete', [AuthController::class, 'completeGoogleSignup'])->name('api.auth.google.complete');
     Route::get('/google/deletion-callback', [OAuthController::class, 'deletionCallback'])->name('api.auth.google.deletion-callback');
 
     Route::post('/password/forgot', [PasswordResetController::class, 'forgotPassword'])->name('api.auth.password.forgot');

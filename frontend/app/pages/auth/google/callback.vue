@@ -5,8 +5,9 @@ definePageMeta({ layout: 'auth', middleware: 'guest' });
 
 interface GoogleAuthPopupMessage {
   type: 'aktiv:google-auth-result';
-  status: 'success' | 'error';
+  status: 'success' | 'error' | 'needs_profile';
   token?: string;
+  pendingToken?: string;
   redirect: string;
   reason?: string;
 }
@@ -27,24 +28,47 @@ onMounted(async () => {
   const status = route.query.status;
   const redirect = sanitizeRedirect(route.query.redirect);
   const token = typeof route.query.token === 'string' ? route.query.token : null;
+  const pendingToken = typeof route.query.pending_token === 'string' ? route.query.pending_token : null;
 
   if (import.meta.client && window.opener && !window.opener.closed) {
-    const message: GoogleAuthPopupMessage = status === 'success' && token
-      ? {
-          type: 'aktiv:google-auth-result',
-          status: 'success',
-          token,
-          redirect
-        }
-      : {
-          type: 'aktiv:google-auth-result',
-          status: 'error',
-          redirect,
-          reason: route.query.reason === 'oauth_failed' ? 'oauth_failed' : 'invalid_response'
-        };
+    const message: GoogleAuthPopupMessage =
+      status === 'success' && token
+        ? {
+            type: 'aktiv:google-auth-result',
+            status: 'success',
+            token,
+            redirect
+          }
+        : status === 'needs_profile' && pendingToken
+          ? {
+              type: 'aktiv:google-auth-result',
+              status: 'needs_profile',
+              pendingToken,
+              redirect
+            }
+          : {
+              type: 'aktiv:google-auth-result',
+              status: 'error',
+              redirect,
+              reason: route.query.reason === 'oauth_failed' ? 'oauth_failed' : 'invalid_response'
+            };
 
     window.opener.postMessage(message, window.location.origin);
     window.close();
+    return;
+  }
+
+  if (status === 'needs_profile') {
+    if (!pendingToken) {
+      toast.add({ title: 'Invalid Google sign-in response.', color: 'error' });
+      await navigateTo(`/auth/login?redirect=${encodeURIComponent(redirect)}`, { replace: true });
+      return;
+    }
+
+    await navigateTo(
+      `/auth/google/complete?pending_token=${encodeURIComponent(pendingToken)}&redirect=${encodeURIComponent(redirect)}`,
+      { replace: true }
+    );
     return;
   }
 

@@ -7,8 +7,9 @@ definePageMeta({ layout: 'auth', middleware: 'guest' });
 
 interface GoogleAuthPopupMessage {
   type: 'aktiv:google-auth-result';
-  status: 'success' | 'error';
+  status: 'success' | 'error' | 'needs_profile';
   token?: string;
+  pendingToken?: string;
   redirect: string;
   reason?: string;
 }
@@ -172,6 +173,17 @@ async function handleGoogleRegister() {
         popup.focus();
       }
     );
+
+    if (result.status === 'needs_profile' && result.pendingToken) {
+      toast.add({
+        title: 'Complete your location to finish creating your account.',
+        color: 'info'
+      });
+      await navigateTo(
+        `/auth/google/complete?pending_token=${encodeURIComponent(result.pendingToken)}&redirect=${encodeURIComponent(result.redirect)}`
+      );
+      return;
+    }
 
     if (result.status !== 'success' || !result.token) {
       throw new Error(result.reason ?? 'oauth_failed');

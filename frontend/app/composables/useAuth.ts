@@ -10,6 +10,11 @@ interface GoogleRedirectResponse {
   url: string;
 }
 
+interface GoogleCompletionResponse {
+  user: User;
+  token: string;
+}
+
 export function useAuth() {
   const authStore = useAuthStore();
   const router = useRouter();
@@ -143,11 +148,33 @@ export function useAuth() {
     return authStore.user;
   }
 
+  async function completeGoogleSignup(
+    pendingToken: string,
+    country: string,
+    province: string,
+    city: string
+  ): Promise<User> {
+    const res = await $fetch<GoogleCompletionResponse>('/auth/google/complete', {
+      baseURL: config.public.apiBase,
+      method: 'POST',
+      body: {
+        pending_token: pendingToken,
+        country,
+        province,
+        city
+      }
+    });
+
+    completeLogin(res.user, res.token);
+
+    return res.user;
+  }
+
   async function init(): Promise<void> {
     if (authStore.token && !authStore.user) {
       await authStore.fetchUser();
     }
   }
 
-  return { isAuthenticated, isOwner, isSuperAdmin, user, login, register, logout, init, resendVerification, resendVerificationStatus, forgotPassword, resetPassword, setupPassword, getGoogleRedirectUrl, completeLogin, finalizeGoogleLogin };
+  return { isAuthenticated, isOwner, isSuperAdmin, user, login, register, logout, init, resendVerification, resendVerificationStatus, forgotPassword, resetPassword, setupPassword, getGoogleRedirectUrl, completeLogin, finalizeGoogleLogin, completeGoogleSignup };
 }

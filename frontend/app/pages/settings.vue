@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { COUNTRY_OPTIONS } from '~/constants/countries';
+
 definePageMeta({ middleware: ['auth'], layout: 'page' });
 useHead({ title: 'Settings · Aktiv' });
 
@@ -23,7 +25,10 @@ const form = reactive({
   first_name: '',
   last_name: '',
   username: '',
-  contact_number: ''
+  contact_number: '',
+  country: '',
+  province: '',
+  city: ''
 });
 const savingProfile = ref(false);
 
@@ -33,6 +38,9 @@ watchEffect(() => {
     form.last_name = user.value.last_name ?? '';
     form.username = user.value.username ?? '';
     form.contact_number = user.value.contact_number ?? '';
+    form.country = user.value.country ?? '';
+    form.province = user.value.province ?? '';
+    form.city = user.value.city ?? '';
   }
 });
 
@@ -43,7 +51,10 @@ async function saveProfile() {
       first_name: form.first_name,
       last_name: form.last_name,
       username: form.username || null,
-      contact_number: form.contact_number || null
+      contact_number: form.contact_number || null,
+      country: form.country || null,
+      province: form.province || null,
+      city: form.city || null
     });
     toast.add({ title: 'Profile updated', color: 'success' });
   } catch (e: unknown) {
@@ -282,6 +293,43 @@ async function togglePrivacy(key: string, val: boolean | string) {
                   class="w-full"
                 />
               </UFormField>
+
+              <div class="pt-2">
+                <h3 class="mb-3 text-sm font-semibold text-[#3a4a5c]">
+                  Location
+                </h3>
+                <div class="space-y-4">
+                  <UFormField label="Country">
+                    <USelectMenu
+                      v-model="form.country"
+                      :items="COUNTRY_OPTIONS"
+                      value-key="value"
+                      label-key="label"
+                      placeholder="Select country"
+                      class="w-full"
+                    />
+                  </UFormField>
+
+                  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <UFormField label="Province">
+                      <UInput
+                        v-model="form.province"
+                        placeholder="Enter province"
+                        class="w-full"
+                      />
+                    </UFormField>
+
+                    <UFormField label="City">
+                      <UInput
+                        v-model="form.city"
+                        placeholder="Enter city"
+                        class="w-full"
+                      />
+                    </UFormField>
+                  </div>
+                </div>
+              </div>
+
               <div class="flex justify-end">
                 <UButton
                   color="primary"

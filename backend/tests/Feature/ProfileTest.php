@@ -52,18 +52,27 @@ class ProfileTest extends TestCase
                 'last_name'      => 'Name',
                 'bio'            => 'My bio',
                 'contact_number' => '+63 912 345 6789',
+                'country'        => 'Philippines',
+                'province'       => 'Zamboanga del Sur',
+                'city'           => 'Pagadian',
                 'social_links'   => ['facebook' => 'fb.com/test', 'instagram' => 'ig.com/test'],
             ])
             ->assertOk()
             ->assertJsonPath('data.first_name', 'New')
             ->assertJsonPath('data.last_name', 'Name')
-            ->assertJsonPath('data.bio', 'My bio');
+            ->assertJsonPath('data.bio', 'My bio')
+            ->assertJsonPath('data.country', 'Philippines')
+            ->assertJsonPath('data.province', 'Zamboanga del Sur')
+            ->assertJsonPath('data.city', 'Pagadian');
 
         $this->assertDatabaseHas('users', [
             'id'         => $user->id,
             'first_name' => 'New',
             'last_name'  => 'Name',
             'bio'        => 'My bio',
+            'country'    => 'Philippines',
+            'province'   => 'Zamboanga del Sur',
+            'city'       => 'Pagadian',
         ]);
     }
 

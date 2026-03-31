@@ -16,6 +16,9 @@ export function useProfile() {
     last_name?: string;
     username?: string | null;
     contact_number?: string | null;
+    country?: string | null;
+    province?: string | null;
+    city?: string | null;
     bio?: string | null;
     social_links?: SocialLinks;
     profile_privacy?: Partial<ProfilePrivacy>;

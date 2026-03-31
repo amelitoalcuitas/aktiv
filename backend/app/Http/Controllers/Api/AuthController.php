@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Enums\UserRole;
+use App\Http\Requests\Auth\CompleteGoogleSignupRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\ProfileResource;
@@ -12,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
@@ -33,6 +35,71 @@ class AuthController extends Controller
             'token_type'           => 'Bearer',
             'requires_verification' => true,
         ], 201);
+    }
+
+    public function completeGoogleSignup(CompleteGoogleSignupRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+        $cacheKey = $this->googleSignupCacheKey($data['pending_token']);
+        $pending = Cache::pull($cacheKey);
+
+        if (! is_array($pending)) {
+            throw ValidationException::withMessages([
+                'pending_token' => ['Google sign-in session expired. Please sign in with Google again.'],
+            ]);
+        }
+
+        $email = $pending['email'] ?? null;
+        $googleId = $pending['google_id'] ?? null;
+        $firstName = $pending['first_name'] ?? null;
+        $lastName = $pending['last_name'] ?? null;
+        $avatarUrl = $pending['avatar_url'] ?? null;
+        $userId = $pending['user_id'] ?? null;
+
+        if (! is_string($email) || $email === '' || ! is_string($googleId) || $googleId === '') {
+            throw ValidationException::withMessages([
+                'pending_token' => ['Google sign-in session expired. Please sign in with Google again.'],
+            ]);
+        }
+
+        $user = null;
+
+        if (is_string($userId) && $userId !== '') {
+            $user = User::query()->find($userId);
+        }
+
+        if (! $user) {
+            $user = User::query()->firstOrNew(['email' => $email]);
+        }
+
+        if (! $user->exists) {
+            $user->first_name = is_string($firstName) && $firstName !== '' ? $firstName : 'Google';
+            $user->last_name = is_string($lastName) ? $lastName : '';
+            $user->role = UserRole::User;
+            $user->username = User::generateUsername($user->first_name, $user->last_name);
+        } elseif (! $user->username) {
+            $user->username = User::generateUsername(
+                $user->first_name ?: 'Google',
+                $user->last_name ?: 'User'
+            );
+        }
+
+        $user->email = $email;
+        $user->google_id = $googleId;
+        $user->avatar_url = $user->avatar_url ?: (is_string($avatarUrl) ? $avatarUrl : null);
+        $user->email_verified_at = $user->email_verified_at ?: now();
+        $user->country = $data['country'];
+        $user->province = $data['province'];
+        $user->city = $data['city'];
+        $user->save();
+
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return response()->json([
+            'user'       => new ProfileResource($user->fresh()),
+            'token'      => $token,
+            'token_type' => 'Bearer',
+        ], $user->wasRecentlyCreated ? 201 : 200);
     }
 
     public function login(LoginRequest $request): JsonResponse
@@ -147,5 +214,10 @@ class AuthController extends Controller
                 ? now()->addSeconds($remainingSeconds)->toIso8601String()
                 : null,
         ];
+    }
+
+    private function googleSignupCacheKey(string $token): string
+    {
+        return 'google_signup:' . $token;
     }
 }

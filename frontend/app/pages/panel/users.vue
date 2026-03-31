@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { COUNTRY_OPTIONS } from '~/constants/countries';
+
 definePageMeta({ layout: 'panel', middleware: ['auth', 'superadmin'] });
 
 useHead({ title: 'Users · Admin Panel · Aktiv' });
@@ -8,8 +10,14 @@ const { apiFetch } = useApi();
 interface PanelUser {
   id: string;
   name: string;
+  first_name: string;
+  last_name: string;
   username: string;
   email: string;
+  contact_number: string | null;
+  country: string;
+  province: string;
+  city: string;
   role: string;
   email_verified: boolean;
   is_disabled: boolean;
@@ -69,94 +77,176 @@ const roleConfig: Record<string, { label: string; color: string }> = {
   user: { label: 'User', color: 'bg-[#f0f4f8] text-[#64748b]' }
 };
 
-// --- Role modal ---
-const roleModal = ref({
+// --- Edit user modal ---
+const editModal = ref({
   open: false,
   user: null as PanelUser | null,
-  role: 'user' as 'user' | 'admin',
-  loading: false
+  saving: false,
+  verifying: false,
+  deleting: false
 });
 
-function openRoleModal(user: PanelUser) {
-  roleModal.value = {
+const editSubmitted = ref(false);
+const editForm = reactive({
+  first_name: '',
+  last_name: '',
+  email: '',
+  country: '',
+  province: '',
+  city: '',
+  contact_number: '',
+  role: 'user'
+});
+const editErrors = reactive({
+  first_name: '',
+  last_name: '',
+  email: '',
+  country: '',
+  province: '',
+  city: '',
+  contact_number: '',
+  role: ''
+});
+
+function openEdit(user: PanelUser) {
+  editModal.value = {
     open: true,
     user,
-    role: user.role === 'admin' ? 'admin' : 'user',
-    loading: false
+    saving: false,
+    verifying: false,
+    deleting: false
   };
+
+  Object.assign(editForm, {
+    first_name: user.first_name,
+    last_name: user.last_name,
+    email: user.email,
+    country: user.country,
+    province: user.province,
+    city: user.city,
+    contact_number: user.contact_number ?? '',
+    role: user.role === 'admin' ? 'admin' : 'user'
+  });
+
+  Object.assign(editErrors, {
+    first_name: '',
+    last_name: '',
+    email: '',
+    country: '',
+    province: '',
+    city: '',
+    contact_number: '',
+    role: ''
+  });
+
+  editSubmitted.value = false;
 }
 
-async function submitRoleChange() {
-  if (!roleModal.value.user) return;
-  roleModal.value.loading = true;
+function validateEditForm(): boolean {
+  Object.assign(editErrors, {
+    first_name: '',
+    last_name: '',
+    email: '',
+    country: '',
+    province: '',
+    city: '',
+    contact_number: '',
+    role: ''
+  });
+
+  let valid = true;
+
+  if (!editForm.first_name.trim()) {
+    editErrors.first_name = 'First name is required.';
+    valid = false;
+  }
+  if (!editForm.last_name.trim()) {
+    editErrors.last_name = 'Last name is required.';
+    valid = false;
+  }
+  if (!editForm.email.trim()) {
+    editErrors.email = 'Email is required.';
+    valid = false;
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email.trim())) {
+    editErrors.email = 'Please enter a valid email address.';
+    valid = false;
+  }
+  if (!editForm.country.trim()) {
+    editErrors.country = 'Country is required.';
+    valid = false;
+  }
+  if (!editForm.province.trim()) {
+    editErrors.province = 'Province is required.';
+    valid = false;
+  }
+  if (!editForm.city.trim()) {
+    editErrors.city = 'City is required.';
+    valid = false;
+  }
+
+  return valid;
+}
+
+async function submitEdit() {
+  if (!editModal.value.user) return;
+
+  editSubmitted.value = true;
+  if (!validateEditForm()) return;
+
+  editConfirmModal.value.open = true;
+}
+
+async function confirmEdit() {
+  if (!editModal.value.user) return;
+
+  editModal.value.saving = true;
   try {
+    const emailChanged = editForm.email.trim() !== editModal.value.user.email;
+
     const updated = await apiFetch<PanelUser>(
-      `/panel/users/${roleModal.value.user.id}/role`,
+      `/panel/users/${editModal.value.user.id}`,
       {
-        method: 'PATCH',
-        body: { role: roleModal.value.role }
+        method: 'PUT',
+        body: {
+          first_name: editForm.first_name.trim(),
+          last_name: editForm.last_name.trim(),
+          email: editForm.email.trim(),
+          contact_number: editForm.contact_number.trim() || null,
+          country: editForm.country.trim(),
+          province: editForm.province.trim(),
+          city: editForm.city.trim(),
+          role: editForm.role
+        }
       }
     );
+
     patchUser(updated);
-    roleModal.value.open = false;
-  } finally {
-    roleModal.value.loading = false;
-  }
-}
-
-// --- Delete modal ---
-const deleteModal = ref({
-  open: false,
-  user: null as PanelUser | null,
-  loading: false
-});
-
-function openDeleteModal(user: PanelUser) {
-  deleteModal.value = { open: true, user, loading: false };
-}
-
-async function submitDelete() {
-  if (!deleteModal.value.user) return;
-  deleteModal.value.loading = true;
-  try {
-    await apiFetch(`/panel/users/${deleteModal.value.user.id}`, {
-      method: 'DELETE'
+    editModal.value.user = updated;
+    editModal.value.open = false;
+    editConfirmModal.value.open = false;
+    toast.add({
+      title: emailChanged
+        ? 'User updated. Verification email sent to the new address.'
+        : 'User updated.',
+      color: 'success'
     });
-    if (result.value) {
-      result.value.data = result.value.data.filter(
-        (u) => u.id !== deleteModal.value.user!.id
-      );
-      result.value.total -= 1;
+  } catch (err: any) {
+    const errors = err?.data?.errors ?? {};
+    if (errors.first_name) editErrors.first_name = errors.first_name[0];
+    if (errors.last_name) editErrors.last_name = errors.last_name[0];
+    if (errors.email) editErrors.email = errors.email[0];
+    if (errors.country) editErrors.country = errors.country[0];
+    if (errors.province) editErrors.province = errors.province[0];
+    if (errors.city) editErrors.city = errors.city[0];
+    if (errors.contact_number)
+      editErrors.contact_number = errors.contact_number[0];
+    if (errors.role) editErrors.role = errors.role[0];
+
+    if (!Object.values(errors).length) {
+      toast.add({ title: 'Failed to update user.', color: 'error' });
     }
-    deleteModal.value.open = false;
   } finally {
-    deleteModal.value.loading = false;
-  }
-}
-
-// --- Verify email ---
-const verifyModal = ref({
-  open: false,
-  user: null as PanelUser | null,
-  loading: false
-});
-
-function openVerifyModal(user: PanelUser) {
-  verifyModal.value = { open: true, user, loading: false };
-}
-
-async function submitVerifyEmail() {
-  if (!verifyModal.value.user) return;
-  verifyModal.value.loading = true;
-  try {
-    const updated = await apiFetch<PanelUser>(
-      `/panel/users/${verifyModal.value.user.id}/verify-email`,
-      { method: 'PATCH' }
-    );
-    patchUser(updated);
-    verifyModal.value.open = false;
-  } finally {
-    verifyModal.value.loading = false;
+    editModal.value.saving = false;
   }
 }
 
@@ -171,6 +261,62 @@ const roleOptions = [
   { label: 'Admin', value: 'admin' }
 ];
 
+async function submitVerifyEmail() {
+  if (!editModal.value.user) return;
+
+  verifyConfirmModal.value.open = true;
+}
+
+async function confirmVerifyEmail() {
+  if (!editModal.value.user) return;
+
+  editModal.value.verifying = true;
+  try {
+    const updated = await apiFetch<PanelUser>(
+      `/panel/users/${editModal.value.user.id}/verify-email`,
+      { method: 'PATCH' }
+    );
+    patchUser(updated);
+    editModal.value.user = updated;
+    verifyConfirmModal.value.open = false;
+    toast.add({ title: 'Email verified.', color: 'success' });
+  } catch {
+    toast.add({ title: 'Failed to verify email.', color: 'error' });
+  } finally {
+    editModal.value.verifying = false;
+  }
+}
+
+async function submitDelete() {
+  if (!editModal.value.user) return;
+
+  deleteConfirmModal.value.open = true;
+}
+
+async function confirmDelete() {
+  if (!editModal.value.user) return;
+
+  editModal.value.deleting = true;
+  try {
+    await apiFetch(`/panel/users/${editModal.value.user.id}`, {
+      method: 'DELETE'
+    });
+    if (result.value) {
+      result.value.data = result.value.data.filter(
+        (u) => u.id !== editModal.value.user!.id
+      );
+      result.value.total -= 1;
+    }
+    editModal.value.open = false;
+    deleteConfirmModal.value.open = false;
+    toast.add({ title: 'User deleted.', color: 'success' });
+  } catch {
+    toast.add({ title: 'Failed to delete user.', color: 'error' });
+  } finally {
+    editModal.value.deleting = false;
+  }
+}
+
 // --- Create user modal ---
 const isCreateOpen = ref(false);
 const createLoading = ref(false);
@@ -179,6 +325,9 @@ const createForm = reactive({
   first_name: '',
   last_name: '',
   email: '',
+  country: '',
+  province: '',
+  city: '',
   contact_number: '',
   role: 'user'
 });
@@ -186,6 +335,9 @@ const createErrors = reactive({
   first_name: '',
   last_name: '',
   email: '',
+  country: '',
+  province: '',
+  city: '',
   contact_number: '',
   role: ''
 });
@@ -196,6 +348,9 @@ function openCreate() {
     first_name: '',
     last_name: '',
     email: '',
+    country: '',
+    province: '',
+    city: '',
     contact_number: '',
     role: 'user'
   });
@@ -203,6 +358,9 @@ function openCreate() {
     first_name: '',
     last_name: '',
     email: '',
+    country: '',
+    province: '',
+    city: '',
     contact_number: '',
     role: ''
   });
@@ -215,6 +373,9 @@ function validateCreateForm(): boolean {
     first_name: '',
     last_name: '',
     email: '',
+    country: '',
+    province: '',
+    city: '',
     contact_number: '',
     role: ''
   });
@@ -235,6 +396,18 @@ function validateCreateForm(): boolean {
     createErrors.email = 'Please enter a valid email address.';
     valid = false;
   }
+  if (!createForm.country.trim()) {
+    createErrors.country = 'Country is required.';
+    valid = false;
+  }
+  if (!createForm.province.trim()) {
+    createErrors.province = 'Province is required.';
+    valid = false;
+  }
+  if (!createForm.city.trim()) {
+    createErrors.city = 'City is required.';
+    valid = false;
+  }
 
   return valid;
 }
@@ -243,12 +416,19 @@ async function submitCreate() {
   createSubmitted.value = true;
   if (!validateCreateForm()) return;
 
+  createConfirmModal.value.open = true;
+}
+
+async function confirmCreate() {
   createLoading.value = true;
   try {
     const body: Record<string, string> = {
       first_name: createForm.first_name.trim(),
       last_name: createForm.last_name.trim(),
       email: createForm.email.trim(),
+      country: createForm.country.trim(),
+      province: createForm.province.trim(),
+      city: createForm.city.trim(),
       role: createForm.role
     };
     if (createForm.contact_number.trim()) {
@@ -257,6 +437,7 @@ async function submitCreate() {
 
     await apiFetch('/panel/users', { method: 'POST', body });
     isCreateOpen.value = false;
+    createConfirmModal.value.open = false;
     toast.add({
       title: 'User created. Password setup email sent.',
       color: 'success'
@@ -268,6 +449,9 @@ async function submitCreate() {
     if (errors.first_name) createErrors.first_name = errors.first_name[0];
     if (errors.last_name) createErrors.last_name = errors.last_name[0];
     if (errors.email) createErrors.email = errors.email[0];
+    if (errors.country) createErrors.country = errors.country[0];
+    if (errors.province) createErrors.province = errors.province[0];
+    if (errors.city) createErrors.city = errors.city[0];
     if (errors.contact_number)
       createErrors.contact_number = errors.contact_number[0];
     if (errors.role) createErrors.role = errors.role[0];
@@ -278,6 +462,22 @@ async function submitCreate() {
     createLoading.value = false;
   }
 }
+
+const createConfirmModal = ref({
+  open: false
+});
+
+const editConfirmModal = ref({
+  open: false
+});
+
+const verifyConfirmModal = ref({
+  open: false
+});
+
+const deleteConfirmModal = ref({
+  open: false
+});
 </script>
 
 <template>
@@ -413,31 +613,13 @@ async function submitCreate() {
                 class="sticky right-0 bg-white px-4 py-3 text-right group-hover:bg-[#fafcff]"
               >
                 <div class="flex items-center justify-end gap-1">
-                  <UTooltip v-if="!user.email_verified" text="Verify email">
-                    <UButton
-                      color="success"
-                      variant="ghost"
-                      size="xs"
-                      icon="i-heroicons-check-badge"
-                      @click="openVerifyModal(user)"
-                    />
-                  </UTooltip>
-                  <UTooltip text="Change role">
+                  <UTooltip text="Edit user">
                     <UButton
                       color="neutral"
                       variant="ghost"
                       size="xs"
-                      icon="i-heroicons-shield-check"
-                      @click="openRoleModal(user)"
-                    />
-                  </UTooltip>
-                  <UTooltip text="Delete user">
-                    <UButton
-                      color="error"
-                      variant="ghost"
-                      size="xs"
-                      icon="i-heroicons-trash"
-                      @click="openDeleteModal(user)"
+                      icon="i-heroicons-pencil-square"
+                      @click="openEdit(user)"
                     />
                   </UTooltip>
                 </div>
@@ -478,26 +660,6 @@ async function submitCreate() {
       </div>
     </template>
 
-    <!-- Verify Email Modal -->
-    <AppModal
-      v-model:open="verifyModal.open"
-      title="Verify Email"
-      :ui="{ content: 'max-w-sm' }"
-      confirm="Verify"
-      confirm-color="primary"
-      :confirm-loading="verifyModal.loading"
-      @confirm="submitVerifyEmail"
-    >
-      <template #body>
-        <p class="text-sm text-[#0f1728]">
-          Manually verify the email address for
-          <strong>{{ verifyModal.user?.name }}</strong
-          >? This will mark their account as verified.
-        </p>
-      </template>
-    </AppModal>
-
-    <!-- Create User Modal -->
     <AppModal
       v-model:open="isCreateOpen"
       title="Create User"
@@ -520,7 +682,7 @@ async function submitCreate() {
             >
               <UInput
                 v-model="createForm.first_name"
-                placeholder="Juan"
+                placeholder="Enter first name"
                 class="w-full"
                 maxlength="100"
               />
@@ -536,7 +698,7 @@ async function submitCreate() {
             >
               <UInput
                 v-model="createForm.last_name"
-                placeholder="dela Cruz"
+                placeholder="Enter last name"
                 class="w-full"
                 maxlength="100"
               />
@@ -574,6 +736,58 @@ async function submitCreate() {
             />
           </UFormField>
           <UFormField
+            label="Country"
+            required
+            :error="
+              createSubmitted && createErrors.country
+                ? createErrors.country
+                : undefined
+            "
+          >
+            <USelectMenu
+              v-model="createForm.country"
+              :items="COUNTRY_OPTIONS"
+              value-key="value"
+              label-key="label"
+              placeholder="Select country"
+              class="w-full"
+            />
+          </UFormField>
+          <div class="grid grid-cols-2 gap-3">
+            <UFormField
+              label="Province"
+              required
+              :error="
+                createSubmitted && createErrors.province
+                  ? createErrors.province
+                  : undefined
+              "
+            >
+              <UInput
+                v-model="createForm.province"
+                placeholder="Enter province"
+                class="w-full"
+                maxlength="255"
+              />
+            </UFormField>
+            <UFormField
+              label="City"
+              required
+              :error="
+                createSubmitted && createErrors.city
+                  ? createErrors.city
+                  : undefined
+              "
+            >
+              <UInput
+                v-model="createForm.city"
+                placeholder="Enter city"
+                class="w-full"
+                maxlength="255"
+              />
+            </UFormField>
+          </div>
+          <UFormField
             label="Role"
             :error="
               createSubmitted && createErrors.role
@@ -596,41 +810,255 @@ async function submitCreate() {
       </template>
     </AppModal>
 
-    <!-- Change Role Modal -->
     <AppModal
-      v-model:open="roleModal.open"
-      title="Change Role"
-      confirm="Save"
-      :confirm-loading="roleModal.loading"
-      @confirm="submitRoleChange"
+      v-model:open="createConfirmModal.open"
+      title="Create User"
+      :ui="{ content: 'max-w-sm' }"
+      confirm="Create"
+      confirm-color="primary"
+      :confirm-loading="createLoading"
+      @confirm="confirmCreate"
     >
       <template #body>
-        <div class="space-y-3 py-1">
-          <p class="text-[#64748b] align-middle">
-            Change role for
-            <span class="font-medium text-[#0f1728]">{{
-              roleModal.user?.name
-            }}</span>
-          </p>
-          <USelect
-            v-model="roleModal.role"
-            :items="roleOptions"
-            value-key="value"
-            label-key="label"
-          />
+        <p class="text-sm leading-7 text-[#0f1728]">
+          Create this user and send the password setup email?
+        </p>
+      </template>
+    </AppModal>
+
+    <AppModal
+      v-model:open="editModal.open"
+      title="Edit User"
+      :ui="{ content: 'max-w-md' }"
+      @confirm="submitEdit"
+    >
+      <template #body>
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <UFormField
+              label="First Name"
+              required
+              :error="
+                editSubmitted && editErrors.first_name
+                  ? editErrors.first_name
+                  : undefined
+              "
+            >
+              <UInput
+                v-model="editForm.first_name"
+                placeholder="Enter first name"
+                class="w-full"
+                maxlength="100"
+              />
+            </UFormField>
+            <UFormField
+              label="Last Name"
+              required
+              :error="
+                editSubmitted && editErrors.last_name
+                  ? editErrors.last_name
+                  : undefined
+              "
+            >
+              <UInput
+                v-model="editForm.last_name"
+                placeholder="Enter last name"
+                class="w-full"
+                maxlength="100"
+              />
+            </UFormField>
+          </div>
+          <UFormField
+            label="Email"
+            required
+            :error="
+              editSubmitted && editErrors.email ? editErrors.email : undefined
+            "
+          >
+            <div class="flex items-start gap-2">
+              <UInput
+                v-model="editForm.email"
+                type="email"
+                placeholder="you@example.com"
+                class="min-w-0 flex-1"
+              />
+              <UButton
+                color="success"
+                variant="soft"
+                :loading="editModal.verifying"
+                :disabled="!editModal.user || editModal.user.email_verified"
+                class="shrink-0"
+                @click="submitVerifyEmail"
+              >
+                {{ editModal.user?.email_verified ? 'Verified' : 'Verify' }}
+              </UButton>
+            </div>
+          </UFormField>
+          <UFormField
+            label="Contact Number"
+            :error="
+              editSubmitted && editErrors.contact_number
+                ? editErrors.contact_number
+                : undefined
+            "
+          >
+            <UInput
+              v-model="editForm.contact_number"
+              placeholder="+63 912 345 6789"
+              class="w-full"
+              maxlength="20"
+            />
+          </UFormField>
+          <UFormField
+            label="Country"
+            required
+            :error="
+              editSubmitted && editErrors.country
+                ? editErrors.country
+                : undefined
+            "
+          >
+            <USelectMenu
+              v-model="editForm.country"
+              :items="COUNTRY_OPTIONS"
+              value-key="value"
+              label-key="label"
+              placeholder="Select country"
+              class="w-full"
+            />
+          </UFormField>
+          <div class="grid grid-cols-2 gap-3">
+            <UFormField
+              label="Province"
+              required
+              :error="
+                editSubmitted && editErrors.province
+                  ? editErrors.province
+                  : undefined
+              "
+            >
+              <UInput
+                v-model="editForm.province"
+                placeholder="Enter province"
+                class="w-full"
+                maxlength="255"
+              />
+            </UFormField>
+            <UFormField
+              label="City"
+              required
+              :error="
+                editSubmitted && editErrors.city ? editErrors.city : undefined
+              "
+            >
+              <UInput
+                v-model="editForm.city"
+                placeholder="Enter city"
+                class="w-full"
+                maxlength="255"
+              />
+            </UFormField>
+          </div>
+          <UFormField
+            label="Role"
+            :error="
+              editSubmitted && editErrors.role ? editErrors.role : undefined
+            "
+          >
+            <USelect
+              v-model="editForm.role"
+              :items="roleOptions"
+              value-key="value"
+              label-key="label"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
+      </template>
+      <template #footer>
+        <div class="flex w-full items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <UButton
+              color="error"
+              variant="soft"
+              :loading="editModal.deleting"
+              @click="submitDelete"
+            >
+              Delete User
+            </UButton>
+          </div>
+          <div class="flex items-center gap-2">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              @click="editModal.open = false"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              color="primary"
+              :loading="editModal.saving"
+              @click="submitEdit"
+            >
+              Save
+            </UButton>
+          </div>
         </div>
       </template>
     </AppModal>
 
-    <!-- Delete Confirm Modal -->
     <AppModal
-      v-model:open="deleteModal.open"
+      v-model:open="editConfirmModal.open"
+      title="Save Changes"
+      :ui="{ content: 'max-w-sm' }"
+      confirm="Save"
+      confirm-color="primary"
+      :confirm-loading="editModal.saving"
+      @confirm="confirmEdit"
+    >
+      <template #body>
+        <p class="text-sm leading-7 text-[#0f1728]">
+          Save the changes for
+          <strong>{{ editModal.user?.name }}</strong
+          >?
+        </p>
+      </template>
+    </AppModal>
+
+    <AppModal
+      v-model:open="verifyConfirmModal.open"
+      title="Verify Email"
+      :ui="{ content: 'max-w-sm' }"
+      confirm="Verify"
+      confirm-color="primary"
+      :confirm-loading="editModal.verifying"
+      @confirm="confirmVerifyEmail"
+    >
+      <template #body>
+        <p class="text-sm leading-7 text-[#0f1728]">
+          Mark
+          <strong>{{ editModal.user?.email }}</strong>
+          as verified?
+        </p>
+      </template>
+    </AppModal>
+
+    <AppModal
+      v-model:open="deleteConfirmModal.open"
       title="Delete User"
-      :description="`This will soft-delete ${deleteModal.user?.name ?? 'this user'}. They won't be able to log in.`"
+      :ui="{ content: 'max-w-sm' }"
       confirm="Delete"
       confirm-color="error"
-      :confirm-loading="deleteModal.loading"
-      @confirm="submitDelete"
-    />
+      :confirm-loading="editModal.deleting"
+      @confirm="confirmDelete"
+    >
+      <template #body>
+        <p class="text-sm leading-7 text-[#0f1728]">
+          Delete
+          <strong>{{ editModal.user?.name }}</strong
+          >? This will delete the account and prevent login.
+        </p>
+      </template>
+    </AppModal>
   </div>
 </template>

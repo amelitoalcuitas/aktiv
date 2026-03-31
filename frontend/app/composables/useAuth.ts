@@ -28,14 +28,26 @@ export function useAuth() {
     first_name: string,
     last_name: string,
     email: string,
+    country: string,
+    province: string,
+    city: string,
     password: string,
     password_confirmation: string
   ): Promise<void> {
     const res = await $fetch<{ user: User; token: string }>(
-      '/api/auth/register',
+        '/api/auth/register',
       {
         method: 'POST',
-        body: { first_name, last_name, email, password, password_confirmation }
+        body: {
+          first_name,
+          last_name,
+          email,
+          country,
+          province,
+          city,
+          password,
+          password_confirmation
+        }
       }
     );
     authStore.setToken(res.token);
@@ -54,7 +66,7 @@ export function useAuth() {
       // ignore server errors on logout
     }
     authStore.logout();
-    await router.push('/');
+    await router.replace('/auth/login');
   }
 
   async function resendVerification(): Promise<EmailActionCooldownResponse> {

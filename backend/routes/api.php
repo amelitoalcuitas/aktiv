@@ -154,6 +154,7 @@ Route::middleware(['auth:sanctum', 'super_admin'])->prefix('panel')->group(funct
     Route::get('/stats', [SuperAdminController::class, 'stats'])->name('api.panel.stats');
     Route::get('/users', [SuperAdminController::class, 'users'])->name('api.panel.users');
     Route::post('/users', [SuperAdminController::class, 'store'])->name('api.panel.users.store');
+    Route::put('/users/{user}', [SuperAdminController::class, 'update'])->name('api.panel.users.update');
     Route::patch('/users/{user}/verify-email', [SuperAdminController::class, 'verifyEmail'])->name('api.panel.users.verify-email');
     Route::patch('/users/{user}/role', [SuperAdminController::class, 'updateRole'])->name('api.panel.users.update-role');
     Route::delete('/users/{user}', [SuperAdminController::class, 'destroy'])->name('api.panel.users.destroy');

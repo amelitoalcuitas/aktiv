@@ -10,6 +10,7 @@ import type {
 definePageMeta({ layout: 'explore' });
 
 const { fetchHubsPaginated, fetchHubCities } = useHubs();
+const authStore = useAuthStore();
 const { fetchApproximateLocation, getCachedApproximateLocation } =
   useApproximateLocation();
 const route = useRoute();
@@ -65,10 +66,26 @@ const userLat = ref<number | null>(null);
 const userLng = ref<number | null>(null);
 const nearbyHubs = ref<Hub[]>([]);
 const topHubs = ref<Hub[]>([]);
+const topHubsLoading = ref(false);
 const locationSource = ref<'approximate' | 'precise' | null>(null);
 const approximateLocation = ref<ApproximateLocation | null>(null);
 const locationDenied = ref(false);
 const locationDismissed = ref(false);
+const profileLocationApplied = ref(false);
+
+const savedProfileLocation = computed(() => {
+  const user = authStore.user;
+
+  if (!user?.country || !user?.province || !user?.city) {
+    return null;
+  }
+
+  return {
+    country: user.country,
+    province: user.province,
+    city: user.city
+  };
+});
 
 async function loadNearbyHubs(
   lat: number,
@@ -91,12 +108,29 @@ async function loadNearbyHubs(
 }
 
 async function loadTopHubs() {
+  if (topHubsLoading.value || topHubs.value.length > 0) return;
+
+  topHubsLoading.value = true;
   try {
     const result = await fetchHubsPaginated({ sort: 'top', limit: 9 });
     topHubs.value = result.data;
   } catch {
     // silently ignore
+  } finally {
+    topHubsLoading.value = false;
   }
+}
+
+function preferredLocationParams() {
+  if (userLat.value != null || userLng.value != null || !savedProfileLocation.value) {
+    return {};
+  }
+
+  return {
+    preferred_city: savedProfileLocation.value.city,
+    preferred_province: savedProfileLocation.value.province,
+    preferred_country: savedProfileLocation.value.country
+  };
 }
 
 const hasMore = computed(
@@ -118,15 +152,25 @@ const showNearbyOnly = computed(
 const showTopHubsOnly = computed(
   () =>
     !hasActiveFilters.value &&
+    !profileLocationApplied.value &&
     nearbyHubs.value.length === 0 &&
     topHubs.value.length > 0
+);
+
+const showProfileScopedOnly = computed(
+  () =>
+    !hasActiveFilters.value &&
+    profileLocationApplied.value &&
+    nearbyHubs.value.length === 0 &&
+    hubs.value.length > 0
 );
 
 const showLocationNotice = computed(
   () =>
     locationDenied.value &&
     !locationDismissed.value &&
-    locationSource.value !== 'approximate'
+    locationSource.value !== 'approximate' &&
+    !profileLocationApplied.value
 );
 
 const nearbyHeading = computed(() =>
@@ -170,7 +214,8 @@ async function loadPage(p: number) {
       city: appliedCity.value !== ALL_CITIES ? appliedCity.value : undefined,
       sports: appliedSports.value.length ? appliedSports.value : undefined,
       lat: userLat.value ?? undefined,
-      lng: userLng.value ?? undefined
+      lng: userLng.value ?? undefined,
+      ...preferredLocationParams()
     });
     if (p === 1) {
       hubs.value = result.data;
@@ -184,6 +229,29 @@ async function loadPage(p: number) {
   } finally {
     loading.value = false;
   }
+}
+
+async function applySavedProfileLocationDefault(): Promise<boolean> {
+  if (
+    savedProfileLocation.value === null ||
+    nearbyHubs.value.length > 0 ||
+    hasActiveFilters.value
+  ) {
+    profileLocationApplied.value = false;
+    return false;
+  }
+
+  selectedCity.value = savedProfileLocation.value.city;
+  appliedCity.value = ALL_CITIES;
+  profileLocationApplied.value = true;
+  await loadPage(1);
+
+  if (hubs.value.length === 0) {
+    profileLocationApplied.value = false;
+    return false;
+  }
+
+  return true;
 }
 
 async function fetchCityOptions(
@@ -221,9 +289,6 @@ const cityQueryKey = computed(() =>
   [userLat.value ?? 'none', userLng.value ?? 'none'].join(':')
 );
 
-// Initial load
-await loadPage(1);
-
 // ── Infinite scroll ────────────────────────────────────────────────────────
 
 const sentinel = ref<HTMLElement | null>(null);
@@ -232,7 +297,12 @@ let observer: IntersectionObserver | null = null;
 onMounted(() => {
   observer = new IntersectionObserver(
     (entries) => {
-      if (entries[0]?.isIntersecting && hasMore.value && !loading.value) {
+      if (
+        hasActiveFilters.value &&
+        entries[0]?.isIntersecting &&
+        hasMore.value &&
+        !loading.value
+      ) {
         page.value++;
         loadPage(page.value);
       }
@@ -241,25 +311,43 @@ onMounted(() => {
   );
   if (sentinel.value) observer.observe(sentinel.value);
 
-  loadTopHubs();
-  void initializeApproximateLocation();
+  void (async () => {
+    const geolocationAttempt =
+      'geolocation' in navigator
+        ? new Promise<void>((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+              async (pos) => {
+                userLat.value = pos.coords.latitude;
+                userLng.value = pos.coords.longitude;
+                await loadNearbyHubs(
+                  pos.coords.latitude,
+                  pos.coords.longitude,
+                  'precise'
+                );
+                resolve();
+              },
+              () => {
+                locationDenied.value = approximateLocation.value === null;
+                resolve();
+              }
+            );
+          })
+        : Promise.resolve();
 
-  if ('geolocation' in navigator) {
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        userLat.value = pos.coords.latitude;
-        userLng.value = pos.coords.longitude;
-        await loadNearbyHubs(
-          pos.coords.latitude,
-          pos.coords.longitude,
-          'precise'
-        );
-      },
-      () => {
-        locationDenied.value = approximateLocation.value === null;
+    if (authStore.isAuthenticated) {
+      await geolocationAttempt;
+    } else {
+      await Promise.all([initializeApproximateLocation(), geolocationAttempt]);
+    }
+
+    if (nearbyHubs.value.length === 0 && !hasActiveFilters.value) {
+      const appliedProfileLocation = await applySavedProfileLocationDefault();
+
+      if (!appliedProfileLocation) {
+        await loadTopHubs();
       }
-    );
-  }
+    }
+  })();
 });
 
 onUnmounted(() => {
@@ -270,29 +358,50 @@ onUnmounted(() => {
 
 const filtersOpen = ref(false);
 
-function applyFilters() {
+async function applyFilters() {
+  profileLocationApplied.value = false;
   appliedSearch.value = searchInput.value;
   appliedCity.value = selectedCity.value;
   appliedSports.value = [...selectedSports.value];
   appliedOpenNow.value = openNow.value;
   suggestions.value = [];
   page.value = 1;
-  loadPage(1);
+  if (hasActiveFilters.value) {
+    await loadPage(1);
+  } else {
+    resetGridState();
+
+    if (nearbyHubs.value.length === 0) {
+      const appliedProfileLocation = await applySavedProfileLocationDefault();
+
+      if (!appliedProfileLocation) {
+        await loadTopHubs();
+      }
+    }
+  }
   filtersOpen.value = false;
 }
 
-function clearFilters() {
+async function clearFilters() {
   searchInput.value = '';
-  selectedCity.value = ALL_CITIES;
+  selectedCity.value = savedProfileLocation.value?.city ?? ALL_CITIES;
   selectedSports.value = [];
   openNow.value = false;
   appliedSearch.value = '';
   appliedCity.value = ALL_CITIES;
   appliedSports.value = [];
   appliedOpenNow.value = false;
-  suggestions.value = [];
-  page.value = 1;
-  loadPage(1);
+  profileLocationApplied.value = false;
+  resetGridState();
+
+  if (nearbyHubs.value.length === 0) {
+    const appliedProfileLocation = await applySavedProfileLocationDefault();
+
+    if (!appliedProfileLocation) {
+      await loadTopHubs();
+    }
+  }
+
   filtersOpen.value = false;
 }
 
@@ -310,6 +419,18 @@ const activeFilterCount = computed(
     (appliedCity.value !== ALL_CITIES ? 1 : 0) +
     appliedSports.value.length
 );
+
+function resetGridState() {
+  hubs.value = [];
+  suggestions.value = [];
+  meta.value = null;
+  page.value = 1;
+  loadError.value = false;
+}
+
+if (hasActiveFilters.value) {
+  await loadPage(1);
+}
 </script>
 
 <template>
@@ -465,6 +586,19 @@ const activeFilterCount = computed(
         </div>
 
         <!-- Top Hubs (default view: no search/filters active, location unavailable) -->
+        <div v-else-if="showProfileScopedOnly" class="mb-8">
+          <p
+            class="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[#5d7086]"
+          >
+            <UIcon name="i-heroicons-building-office-2" class="h-4 w-4" />
+            Hubs around {{ savedProfileLocation?.city }}
+          </p>
+          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <HubCard v-for="hub in hubs" :key="hub.id" :hub="hub" />
+          </div>
+        </div>
+
+        <!-- Top Hubs (default view: no location fallback available) -->
         <div v-else-if="showTopHubsOnly" class="mb-8">
           <p
             class="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[#5d7086]"

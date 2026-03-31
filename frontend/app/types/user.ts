@@ -58,6 +58,9 @@ export interface User {
   avatar_thumb_url: string | null;
   banner_url: string | null;
   contact_number: string | null;
+  country: string | null;
+  province: string | null;
+  city: string | null;
   bio: string | null;
   social_links: SocialLinks;
   profile_privacy: ProfilePrivacy;

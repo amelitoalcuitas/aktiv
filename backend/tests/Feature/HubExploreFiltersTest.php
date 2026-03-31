@@ -289,3 +289,49 @@ it('applies an explicit radius to nearby hub queries', function () {
         ->assertJsonPath('meta.total', 1)
         ->assertJsonPath('data.0.id', $nearHub->id);
 });
+
+it('biases hub ordering by preferred city, province, and country without filtering results out', function () {
+    $sameCity = Hub::factory()->create([
+        'name' => 'Pagadian Hub',
+        'city' => 'Pagadian',
+        'province' => 'Zamboanga del Sur',
+        'country' => 'Philippines',
+        'is_approved' => true,
+        'is_active' => true,
+    ]);
+
+    $sameProvince = Hub::factory()->create([
+        'name' => 'Aurora Hub',
+        'city' => 'Aurora',
+        'province' => 'Zamboanga del Sur',
+        'country' => 'Philippines',
+        'is_approved' => true,
+        'is_active' => true,
+    ]);
+
+    $sameCountry = Hub::factory()->create([
+        'name' => 'Cebu Hub',
+        'city' => 'Cebu City',
+        'province' => 'Cebu',
+        'country' => 'Philippines',
+        'is_approved' => true,
+        'is_active' => true,
+    ]);
+
+    $otherCountry = Hub::factory()->create([
+        'name' => 'Singapore Hub',
+        'city' => 'Singapore',
+        'province' => 'Central Region',
+        'country' => 'Singapore',
+        'is_approved' => true,
+        'is_active' => true,
+    ]);
+
+    $response = $this->getJson('/api/hubs?preferred_city=Pagadian&preferred_province=Zamboanga%20del%20Sur&preferred_country=Philippines');
+
+    $response->assertOk()
+        ->assertJsonPath('meta.total', 4);
+
+    expect(collect($response->json('data'))->pluck('id')->take(4)->all())
+        ->toBe([$sameCity->id, $sameProvince->id, $sameCountry->id, $otherCountry->id]);
+});

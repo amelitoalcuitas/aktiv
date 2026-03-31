@@ -36,6 +36,9 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password'          => static::$password ??= Hash::make('password'),
             'remember_token'    => Str::random(10),
+            'country'           => 'Philippines',
+            'province'          => 'Zamboanga del Sur',
+            'city'              => 'Pagadian',
             'role'              => UserRole::User,
         ];
     }

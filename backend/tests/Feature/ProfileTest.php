@@ -221,6 +221,9 @@ class ProfileTest extends TestCase
             'first_name'            => 'John',
             'last_name'             => 'Doe',
             'email'                 => 'john@example.com',
+            'country'               => 'Philippines',
+            'province'              => 'Zamboanga del Sur',
+            'city'                  => 'Pagadian',
             'password'              => 'password123',
             'password_confirmation' => 'password123',
         ])->assertCreated();
@@ -236,6 +239,9 @@ class ProfileTest extends TestCase
             'first_name'            => 'John',
             'last_name'             => 'Doe',
             'email'                 => 'john2@example.com',
+            'country'               => 'Philippines',
+            'province'              => 'Zamboanga del Sur',
+            'city'                  => 'Pagadian',
             'password'              => 'password123',
             'password_confirmation' => 'password123',
         ])->assertCreated();

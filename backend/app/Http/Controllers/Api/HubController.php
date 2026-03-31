@@ -130,6 +130,7 @@ class HubController extends Controller
             ->withMin('courts', 'price_per_hour')
             ->withAvg('ratings', 'rating')
             ->withCount('ratings as reviews_count');
+        [$preferredLocationSql, $preferredLocationBindings] = $this->preferredLocationOrder($request);
 
         if ($search = $request->string('search')->trim()->value()) {
             $query->where(function ($q) use ($search): void {
@@ -202,6 +203,10 @@ class HubController extends Controller
                 $query->whereRaw("{$haversine} < ?", [$lat, $lng, $lat, $lat, $lng, $lat, $radius]);
             }
 
+            if ($preferredLocationSql !== null) {
+                $query->orderByRaw("{$preferredLocationSql} DESC", $preferredLocationBindings);
+            }
+
             if ($search) {
                 $query->orderByRaw(
                     'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province)) DESC, ' . $haversine . ' ASC',
@@ -213,6 +218,10 @@ class HubController extends Controller
                 $query->orderByRaw("{$haversine} ASC", [$lat, $lng, $lat, $lat, $lng, $lat]);
             }
         } else {
+            if ($preferredLocationSql !== null) {
+                $query->orderByRaw("{$preferredLocationSql} DESC", $preferredLocationBindings);
+            }
+
             if ($search) {
                 // Rank exact/close matches above fuzzy ones
                 $query->orderByRaw(
@@ -673,6 +682,7 @@ class HubController extends Controller
         }
 
         $haversine = $this->distanceSql();
+        [$preferredLocationSql, $preferredLocationBindings] = $this->preferredLocationOrder($request);
 
         $suggestionQuery->where(function ($q) use ($search, $sportWords, $lat, $lng, $haversine): void {
             $q->whereRaw('word_similarity(?, name) > 0.25', [$search])
@@ -689,6 +699,10 @@ class HubController extends Controller
                 $q->orWhereRaw("{$haversine} < 50", [$lat, $lng, $lat, $lat, $lng, $lat]);
             }
         });
+
+        if ($preferredLocationSql !== null) {
+            $suggestionQuery->orderByRaw("{$preferredLocationSql} DESC", $preferredLocationBindings);
+        }
 
         // Order: best trigram similarity first; proximity as tiebreaker when available
         if ($lat !== null && $lng !== null) {
@@ -709,6 +723,44 @@ class HubController extends Controller
             ->map(fn (Hub $hub) => $this->formatHub($hub))
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array{0: string|null, 1: array<int, string>}
+     */
+    private function preferredLocationOrder(Request $request): array
+    {
+        $preferredCity = $request->string('preferred_city')->trim()->value();
+        $preferredProvince = $request->string('preferred_province')->trim()->value();
+        $preferredCountry = $request->string('preferred_country')->trim()->value();
+
+        if (! $preferredCity && ! $preferredProvince && ! $preferredCountry) {
+            return [null, []];
+        }
+
+        $bindings = [];
+
+        if ($preferredCity) {
+            $bindings[] = mb_strtolower($preferredCity);
+        }
+
+        if ($preferredProvince) {
+            $bindings[] = mb_strtolower($preferredProvince);
+        }
+
+        if ($preferredCountry) {
+            $bindings[] = mb_strtolower($preferredCountry);
+        }
+
+        return [
+            'CASE
+                WHEN ' . ($preferredCity ? 'LOWER(city) = ?' : '1 = 0') . ' THEN 3
+                WHEN ' . ($preferredProvince ? 'LOWER(province) = ?' : '1 = 0') . ' THEN 2
+                WHEN ' . ($preferredCountry ? 'LOWER(country) = ?' : '1 = 0') . ' THEN 1
+                ELSE 0
+            END',
+            $bindings,
+        ];
     }
 
     /**

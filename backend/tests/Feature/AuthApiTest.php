@@ -20,6 +20,9 @@ class AuthApiTest extends TestCase
             'first_name' => 'Jane',
             'last_name' => 'Doe',
             'email' => 'jane@example.com',
+            'country' => 'Philippines',
+            'province' => 'Zamboanga del Sur',
+            'city' => 'Pagadian',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ]);
@@ -27,13 +30,31 @@ class AuthApiTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonStructure([
-                'user' => ['id', 'first_name', 'last_name', 'email'],
+                'user' => ['id', 'first_name', 'last_name', 'email', 'country', 'province', 'city'],
                 'token',
                 'token_type',
             ]);
 
         $this->assertDatabaseHas('users', [
             'email' => 'jane@example.com',
+            'country' => 'Philippines',
+            'province' => 'Zamboanga del Sur',
+            'city' => 'Pagadian',
+        ]);
+    }
+
+    public function test_registration_requires_location_fields(): void
+    {
+        $this->postJson('/api/auth/register', [
+            'first_name' => 'Jane',
+            'last_name' => 'Doe',
+            'email' => 'jane@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertUnprocessable()->assertJsonValidationErrors([
+            'country',
+            'province',
+            'city',
         ]);
     }
 

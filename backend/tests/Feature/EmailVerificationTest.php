@@ -23,6 +23,9 @@ class EmailVerificationTest extends TestCase
             'first_name'            => 'Jane',
             'last_name'             => 'Doe',
             'email'                 => 'jane@example.com',
+            'country'               => 'Philippines',
+            'province'              => 'Zamboanga del Sur',
+            'city'                  => 'Pagadian',
             'password'              => 'password123',
             'password_confirmation' => 'password123',
         ])->assertCreated()
@@ -40,6 +43,9 @@ class EmailVerificationTest extends TestCase
             'first_name'            => 'Jane',
             'last_name'             => 'Doe',
             'email'                 => 'jane@example.com',
+            'country'               => 'Philippines',
+            'province'              => 'Zamboanga del Sur',
+            'city'                  => 'Pagadian',
             'password'              => 'password123',
             'password_confirmation' => 'password123',
         ])->assertCreated();

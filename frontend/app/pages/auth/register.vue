@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { z } from 'zod';
+import { COUNTRY_OPTIONS } from '~/constants/countries';
 import { useAuth } from '~/composables/useAuth';
 
 definePageMeta({ layout: 'auth', middleware: 'guest' });
@@ -10,6 +11,9 @@ const form = reactive({
   first_name: '',
   last_name: '',
   email: '',
+  country: '',
+  province: '',
+  city: '',
   password: '',
   password_confirmation: ''
 });
@@ -27,6 +31,9 @@ const registerSchema = z
       .trim()
       .min(1, 'Email is required.')
       .email('Invalid email.'),
+    country: z.string().trim().min(1, 'Country is required.'),
+    province: z.string().trim().min(1, 'Province is required.'),
+    city: z.string().trim().min(1, 'City is required.'),
     password: z.string().min(8, 'Password must be at least 8 characters.'),
     password_confirmation: z.string().min(1, 'Please confirm your password.')
   })
@@ -57,6 +64,9 @@ async function handleSubmit() {
       parsed.data.first_name,
       parsed.data.last_name,
       parsed.data.email,
+      parsed.data.country,
+      parsed.data.province,
+      parsed.data.city,
       parsed.data.password,
       parsed.data.password_confirmation
     );
@@ -114,7 +124,7 @@ function fieldError(field: string) {
         >
           <UInput
             v-model="form.first_name"
-            placeholder="Juan"
+            placeholder="Enter first name"
             autocomplete="given-name"
             required
             class="w-full"
@@ -128,7 +138,7 @@ function fieldError(field: string) {
         >
           <UInput
             v-model="form.last_name"
-            placeholder="dela Cruz"
+            placeholder="Enter last name"
             autocomplete="family-name"
             required
             class="w-full"
@@ -146,6 +156,42 @@ function fieldError(field: string) {
           class="w-full"
         />
       </UFormField>
+
+      <UFormField label="Country" name="country" :error="fieldError('country')">
+        <USelectMenu
+          v-model="form.country"
+          :items="COUNTRY_OPTIONS"
+          value-key="value"
+          label-key="label"
+          placeholder="Select country"
+          required
+          class="w-full"
+        />
+      </UFormField>
+
+      <div class="grid grid-cols-2 gap-3">
+        <UFormField
+          label="Province"
+          name="province"
+          :error="fieldError('province')"
+        >
+          <UInput
+            v-model="form.province"
+            placeholder="Enter province"
+            required
+            class="w-full"
+          />
+        </UFormField>
+
+        <UFormField label="City" name="city" :error="fieldError('city')">
+          <UInput
+            v-model="form.city"
+            placeholder="Enter city"
+            required
+            class="w-full"
+          />
+        </UFormField>
+      </div>
 
       <UFormField
         label="Password"

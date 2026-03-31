@@ -181,6 +181,9 @@ export function useHubs() {
     lat?: number;
     lng?: number;
     radius?: number;
+    preferred_city?: string;
+    preferred_province?: string;
+    preferred_country?: string;
   }): Promise<{ data: Hub[]; meta?: PaginationMeta; suggestions?: Hub[] }> {
     const query = new URLSearchParams();
     if (params.page) query.set('page', String(params.page));
@@ -192,6 +195,9 @@ export function useHubs() {
     if (params.lat != null) query.set('lat', String(params.lat));
     if (params.lng != null) query.set('lng', String(params.lng));
     if (params.radius != null) query.set('radius', String(params.radius));
+    if (params.preferred_city) query.set('preferred_city', params.preferred_city);
+    if (params.preferred_province) query.set('preferred_province', params.preferred_province);
+    if (params.preferred_country) query.set('preferred_country', params.preferred_country);
     (params.sports ?? []).forEach((s) => query.append('sports[]', s));
     const qs = query.toString();
     const res = await apiFetch<{

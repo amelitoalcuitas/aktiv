@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
 use App\Models\Hub;
 use App\Models\User;
 use App\Notifications\AccountCreatedNotification;
@@ -36,12 +37,39 @@ class SuperAdminController extends Controller
             'password'       => Str::random(32),
             'role'           => UserRole::from($validated['role'] ?? 'user'),
             'contact_number' => $validated['contact_number'] ?? null,
+            'country'        => $validated['country'],
+            'province'       => $validated['province'],
+            'city'           => $validated['city'],
         ]);
 
         $token = Password::broker('onboarding')->createToken($user);
         $user->notify(new AccountCreatedNotification($token));
 
         return response()->json($this->formatUser($user->loadCount('hubs')), 201);
+    }
+
+    public function update(UpdateUserRequest $request, User $user): JsonResponse
+    {
+        $validated = $request->validated();
+        $emailChanged = $validated['email'] !== $user->email;
+
+        $user->forceFill([
+            'first_name'       => $validated['first_name'],
+            'last_name'        => $validated['last_name'],
+            'email'            => $validated['email'],
+            'role'             => UserRole::from($validated['role']),
+            'contact_number'   => $validated['contact_number'] ?? null,
+            'country'          => $validated['country'],
+            'province'         => $validated['province'],
+            'city'             => $validated['city'],
+            'email_verified_at' => $emailChanged ? null : $user->email_verified_at,
+        ])->save();
+
+        if ($emailChanged) {
+            $user->sendEmailVerificationNotification();
+        }
+
+        return response()->json($this->formatUser($user->fresh()->loadCount('hubs')));
     }
 
     public function users(Request $request): JsonResponse
@@ -99,8 +127,14 @@ class SuperAdminController extends Controller
         return [
             'id'             => $user->id,
             'name'           => $user->name,
+            'first_name'     => $user->first_name,
+            'last_name'      => $user->last_name,
             'username'       => $user->username,
             'email'          => $user->email,
+            'contact_number' => $user->contact_number,
+            'country'        => $user->country,
+            'province'       => $user->province,
+            'city'           => $user->city,
             'role'           => $user->role->value,
             'email_verified' => $user->email_verified_at !== null,
             'is_disabled'    => $user->is_disabled,

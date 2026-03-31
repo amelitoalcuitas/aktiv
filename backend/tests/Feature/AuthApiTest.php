@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 use Mockery;
@@ -111,7 +112,26 @@ class AuthApiTest extends TestCase
         $this->assertDatabaseCount('personal_access_tokens', 0);
     }
 
-    public function test_google_callback_creates_user_and_returns_token(): void
+    public function test_google_redirect_preserves_safe_redirect_path(): void
+    {
+        Socialite::shouldReceive('driver')->with('google')->andReturnSelf();
+        Socialite::shouldReceive('stateless')->andReturnSelf();
+        Socialite::shouldReceive('with')->once()->with(Mockery::on(function (array $payload): bool {
+            $decoded = json_decode(base64_decode(strtr($payload['state'], '-_', '+/')), true);
+
+            return is_array($decoded) && $decoded['redirect'] === '/bookings';
+        }))->andReturnSelf();
+        Socialite::shouldReceive('redirect')->andReturnSelf();
+        Socialite::shouldReceive('getTargetUrl')->andReturn('https://accounts.google.com/o/oauth2/auth');
+
+        $this->getJson('/api/auth/google/redirect?redirect=%2Fbookings')
+            ->assertOk()
+            ->assertJsonPath('url', 'https://accounts.google.com/o/oauth2/auth');
+
+        Mockery::close();
+    }
+
+    public function test_google_callback_creates_user_and_redirects_to_frontend_callback(): void
     {
         $socialiteUser = new SocialiteUser();
         $socialiteUser->id = 'google-123';
@@ -123,20 +143,108 @@ class AuthApiTest extends TestCase
         Socialite::shouldReceive('stateless')->andReturnSelf();
         Socialite::shouldReceive('user')->andReturn($socialiteUser);
 
-        $response = $this->getJson('/api/auth/google/callback');
+        $state = rtrim(strtr(base64_encode(json_encode(['redirect' => '/bookings'])), '+/', '-_'), '=');
+
+        $response = $this->get('/api/auth/google/callback?state='.$state);
 
         $response
-            ->assertOk()
-            ->assertJsonStructure([
-                'user' => ['id', 'email', 'google_id'],
-                'token',
-                'token_type',
-            ]);
+            ->assertRedirect();
+
+        $location = $response->headers->get('Location');
+
+        $this->assertNotNull($location);
+        $this->assertStringContainsString('/auth/google/callback', $location);
+        $this->assertStringContainsString('status=success', $location);
+        $this->assertStringContainsString('redirect=%2Fbookings', $location);
+        $this->assertStringContainsString('token=', $location);
 
         $this->assertDatabaseHas('users', [
             'email' => 'google-user@example.com',
             'google_id' => 'google-123',
         ]);
+
+        Mockery::close();
+    }
+
+    public function test_google_callback_links_existing_user_by_email(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'google-user@example.com',
+            'password' => Hash::make('password123'),
+            'google_id' => null,
+            'email_verified_at' => null,
+        ]);
+
+        $socialiteUser = new SocialiteUser();
+        $socialiteUser->id = 'google-123';
+        $socialiteUser->email = 'google-user@example.com';
+        $socialiteUser->name = 'Google User';
+        $socialiteUser->avatar = 'https://example.com/avatar.png';
+
+        Socialite::shouldReceive('driver')->with('google')->andReturnSelf();
+        Socialite::shouldReceive('stateless')->andReturnSelf();
+        Socialite::shouldReceive('user')->andReturn($socialiteUser);
+
+        $response = $this->get('/api/auth/google/callback');
+
+        $response->assertRedirect();
+
+        $user->refresh();
+
+        $this->assertSame('google-123', $user->google_id);
+        $this->assertNotNull($user->email_verified_at);
+        $this->assertDatabaseCount('users', 1);
+
+        Mockery::close();
+    }
+
+    public function test_google_callback_does_not_replace_existing_avatar(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'google-user@example.com',
+            'avatar_url' => 'https://example.com/existing-avatar.png',
+        ]);
+
+        $socialiteUser = new SocialiteUser();
+        $socialiteUser->id = 'google-123';
+        $socialiteUser->email = 'google-user@example.com';
+        $socialiteUser->name = 'Google User';
+        $socialiteUser->avatar = 'https://example.com/google-avatar.png';
+
+        Socialite::shouldReceive('driver')->with('google')->andReturnSelf();
+        Socialite::shouldReceive('stateless')->andReturnSelf();
+        Socialite::shouldReceive('user')->andReturn($socialiteUser);
+
+        $this->get('/api/auth/google/callback')->assertRedirect();
+
+        $user->refresh();
+
+        $this->assertSame('https://example.com/existing-avatar.png', $user->avatar_url);
+        $this->assertSame('google-123', $user->google_id);
+
+        Mockery::close();
+    }
+
+    public function test_google_callback_redirects_with_error_when_oauth_fails(): void
+    {
+        Socialite::shouldReceive('driver')->with('google')->andReturnSelf();
+        Socialite::shouldReceive('stateless')->andReturnSelf();
+        Socialite::shouldReceive('user')->andThrow(ValidationException::withMessages([
+            'email' => ['Google account does not provide an email address.'],
+        ]));
+
+        $response = $this->get('/api/auth/google/callback?state=' . rtrim(strtr(base64_encode(json_encode([
+            'redirect' => '/bookings',
+        ])), '+/', '-_'), '='));
+
+        $response->assertRedirect();
+
+        $location = $response->headers->get('Location');
+
+        $this->assertNotNull($location);
+        $this->assertStringContainsString('status=error', $location);
+        $this->assertStringContainsString('reason=oauth_failed', $location);
+        $this->assertStringContainsString('redirect=%2Fbookings', $location);
 
         Mockery::close();
     }

@@ -1,6 +1,9 @@
 <?php
 
+use App\Enums\UserRole;
 use App\Models\Hub;
+use App\Models\User;
+use Carbon\Carbon;
 
 it('returns distinct approved active cities for explore filters', function () {
     Hub::factory()->create([
@@ -334,4 +337,235 @@ it('biases hub ordering by preferred city, province, and country without filteri
 
     expect(collect($response->json('data'))->pluck('id')->take(4)->all())
         ->toBe([$sameCity->id, $sameProvince->id, $sameCountry->id, $otherCountry->id]);
+});
+
+it('prioritizes premium-owned hubs when the base default ordering ties', function () {
+    $timestamp = Carbon::parse('2026-03-31 09:00:00');
+    $premiumOwner = User::factory()->create([
+        'role' => UserRole::Owner,
+        'is_premium' => true,
+    ]);
+    $standardOwner = User::factory()->create([
+        'role' => UserRole::Owner,
+        'is_premium' => false,
+    ]);
+
+    $standardHub = Hub::factory()->create([
+        'owner_id' => $standardOwner->id,
+        'created_at' => $timestamp,
+        'updated_at' => $timestamp,
+    ]);
+
+    $premiumHub = Hub::factory()->create([
+        'owner_id' => $premiumOwner->id,
+        'created_at' => $timestamp,
+        'updated_at' => $timestamp,
+    ]);
+
+    $response = $this->getJson('/api/hubs');
+
+    $response->assertOk()
+        ->assertJsonPath('meta.total', 2);
+
+    expect(collect($response->json('data'))->pluck('id')->take(2)->all())
+        ->toBe([$premiumHub->id, $standardHub->id]);
+});
+
+it('keeps a closer non-premium hub ahead of a farther premium hub in distance ordering', function () {
+    $premiumOwner = User::factory()->create([
+        'role' => UserRole::Owner,
+        'is_premium' => true,
+    ]);
+
+    $nearHub = Hub::factory()->create([
+        'name' => 'Near Standard Hub',
+        'lat' => 7.8257,
+        'lng' => 123.4370,
+        'is_approved' => true,
+        'is_active' => true,
+    ]);
+
+    $farPremiumHub = Hub::factory()->create([
+        'owner_id' => $premiumOwner->id,
+        'name' => 'Far Premium Hub',
+        'lat' => 14.5995,
+        'lng' => 120.9842,
+        'is_approved' => true,
+        'is_active' => true,
+    ]);
+
+    $response = $this->getJson('/api/hubs?lat=7.8257&lng=123.4370');
+
+    $response->assertOk()
+        ->assertJsonPath('data.0.id', $nearHub->id)
+        ->assertJsonPath('data.1.id', $farPremiumHub->id);
+});
+
+it('keeps stronger search matches ahead of premium hubs', function () {
+    $premiumOwner = User::factory()->create([
+        'role' => UserRole::Owner,
+        'is_premium' => true,
+    ]);
+
+    $strongMatch = Hub::factory()->create([
+        'name' => 'Pagadian Prime',
+        'city' => 'Pagadian',
+        'province' => 'Zamboanga del Sur',
+        'is_approved' => true,
+        'is_active' => true,
+    ]);
+
+    $premiumHub = Hub::factory()->create([
+        'owner_id' => $premiumOwner->id,
+        'name' => 'Pagadian Prime Courts',
+        'city' => 'Aurora',
+        'province' => 'Zamboanga del Sur',
+        'is_approved' => true,
+        'is_active' => true,
+    ]);
+
+    $response = $this->getJson('/api/hubs?search=Pagadian%20Prime');
+
+    $response->assertOk()
+        ->assertJsonPath('data.0.id', $strongMatch->id)
+        ->assertJsonPath('data.1.id', $premiumHub->id);
+});
+
+it('uses premium as a secondary tie breaker when sorting by top score', function () {
+    $timestamp = Carbon::parse('2026-03-31 09:00:00');
+    $premiumOwner = User::factory()->create([
+        'role' => UserRole::Owner,
+        'is_premium' => true,
+    ]);
+    $standardOwner = User::factory()->create([
+        'role' => UserRole::Owner,
+        'is_premium' => false,
+    ]);
+
+    $standardHub = Hub::factory()->create([
+        'owner_id' => $standardOwner->id,
+        'description' => null,
+        'cover_image_url' => null,
+        'lat' => null,
+        'lng' => null,
+        'created_at' => $timestamp,
+        'updated_at' => $timestamp,
+    ]);
+
+    $premiumHub = Hub::factory()->create([
+        'owner_id' => $premiumOwner->id,
+        'description' => null,
+        'cover_image_url' => null,
+        'lat' => null,
+        'lng' => null,
+        'created_at' => $timestamp,
+        'updated_at' => $timestamp,
+    ]);
+
+    $response = $this->getJson('/api/hubs?sort=top');
+
+    $response->assertOk()
+        ->assertJsonPath('data.0.id', $premiumHub->id)
+        ->assertJsonPath('data.1.id', $standardHub->id);
+});
+
+it('lets active discovery boosts outrank premium-only hubs when primary signals tie', function () {
+    $timestamp = Carbon::parse('2026-03-31 09:00:00');
+    $premiumOwner = User::factory()->create([
+        'role' => UserRole::Owner,
+        'is_premium' => true,
+    ]);
+    $standardOwner = User::factory()->create([
+        'role' => UserRole::Owner,
+        'is_premium' => false,
+    ]);
+
+    $premiumHub = Hub::factory()->create([
+        'owner_id' => $premiumOwner->id,
+        'created_at' => $timestamp,
+        'updated_at' => $timestamp,
+    ]);
+
+    $boostedHub = Hub::factory()->create([
+        'owner_id' => $standardOwner->id,
+        'created_at' => $timestamp,
+        'updated_at' => $timestamp,
+        'discovery_boost_weight' => 2,
+        'discovery_boost_expires_at' => Carbon::parse('2026-04-05 00:00:00'),
+    ]);
+
+    $response = $this->getJson('/api/hubs');
+
+    $response->assertOk()
+        ->assertJsonPath('data.0.id', $boostedHub->id)
+        ->assertJsonPath('data.1.id', $premiumHub->id);
+});
+
+it('ignores expired discovery boosts', function () {
+    $timestamp = Carbon::parse('2026-03-31 09:00:00');
+    $premiumOwner = User::factory()->create([
+        'role' => UserRole::Owner,
+        'is_premium' => true,
+    ]);
+    $standardOwner = User::factory()->create([
+        'role' => UserRole::Owner,
+        'is_premium' => false,
+    ]);
+
+    $premiumHub = Hub::factory()->create([
+        'owner_id' => $premiumOwner->id,
+        'created_at' => $timestamp,
+        'updated_at' => $timestamp,
+    ]);
+
+    $expiredBoostHub = Hub::factory()->create([
+        'owner_id' => $standardOwner->id,
+        'created_at' => $timestamp,
+        'updated_at' => $timestamp,
+        'discovery_boost_weight' => 3,
+        'discovery_boost_expires_at' => Carbon::parse('2026-03-30 23:59:59'),
+    ]);
+
+    $response = $this->getJson('/api/hubs');
+
+    $response->assertOk()
+        ->assertJsonPath('data.0.id', $premiumHub->id)
+        ->assertJsonPath('data.1.id', $expiredBoostHub->id);
+});
+
+it('still excludes inactive and unapproved hubs even when they are promoted', function () {
+    $premiumOwner = User::factory()->create([
+        'role' => UserRole::Owner,
+        'is_premium' => true,
+    ]);
+
+    $visibleHub = Hub::factory()->create([
+        'name' => 'Visible Hub',
+        'is_approved' => true,
+        'is_active' => true,
+    ]);
+
+    Hub::factory()->create([
+        'owner_id' => $premiumOwner->id,
+        'name' => 'Inactive Premium Hub',
+        'is_approved' => true,
+        'is_active' => false,
+        'discovery_boost_weight' => 4,
+        'discovery_boost_expires_at' => Carbon::parse('2026-04-05 00:00:00'),
+    ]);
+
+    Hub::factory()->create([
+        'owner_id' => $premiumOwner->id,
+        'name' => 'Unapproved Premium Hub',
+        'is_approved' => false,
+        'is_active' => true,
+        'discovery_boost_weight' => 4,
+        'discovery_boost_expires_at' => Carbon::parse('2026-04-05 00:00:00'),
+    ]);
+
+    $response = $this->getJson('/api/hubs');
+
+    $response->assertOk()
+        ->assertJsonPath('meta.total', 1)
+        ->assertJsonPath('data.0.id', $visibleHub->id);
 });

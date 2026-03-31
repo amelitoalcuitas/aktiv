@@ -4,8 +4,18 @@ import { useAuth } from '~/composables/useAuth';
 
 definePageMeta({ layout: 'auth', middleware: 'guest' });
 
-const { login, isSuperAdmin } = useAuth();
+interface GoogleAuthPopupMessage {
+  type: 'aktiv:google-auth-result';
+  status: 'success' | 'error';
+  token?: string;
+  redirect: string;
+  reason?: string;
+}
+
+const { login, isSuperAdmin, getGoogleRedirectUrl, finalizeGoogleLogin } =
+  useAuth();
 const route = useRoute();
+const toast = useToast();
 
 const resetSuccess = computed(() => route.query.reset === 'success');
 const setupSuccess = computed(() => route.query.setup === 'success');
@@ -21,6 +31,7 @@ const form = reactive({ email: String(route.query.email ?? ''), password: '' });
 const error = ref<string | null>(null);
 const fieldErrors = ref<Record<string, string>>({});
 const loading = ref(false);
+const googleLoading = ref(false);
 
 const loginSchema = z.object({
   email: z.string().trim().min(1, 'Email is required.').email('Invalid email.'),
@@ -29,6 +40,37 @@ const loginSchema = z.object({
 
 function fieldError(field: string) {
   return fieldErrors.value[field];
+}
+
+function sanitizeRedirect(value: unknown): string | null {
+  return typeof value === 'string' &&
+    value.startsWith('/') &&
+    !value.startsWith('//')
+    ? value
+    : null;
+}
+
+function openGooglePopup(): Window | null {
+  if (!import.meta.client) {
+    return null;
+  }
+
+  const width = 520;
+  const height = 640;
+  const left = Math.max(
+    0,
+    Math.round(window.screenX + (window.outerWidth - width) / 2)
+  );
+  const top = Math.max(
+    0,
+    Math.round(window.screenY + (window.outerHeight - height) / 2)
+  );
+
+  return window.open(
+    '',
+    'aktiv-google-auth',
+    `popup=yes,width=${width},height=${height},left=${left},top=${top}`
+  );
 }
 
 async function handleSubmit() {
@@ -55,6 +97,76 @@ async function handleSubmit() {
     error.value = err?.data?.message ?? 'Invalid email or password.';
   } finally {
     loading.value = false;
+  }
+}
+
+async function handleGoogleLogin() {
+  googleLoading.value = true;
+
+  try {
+    const redirect =
+      sanitizeRedirect(route.query.redirect) ?? redirectPath.value;
+    const popup = openGooglePopup();
+
+    const url = await getGoogleRedirectUrl(redirect);
+
+    if (!popup) {
+      await navigateTo(url, { external: true });
+      return;
+    }
+
+    const result = await new Promise<GoogleAuthPopupMessage>(
+      (resolve, reject) => {
+        const popupPoll = window.setInterval(() => {
+          if (popup.closed) {
+            window.clearInterval(popupPoll);
+            window.removeEventListener('message', handleMessage);
+            reject(new Error('popup_closed'));
+          }
+        }, 400);
+
+        const handleMessage = (event: MessageEvent<GoogleAuthPopupMessage>) => {
+          if (event.origin !== window.location.origin) {
+            return;
+          }
+
+          if (event.data?.type !== 'aktiv:google-auth-result') {
+            return;
+          }
+
+          window.clearInterval(popupPoll);
+          window.removeEventListener('message', handleMessage);
+          resolve(event.data);
+        };
+
+        window.addEventListener('message', handleMessage);
+        popup.location.href = url;
+        popup.focus();
+      }
+    );
+
+    if (result.status !== 'success' || !result.token) {
+      throw new Error(result.reason ?? 'oauth_failed');
+    }
+
+    const user = await finalizeGoogleLogin(result.token);
+    const destination =
+      result.redirect === '/dashboard' && user.role === 'super_admin'
+        ? '/panel'
+        : result.redirect;
+
+    toast.add({
+      title: 'Signed in with Google.',
+      color: 'success'
+    });
+    await navigateTo(destination);
+  } catch {
+    toast.add({
+      title: 'Failed to sign in with Google.',
+      color: 'error'
+    });
+  } finally {
+    googleLoading.value = false;
   }
 }
 </script>
@@ -142,6 +254,10 @@ async function handleSubmit() {
       >
         Sign In
       </UButton>
+
+      <USeparator label="OR" />
+
+      <AuthGoogleAuthBtn :loading="googleLoading" @click="handleGoogleLogin" />
     </form>
   </UCard>
 </template>

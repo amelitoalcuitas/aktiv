@@ -122,7 +122,11 @@ async function loadTopHubs() {
 }
 
 function preferredLocationParams() {
-  if (userLat.value != null || userLng.value != null || !savedProfileLocation.value) {
+  if (
+    userLat.value != null ||
+    userLng.value != null ||
+    !savedProfileLocation.value
+  ) {
     return {};
   }
 
@@ -254,9 +258,7 @@ async function applySavedProfileLocationDefault(): Promise<boolean> {
   return true;
 }
 
-async function fetchCityOptions(
-  params: RemoteSelectFetchParams
-): Promise<
+async function fetchCityOptions(params: RemoteSelectFetchParams): Promise<
   RemoteSelectFetchResult<{
     label: string;
     value: string;
@@ -452,7 +454,7 @@ if (hasActiveFilters.value) {
       <aside class="hidden w-72 shrink-0 lg:block">
         <div class="sticky top-8 flex flex-col gap-4">
           <div
-            class="flex-1 min-h-0 overflow-y-auto rounded-2xl bg-white p-5 shadow-sm"
+            class="flex-1 min-h-0 overflow-y-auto rounded-2xl bg-white p-5 border border-[var(--aktiv-border)]"
           >
             <!-- Heading -->
             <div

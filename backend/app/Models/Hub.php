@@ -35,6 +35,8 @@ class Hub extends Model
         'is_verified',
         'is_active',
         'show_on_profile',
+        'discovery_boost_weight',
+        'discovery_boost_expires_at',
     ];
 
     /**
@@ -49,6 +51,8 @@ class Hub extends Model
             'is_verified'      => 'boolean',
             'is_active'        => 'boolean',
             'show_on_profile'  => 'boolean',
+            'discovery_boost_weight' => 'integer',
+            'discovery_boost_expires_at' => 'datetime',
         ];
     }
 

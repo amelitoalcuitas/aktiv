@@ -6,9 +6,14 @@ interface EmailActionCooldownResponse {
   cooldown: EmailActionCooldown;
 }
 
+interface GoogleRedirectResponse {
+  url: string;
+}
+
 export function useAuth() {
   const authStore = useAuthStore();
   const router = useRouter();
+  const config = useRuntimeConfig();
 
   const isAuthenticated = computed(() => authStore.isAuthenticated);
   const isOwner = computed(() => authStore.isOwner);
@@ -105,11 +110,44 @@ export function useAuth() {
     });
   }
 
+  async function getGoogleRedirectUrl(redirect?: string): Promise<string> {
+    const query =
+      typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+        ? { redirect }
+        : undefined;
+
+    const res = await $fetch<GoogleRedirectResponse>('/auth/google/redirect', {
+      baseURL: config.public.apiBase,
+      query
+    });
+
+    return res.url;
+  }
+
+  function completeLogin(nextUser: User, token: string): void {
+    authStore.setToken(token);
+    authStore.setUser(nextUser);
+  }
+
+  async function finalizeGoogleLogin(token: string): Promise<User> {
+    authStore.setToken(token);
+    await authStore.fetchUser();
+
+    if (!authStore.user) {
+      authStore.logout();
+      throw new Error('Missing user after Google sign-in.');
+    }
+
+    completeLogin(authStore.user, token);
+
+    return authStore.user;
+  }
+
   async function init(): Promise<void> {
     if (authStore.token && !authStore.user) {
       await authStore.fetchUser();
     }
   }
 
-  return { isAuthenticated, isOwner, isSuperAdmin, user, login, register, logout, init, resendVerification, resendVerificationStatus, forgotPassword, resetPassword, setupPassword };
+  return { isAuthenticated, isOwner, isSuperAdmin, user, login, register, logout, init, resendVerification, resendVerificationStatus, forgotPassword, resetPassword, setupPassword, getGoogleRedirectUrl, completeLogin, finalizeGoogleLogin };
 }

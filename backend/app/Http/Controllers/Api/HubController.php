@@ -13,6 +13,7 @@ use App\Models\HubSettings;
 use App\Models\HubImage;
 use App\Models\HubWebsite;
 use App\Models\HubSport;
+use App\Services\HubDiscoveryRankingService;
 use App\Services\ImageUploadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,9 +22,10 @@ use Illuminate\Support\Facades\Storage;
 
 class HubController extends Controller
 {
-    public function __construct(private readonly ImageUploadService $imageUploadService)
-    {
-    }
+    public function __construct(
+        private readonly ImageUploadService $imageUploadService,
+        private readonly HubDiscoveryRankingService $hubDiscoveryRanking,
+    ) {}
 
     public function cities(Request $request): JsonResponse
     {
@@ -45,7 +47,7 @@ class HubController extends Controller
         $perPage = min(max((int) ($request->integer('per_page') ?: 20), 1), 50);
 
         if ($lat !== null && $lng !== null) {
-            $distanceSql = $this->distanceSql();
+            $distanceSql = $this->hubDiscoveryRanking->distanceSql();
 
             $cityDistances = $query
                 ->selectRaw(
@@ -115,7 +117,7 @@ class HubController extends Controller
      *   search    – hub name LIKE search
      *   city      – exact city match (case-insensitive)
      *   sports[]  – filter by one or more sport slugs (hub must have at least one)
-     *   sort      – "courts_count" (default) | "created_at"
+     *   sort      – "courts_count" | "top"
      *   per_page  – results per page (default 12, max 48)
      *   page      – page number
      *   limit     – return at most N results without pagination (e.g. home page top-3)
@@ -123,33 +125,41 @@ class HubController extends Controller
     public function index(Request $request): JsonResponse
     {
         $query = Hub::query()
+            ->select('hubs.*')
             ->where('is_approved', true)
             ->where('is_active', true)
+            ->tap(fn ($builder) => $this->hubDiscoveryRanking->applyDiscoveryColumns($builder))
             ->with(['sports', 'images', 'contactNumbers', 'websites', 'settings', 'operatingHours'])
             ->withCount('courts')
             ->withMin('courts', 'price_per_hour')
             ->withAvg('ratings', 'rating')
             ->withCount('ratings as reviews_count');
-        [$preferredLocationSql, $preferredLocationBindings] = $this->preferredLocationOrder($request);
+        [$preferredLocationSql, $preferredLocationBindings] = $this->hubDiscoveryRanking->preferredLocationOrder($request);
+        $supportsTrigramSearch = $this->hubDiscoveryRanking->supportsTrigramSearch($query);
 
         if ($search = $request->string('search')->trim()->value()) {
-            $query->where(function ($q) use ($search): void {
-                $q->where('name', 'ilike', "%{$search}%")
-                  ->orWhere('description', 'ilike', "%{$search}%")
-                  ->orWhere('address', 'ilike', "%{$search}%")
-                  ->orWhere('city', 'ilike', "%{$search}%")
-                  ->orWhere('province', 'ilike', "%{$search}%")
-                  ->orWhereHas('sports', fn ($sq) => $sq->where('sport', 'ilike', "%{$search}%"))
-                  // Fuzzy fallback: catches typos like "pagdian" → "pagadian"
-                  ->orWhereRaw('word_similarity(?, name) > 0.3', [$search])
-                  ->orWhereRaw('word_similarity(?, city) > 0.3', [$search])
-                  ->orWhereRaw('word_similarity(?, province) > 0.3', [$search])
-                  ->orWhereRaw('word_similarity(?, address) > 0.3', [$search]);
+            $query->where(function ($q) use ($search, $supportsTrigramSearch): void {
+                $needle = '%' . mb_strtolower($search) . '%';
+
+                $q->whereRaw('LOWER(name) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(description) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(address) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(city) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(province) LIKE ?', [$needle])
+                    ->orWhereHas('sports', fn ($sq) => $sq->whereRaw('LOWER(sport) LIKE ?', [$needle]));
+
+                if ($supportsTrigramSearch) {
+                    // Fuzzy fallback: catches typos like "pagdian" → "pagadian"
+                    $q->orWhereRaw('word_similarity(?, name) > 0.3', [$search])
+                        ->orWhereRaw('word_similarity(?, city) > 0.3', [$search])
+                        ->orWhereRaw('word_similarity(?, province) > 0.3', [$search])
+                        ->orWhereRaw('word_similarity(?, address) > 0.3', [$search]);
+                }
             });
         }
 
         if ($city = $request->string('city')->trim()->value()) {
-            $query->where('city', 'ilike', "%{$city}%");
+            $query->whereRaw('LOWER(city) LIKE ?', ['%' . mb_strtolower($city) . '%']);
         }
 
         $sports = array_filter((array) $request->input('sports', []));
@@ -162,39 +172,8 @@ class HubController extends Controller
 
         $sort = $request->string('sort')->trim()->value();
 
-        $topScoreSql = "
-            (
-                (5.0 * 3.5 + COALESCE((SELECT AVG(r.rating) FROM hub_ratings r WHERE r.hub_id = hubs.id), 3.5)
-                           * COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0))
-                / (5.0 + COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0))
-            ) * 0.40
-            + LN(1 + (
-                SELECT COUNT(*) FROM bookings b
-                JOIN courts ct ON ct.id = b.court_id
-                WHERE ct.hub_id = hubs.id
-                  AND b.status IN ('confirmed', 'completed', 'payment_sent')
-                  AND b.created_at >= NOW() - INTERVAL '30 days'
-            )) * 0.30
-            + LN(1 + COALESCE((SELECT COUNT(*) FROM hub_ratings r WHERE r.hub_id = hubs.id), 0)) * 0.15
-            + CASE WHEN EXISTS (
-                SELECT 1 FROM hub_events
-                WHERE hub_id = hubs.id
-                  AND is_active = true
-                  AND event_type = 'promo'
-                  AND date_from <= NOW()
-                  AND date_to >= NOW()
-              ) THEN 1 ELSE 0 END * 0.10
-            + (
-                CASE WHEN cover_image_url IS NOT NULL THEN 0.25 ELSE 0 END
-                + CASE WHEN description IS NOT NULL AND description <> '' THEN 0.25 ELSE 0 END
-                + CASE WHEN lat IS NOT NULL THEN 0.25 ELSE 0 END
-                + CASE WHEN EXISTS (SELECT 1 FROM hub_operating_hours WHERE hub_id = hubs.id) THEN 0.125 ELSE 0 END
-                + CASE WHEN EXISTS (SELECT 1 FROM hub_contact_numbers WHERE hub_id = hubs.id) THEN 0.125 ELSE 0 END
-              ) * 0.05
-        ";
-
         if ($lat !== null && $lng !== null) {
-            $haversine = $this->distanceSql();
+            $haversine = $this->hubDiscoveryRanking->distanceSql();
             $radius = $request->filled('radius')
                 ? max(1, (int) $request->input('radius'))
                 : null;
@@ -202,42 +181,17 @@ class HubController extends Controller
             if ($radius !== null) {
                 $query->whereRaw("{$haversine} < ?", [$lat, $lng, $lat, $lat, $lng, $lat, $radius]);
             }
-
-            if ($preferredLocationSql !== null) {
-                $query->orderByRaw("{$preferredLocationSql} DESC", $preferredLocationBindings);
-            }
-
-            if ($search) {
-                $query->orderByRaw(
-                    'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province)) DESC, ' . $haversine . ' ASC',
-                    [$search, $search, $search, $lat, $lng, $lat, $lat, $lng, $lat]
-                );
-            } elseif ($sort === 'top') {
-                $query->orderByRaw("{$topScoreSql} DESC");
-            } else {
-                $query->orderByRaw("{$haversine} ASC", [$lat, $lng, $lat, $lat, $lng, $lat]);
-            }
-        } else {
-            if ($preferredLocationSql !== null) {
-                $query->orderByRaw("{$preferredLocationSql} DESC", $preferredLocationBindings);
-            }
-
-            if ($search) {
-                // Rank exact/close matches above fuzzy ones
-                $query->orderByRaw(
-                    'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province)) DESC',
-                    [$search, $search, $search]
-                );
-            } else {
-                if ($sort === 'courts_count') {
-                    $query->orderByDesc('courts_count');
-                } elseif ($sort === 'top') {
-                    $query->orderByRaw("{$topScoreSql} DESC");
-                } else {
-                    $query->orderByDesc('created_at');
-                }
-            }
         }
+
+        $this->hubDiscoveryRanking->applyListOrdering(
+            $query,
+            $search,
+            $lat,
+            $lng,
+            $sort,
+            $preferredLocationSql,
+            $preferredLocationBindings,
+        );
 
         $limit = $request->integer('limit');
         if ($limit > 0) {
@@ -267,15 +221,6 @@ class HubController extends Controller
             ],
             'suggestions' => $suggestions,
         ]);
-    }
-
-    private function distanceSql(): string
-    {
-        return '(6371 * acos(CASE
-            WHEN (cos(radians(?)) * cos(radians(lat)) * cos(radians(lng) - radians(?)) + sin(radians(?)) * sin(radians(lat))) > 1
-                THEN 1
-            ELSE (cos(radians(?)) * cos(radians(lat)) * cos(radians(lng) - radians(?)) + sin(radians(?)) * sin(radians(lat)))
-        END))';
     }
 
     /**
@@ -664,32 +609,45 @@ class HubController extends Controller
         $sportWords = array_values(array_intersect($words, $knownSports));
 
         $suggestionQuery = Hub::query()
+            ->select('hubs.*')
             ->where('is_approved', true)
             ->where('is_active', true)
+            ->tap(fn ($builder) => $this->hubDiscoveryRanking->applyDiscoveryColumns($builder))
             ->with(['sports', 'images', 'contactNumbers', 'websites', 'settings', 'operatingHours'])
             ->withCount('courts')
             ->withMin('courts', 'price_per_hour')
             ->withAvg('ratings', 'rating')
             ->withCount('ratings as reviews_count');
+        $supportsTrigramSearch = $this->hubDiscoveryRanking->supportsTrigramSearch($suggestionQuery);
 
         // Respect any city/sports filters the user already applied
         if ($city = $request->string('city')->trim()->value()) {
-            $suggestionQuery->where('city', 'ilike', "%{$city}%");
+            $suggestionQuery->whereRaw('LOWER(city) LIKE ?', ['%' . mb_strtolower($city) . '%']);
         }
         $appliedSports = array_filter((array) $request->input('sports', []));
         if (! empty($appliedSports)) {
             $suggestionQuery->whereHas('sports', fn ($q) => $q->whereIn('sport', $appliedSports));
         }
 
-        $haversine = $this->distanceSql();
-        [$preferredLocationSql, $preferredLocationBindings] = $this->preferredLocationOrder($request);
+        $haversine = $this->hubDiscoveryRanking->distanceSql();
+        [$preferredLocationSql, $preferredLocationBindings] = $this->hubDiscoveryRanking->preferredLocationOrder($request);
 
-        $suggestionQuery->where(function ($q) use ($search, $sportWords, $lat, $lng, $haversine): void {
-            $q->whereRaw('word_similarity(?, name) > 0.25', [$search])
-              ->orWhereRaw('word_similarity(?, city) > 0.25', [$search])
-              ->orWhereRaw('word_similarity(?, province) > 0.25', [$search])
-              ->orWhereRaw('word_similarity(?, address) > 0.25', [$search])
-              ->orWhereRaw('word_similarity(?, description) > 0.25', [$search]);
+        $suggestionQuery->where(function ($q) use ($search, $sportWords, $lat, $lng, $haversine, $supportsTrigramSearch): void {
+            if ($supportsTrigramSearch) {
+                $q->whereRaw('word_similarity(?, name) > 0.25', [$search])
+                    ->orWhereRaw('word_similarity(?, city) > 0.25', [$search])
+                    ->orWhereRaw('word_similarity(?, province) > 0.25', [$search])
+                    ->orWhereRaw('word_similarity(?, address) > 0.25', [$search])
+                    ->orWhereRaw('word_similarity(?, description) > 0.25', [$search]);
+            } else {
+                $needle = '%' . mb_strtolower($search) . '%';
+
+                $q->whereRaw('LOWER(name) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(city) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(province) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(address) LIKE ?', [$needle])
+                    ->orWhereRaw('LOWER(description) LIKE ?', [$needle]);
+            }
 
             if (! empty($sportWords)) {
                 $q->orWhereHas('sports', fn ($sq) => $sq->whereIn('sport', $sportWords));
@@ -700,22 +658,14 @@ class HubController extends Controller
             }
         });
 
-        if ($preferredLocationSql !== null) {
-            $suggestionQuery->orderByRaw("{$preferredLocationSql} DESC", $preferredLocationBindings);
-        }
-
-        // Order: best trigram similarity first; proximity as tiebreaker when available
-        if ($lat !== null && $lng !== null) {
-            $suggestionQuery->orderByRaw(
-                'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province), word_similarity(?, address)) DESC, ' . $haversine . ' ASC',
-                [$search, $search, $search, $search, $lat, $lng, $lat, $lat, $lng, $lat]
-            );
-        } else {
-            $suggestionQuery->orderByRaw(
-                'GREATEST(word_similarity(?, name), word_similarity(?, city), word_similarity(?, province), word_similarity(?, address)) DESC',
-                [$search, $search, $search, $search]
-            );
-        }
+        $this->hubDiscoveryRanking->applySuggestionOrdering(
+            $suggestionQuery,
+            $search,
+            $lat,
+            $lng,
+            $preferredLocationSql,
+            $preferredLocationBindings,
+        );
 
         return $suggestionQuery
             ->limit(5)
@@ -723,44 +673,6 @@ class HubController extends Controller
             ->map(fn (Hub $hub) => $this->formatHub($hub))
             ->values()
             ->all();
-    }
-
-    /**
-     * @return array{0: string|null, 1: array<int, string>}
-     */
-    private function preferredLocationOrder(Request $request): array
-    {
-        $preferredCity = $request->string('preferred_city')->trim()->value();
-        $preferredProvince = $request->string('preferred_province')->trim()->value();
-        $preferredCountry = $request->string('preferred_country')->trim()->value();
-
-        if (! $preferredCity && ! $preferredProvince && ! $preferredCountry) {
-            return [null, []];
-        }
-
-        $bindings = [];
-
-        if ($preferredCity) {
-            $bindings[] = mb_strtolower($preferredCity);
-        }
-
-        if ($preferredProvince) {
-            $bindings[] = mb_strtolower($preferredProvince);
-        }
-
-        if ($preferredCountry) {
-            $bindings[] = mb_strtolower($preferredCountry);
-        }
-
-        return [
-            'CASE
-                WHEN ' . ($preferredCity ? 'LOWER(city) = ?' : '1 = 0') . ' THEN 3
-                WHEN ' . ($preferredProvince ? 'LOWER(province) = ?' : '1 = 0') . ' THEN 2
-                WHEN ' . ($preferredCountry ? 'LOWER(country) = ?' : '1 = 0') . ' THEN 1
-                ELSE 0
-            END',
-            $bindings,
-        ];
     }
 
     /**

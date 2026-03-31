@@ -5,7 +5,17 @@ import { useAuth } from '~/composables/useAuth';
 
 definePageMeta({ layout: 'auth', middleware: 'guest' });
 
-const { register } = useAuth();
+interface GoogleAuthPopupMessage {
+  type: 'aktiv:google-auth-result';
+  status: 'success' | 'error';
+  token?: string;
+  redirect: string;
+  reason?: string;
+}
+
+const { register, getGoogleRedirectUrl, finalizeGoogleLogin } = useAuth();
+const route = useRoute();
+const toast = useToast();
 
 const form = reactive({
   first_name: '',
@@ -21,6 +31,7 @@ const error = ref<string | null>(null);
 const validationErrors = ref<Record<string, string>>({});
 const serverFieldErrors = ref<Record<string, string[]>>({});
 const loading = ref(false);
+const googleLoading = ref(false);
 
 const registerSchema = z
   .object({
@@ -85,6 +96,106 @@ async function handleSubmit() {
 
 function fieldError(field: string) {
   return validationErrors.value[field] ?? serverFieldErrors.value[field]?.[0];
+}
+
+function sanitizeRedirect(value: unknown): string | null {
+  return typeof value === 'string' &&
+    value.startsWith('/') &&
+    !value.startsWith('//')
+    ? value
+    : null;
+}
+
+function openGooglePopup(): Window | null {
+  if (!import.meta.client) {
+    return null;
+  }
+
+  const width = 520;
+  const height = 640;
+  const left = Math.max(
+    0,
+    Math.round(window.screenX + (window.outerWidth - width) / 2)
+  );
+  const top = Math.max(
+    0,
+    Math.round(window.screenY + (window.outerHeight - height) / 2)
+  );
+
+  return window.open(
+    '',
+    'aktiv-google-auth',
+    `popup=yes,width=${width},height=${height},left=${left},top=${top}`
+  );
+}
+
+async function handleGoogleRegister() {
+  googleLoading.value = true;
+
+  try {
+    const redirect = sanitizeRedirect(route.query.redirect) ?? '/dashboard';
+    const popup = openGooglePopup();
+
+    const url = await getGoogleRedirectUrl(redirect);
+
+    if (!popup) {
+      await navigateTo(url, { external: true });
+      return;
+    }
+
+    const result = await new Promise<GoogleAuthPopupMessage>(
+      (resolve, reject) => {
+        const popupPoll = window.setInterval(() => {
+          if (popup.closed) {
+            window.clearInterval(popupPoll);
+            window.removeEventListener('message', handleMessage);
+            reject(new Error('popup_closed'));
+          }
+        }, 400);
+
+        const handleMessage = (event: MessageEvent<GoogleAuthPopupMessage>) => {
+          if (event.origin !== window.location.origin) {
+            return;
+          }
+
+          if (event.data?.type !== 'aktiv:google-auth-result') {
+            return;
+          }
+
+          window.clearInterval(popupPoll);
+          window.removeEventListener('message', handleMessage);
+          resolve(event.data);
+        };
+
+        window.addEventListener('message', handleMessage);
+        popup.location.href = url;
+        popup.focus();
+      }
+    );
+
+    if (result.status !== 'success' || !result.token) {
+      throw new Error(result.reason ?? 'oauth_failed');
+    }
+
+    const user = await finalizeGoogleLogin(result.token);
+    const destination =
+      result.redirect === '/dashboard' && user.role === 'super_admin'
+        ? '/panel'
+        : result.redirect;
+
+    toast.add({
+      title: 'Signed in with Google.',
+      color: 'success'
+    });
+    await navigateTo(destination);
+  } catch {
+    toast.add({
+      title: 'Failed to sign in with Google.',
+      color: 'error'
+    });
+  } finally {
+    googleLoading.value = false;
+  }
 }
 </script>
 
@@ -227,6 +338,13 @@ function fieldError(field: string) {
       >
         Create Account
       </UButton>
+
+      <USeparator label="OR" />
+
+      <AuthGoogleAuthBtn
+        :loading="googleLoading"
+        @click="handleGoogleRegister"
+      />
     </form>
   </UCard>
 </template>

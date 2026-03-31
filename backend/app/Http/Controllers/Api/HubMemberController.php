@@ -17,7 +17,7 @@ class HubMemberController extends Controller
         $activeMembers = $hub->members()->whereHas('user', fn ($q) => $q->whereNull('deletion_scheduled_at'));
         $total   = $activeMembers->count();
         $preview = $activeMembers
-            ->with('user:id,first_name,last_name,username,avatar_thumb_url,profile_privacy')
+            ->with('user:id,first_name,last_name,username,avatar_thumb_url,profile_privacy,is_premium')
             ->limit(5)
             ->get();
 
@@ -34,7 +34,7 @@ class HubMemberController extends Controller
         return HubMemberResource::collection(
             $hub->members()
                 ->whereHas('user', fn ($q) => $q->whereNull('deletion_scheduled_at'))
-                ->with('user:id,first_name,last_name,username,avatar_thumb_url,profile_privacy')
+                ->with('user:id,first_name,last_name,username,avatar_thumb_url,profile_privacy,is_premium')
                 ->cursorPaginate($perPage)
         );
     }
@@ -43,7 +43,6 @@ class HubMemberController extends Controller
     {
         $user = $request->user();
 
-        abort_if($hub->owner_id === $user->id, 403, 'Hub owner cannot join their own hub.');
         abort_if(
             $hub->members()->where('user_id', $user->id)->exists(),
             422,
@@ -51,7 +50,7 @@ class HubMemberController extends Controller
         );
 
         $member = HubMember::create(['hub_id' => $hub->id, 'user_id' => $user->id]);
-        $member->load('user:id,first_name,last_name,username,avatar_thumb_url,profile_privacy');
+        $member->load('user:id,first_name,last_name,username,avatar_thumb_url,profile_privacy,is_premium');
 
         return response()->json(['data' => new HubMemberResource($member)], 201);
     }

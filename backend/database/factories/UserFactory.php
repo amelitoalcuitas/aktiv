@@ -40,6 +40,7 @@ class UserFactory extends Factory
             'province'          => 'Zamboanga del Sur',
             'city'              => 'Pagadian',
             'role'              => UserRole::User,
+            'is_premium'        => false,
         ];
     }
 

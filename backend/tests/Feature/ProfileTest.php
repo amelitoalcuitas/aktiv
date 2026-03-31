@@ -18,17 +18,21 @@ class ProfileTest extends TestCase
 
     public function test_authenticated_user_can_fetch_own_profile(): void
     {
-        $user = User::factory()->create(['bio' => 'Test bio']);
+        $user = User::factory()->create([
+            'bio' => 'Test bio',
+            'is_premium' => true,
+        ]);
 
         $this->actingAs($user)
             ->getJson('/api/profile')
             ->assertOk()
             ->assertJsonPath('data.id', $user->id)
             ->assertJsonPath('data.bio', 'Test bio')
+            ->assertJsonPath('data.is_premium', true)
             ->assertJsonStructure(['data' => [
                 'id', 'first_name', 'last_name', 'username', 'email',
                 'avatar_url', 'avatar_thumb_url', 'banner_url',
-                'bio', 'social_links', 'profile_privacy', 'hearts_count',
+                'bio', 'social_links', 'profile_privacy', 'hearts_count', 'is_premium',
                 'is_hub_owner', 'created_at', 'username_changed_at', 'name_changed_at',
             ]]);
     }

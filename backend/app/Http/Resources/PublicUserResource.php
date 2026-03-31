@@ -23,6 +23,7 @@ class PublicUserResource extends JsonResource
                 'avatar_url'  => $this->avatar_url,
                 'banner_url'  => $this->banner_url,
                 'bio'         => $this->bio,
+                'is_premium'  => (bool) $this->is_premium,
                 'is_hub_owner' => $this->hubs()->exists(),
                 'hearts_count' => $this->heartsReceived()->count(),
                 'has_hearted'  => false,
@@ -41,6 +42,7 @@ class PublicUserResource extends JsonResource
             'avatar_url'     => $this->avatar_url,
             'banner_url'     => $this->banner_url,
             'bio'            => $this->bio,
+            'is_premium'     => (bool) $this->is_premium,
             'social_links'   => $this->social_links ?? [],
             'is_hub_owner'   => $this->hubs()->exists(),
             'owned_hubs'     => $privacy['show_owned_hubs']

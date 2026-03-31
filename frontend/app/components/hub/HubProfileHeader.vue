@@ -168,7 +168,7 @@ function onLeftFromModal() {
 const toast = useToast();
 
 async function toggleMembership() {
-  if (!authStore.isAuthenticated || isOwner.value || joiningHub.value) return;
+  if (!authStore.isAuthenticated || joiningHub.value) return;
   joiningHub.value = true;
   try {
     if (localIsMember.value) {
@@ -348,7 +348,7 @@ async function toggleMembership() {
 
           <!-- Join button — only shown when not yet a member -->
           <button
-            v-if="authStore.isAuthenticated && !isOwner && !localIsMember"
+            v-if="authStore.isAuthenticated && !localIsMember"
             type="button"
             :disabled="joiningHub"
             class="inline-flex items-center gap-1.5 rounded-full bg-success/80 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-success/90 disabled:opacity-60"

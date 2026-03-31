@@ -17,6 +17,7 @@ class HubMemberResource extends JsonResource
             'name'             => $hidden ? null : (($privacy['show_full_name'] ?? true) ? $this->user->name : ($this->user->username ? '@' . $this->user->username : null)),
             'username'         => $this->user->username,
             'avatar_thumb_url' => $hidden ? null : $this->user->avatar_thumb_url,
+            'is_premium'       => (bool) $this->user->is_premium,
         ];
     }
 }

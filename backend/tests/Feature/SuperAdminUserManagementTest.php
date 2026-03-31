@@ -90,6 +90,7 @@ class SuperAdminUserManagementTest extends TestCase
                 'province' => 'Metro Manila',
                 'city' => 'Pasig',
                 'role' => 'owner',
+                'is_premium' => true,
             ])
             ->assertOk()
             ->assertJsonPath('first_name', 'Jamie')
@@ -97,7 +98,8 @@ class SuperAdminUserManagementTest extends TestCase
             ->assertJsonPath('contact_number', '+63 999 888 7777')
             ->assertJsonPath('province', 'Metro Manila')
             ->assertJsonPath('city', 'Pasig')
-            ->assertJsonPath('role', 'owner');
+            ->assertJsonPath('role', 'owner')
+            ->assertJsonPath('is_premium', true);
 
         $user->refresh();
 
@@ -107,6 +109,7 @@ class SuperAdminUserManagementTest extends TestCase
         $this->assertSame('Metro Manila', $user->province);
         $this->assertSame('Pasig', $user->city);
         $this->assertSame(UserRole::Owner, $user->role);
+        $this->assertTrue($user->is_premium);
     }
 
     public function test_super_admin_user_update_requires_location_fields(): void
@@ -129,6 +132,7 @@ class SuperAdminUserManagementTest extends TestCase
                 'country',
                 'province',
                 'city',
+                'is_premium',
             ]);
     }
 
@@ -153,6 +157,7 @@ class SuperAdminUserManagementTest extends TestCase
                 'province' => $user->province,
                 'city' => $user->city,
                 'role' => $user->role->value,
+                'is_premium' => $user->is_premium,
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['email']);
@@ -181,6 +186,7 @@ class SuperAdminUserManagementTest extends TestCase
                 'province' => $user->province,
                 'city' => $user->city,
                 'role' => $user->role->value,
+                'is_premium' => $user->is_premium,
             ])
             ->assertOk()
             ->assertJsonPath('email', 'new@example.com')
@@ -192,5 +198,59 @@ class SuperAdminUserManagementTest extends TestCase
         $this->assertNull($user->email_verified_at);
 
         Notification::assertSentTo($user, VerifyEmailNotification::class);
+    }
+
+    public function test_super_admin_can_remove_premium_from_user(): void
+    {
+        $superAdmin = User::factory()->create([
+            'role' => UserRole::SuperAdmin,
+        ]);
+
+        $user = User::factory()->create([
+            'is_premium' => true,
+        ]);
+
+        $this->actingAs($superAdmin, 'sanctum')
+            ->putJson("/api/panel/users/{$user->id}", [
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'contact_number' => $user->contact_number,
+                'country' => $user->country,
+                'province' => $user->province,
+                'city' => $user->city,
+                'role' => $user->role->value,
+                'is_premium' => false,
+            ])
+            ->assertOk()
+            ->assertJsonPath('is_premium', false);
+
+        $user->refresh();
+
+        $this->assertFalse($user->is_premium);
+    }
+
+    public function test_super_admin_user_update_rejects_non_boolean_is_premium(): void
+    {
+        $superAdmin = User::factory()->create([
+            'role' => UserRole::SuperAdmin,
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($superAdmin, 'sanctum')
+            ->putJson("/api/panel/users/{$user->id}", [
+                'first_name' => $user->first_name,
+                'last_name' => $user->last_name,
+                'email' => $user->email,
+                'contact_number' => $user->contact_number,
+                'country' => $user->country,
+                'province' => $user->province,
+                'city' => $user->city,
+                'role' => $user->role->value,
+                'is_premium' => 'yes',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['is_premium']);
     }
 }

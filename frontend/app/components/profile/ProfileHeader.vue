@@ -200,7 +200,7 @@ const name = computed(() => {
         <div
           v-if="
             profile.is_hub_owner ||
-            (isOwn && showHearts && heartsCount !== null)
+            (showHearts && heartsCount !== null)
           "
           class="mt-1.5 flex flex-wrap items-center justify-center gap-2"
         >

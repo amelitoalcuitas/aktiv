@@ -62,6 +62,7 @@ class AuthApiTest extends TestCase
     {
         $user = User::factory()->create([
             'password' => Hash::make('password123'),
+            'is_premium' => true,
         ]);
 
         $loginResponse = $this->postJson('/api/auth/login', [
@@ -74,11 +75,15 @@ class AuthApiTest extends TestCase
         $loginResponse
             ->assertOk()
             ->assertJsonPath('user.id', $user->id)
+            ->assertJsonPath('user.is_premium', true)
             ->assertJsonPath('token_type', 'Bearer');
 
         $this->getJson('/api/auth/me', [
             'Authorization' => 'Bearer '.$token,
-        ])->assertOk()->assertJsonPath('user.id', $user->id);
+        ])
+            ->assertOk()
+            ->assertJsonPath('user.id', $user->id)
+            ->assertJsonPath('user.is_premium', true);
     }
 
     public function test_login_rejects_invalid_credentials(): void

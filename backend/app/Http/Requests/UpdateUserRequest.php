@@ -24,6 +24,7 @@ class UpdateUserRequest extends FormRequest
             'province'       => ['required', 'string', 'max:255'],
             'city'           => ['required', 'string', 'max:255'],
             'role'           => ['required', 'in:user,owner'],
+            'is_premium'     => ['required', 'boolean'],
             'contact_number' => ['nullable', 'string', 'max:20'],
         ];
     }

@@ -19,6 +19,7 @@ interface PanelUser {
   province: string;
   city: string;
   role: string;
+  is_premium: boolean;
   email_verified: boolean;
   is_disabled: boolean;
   hubs_count: number;
@@ -62,6 +63,10 @@ watch(search, () => {
 
 watch(page, fetchUsers);
 
+function normalizeText(value: string | null | undefined): string {
+  return value?.trim() ?? '';
+}
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-PH', {
     timeZone: 'Asia/Manila',
@@ -95,7 +100,8 @@ const editForm = reactive({
   province: '',
   city: '',
   contact_number: '',
-  role: 'user'
+  role: 'user',
+  is_premium: false
 });
 const editErrors = reactive({
   first_name: '',
@@ -105,7 +111,8 @@ const editErrors = reactive({
   province: '',
   city: '',
   contact_number: '',
-  role: ''
+  role: '',
+  is_premium: ''
 });
 
 function openEdit(user: PanelUser) {
@@ -121,11 +128,12 @@ function openEdit(user: PanelUser) {
     first_name: user.first_name,
     last_name: user.last_name,
     email: user.email,
-    country: user.country,
-    province: user.province,
-    city: user.city,
+    country: user.country ?? '',
+    province: user.province ?? '',
+    city: user.city ?? '',
     contact_number: user.contact_number ?? '',
-    role: user.role === 'owner' ? 'owner' : 'user'
+    role: user.role === 'owner' ? 'owner' : 'user',
+    is_premium: user.is_premium
   });
 
   Object.assign(editErrors, {
@@ -136,7 +144,8 @@ function openEdit(user: PanelUser) {
     province: '',
     city: '',
     contact_number: '',
-    role: ''
+    role: '',
+    is_premium: ''
   });
 
   editSubmitted.value = false;
@@ -151,35 +160,38 @@ function validateEditForm(): boolean {
     province: '',
     city: '',
     contact_number: '',
-    role: ''
+    role: '',
+    is_premium: ''
   });
 
   let valid = true;
 
-  if (!editForm.first_name.trim()) {
+  if (!normalizeText(editForm.first_name)) {
     editErrors.first_name = 'First name is required.';
     valid = false;
   }
-  if (!editForm.last_name.trim()) {
+  if (!normalizeText(editForm.last_name)) {
     editErrors.last_name = 'Last name is required.';
     valid = false;
   }
-  if (!editForm.email.trim()) {
+  if (!normalizeText(editForm.email)) {
     editErrors.email = 'Email is required.';
     valid = false;
-  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email.trim())) {
+  } else if (
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeText(editForm.email))
+  ) {
     editErrors.email = 'Please enter a valid email address.';
     valid = false;
   }
-  if (!editForm.country.trim()) {
+  if (!normalizeText(editForm.country)) {
     editErrors.country = 'Country is required.';
     valid = false;
   }
-  if (!editForm.province.trim()) {
+  if (!normalizeText(editForm.province)) {
     editErrors.province = 'Province is required.';
     valid = false;
   }
-  if (!editForm.city.trim()) {
+  if (!normalizeText(editForm.city)) {
     editErrors.city = 'City is required.';
     valid = false;
   }
@@ -201,21 +213,23 @@ async function confirmEdit() {
 
   editModal.value.saving = true;
   try {
-    const emailChanged = editForm.email.trim() !== editModal.value.user.email;
+    const emailChanged =
+      normalizeText(editForm.email) !== editModal.value.user.email;
 
     const updated = await apiFetch<PanelUser>(
       `/panel/users/${editModal.value.user.id}`,
       {
         method: 'PUT',
         body: {
-          first_name: editForm.first_name.trim(),
-          last_name: editForm.last_name.trim(),
-          email: editForm.email.trim(),
-          contact_number: editForm.contact_number.trim() || null,
-          country: editForm.country.trim(),
-          province: editForm.province.trim(),
-          city: editForm.city.trim(),
-          role: editForm.role
+          first_name: normalizeText(editForm.first_name),
+          last_name: normalizeText(editForm.last_name),
+          email: normalizeText(editForm.email),
+          contact_number: normalizeText(editForm.contact_number) || null,
+          country: normalizeText(editForm.country),
+          province: normalizeText(editForm.province),
+          city: normalizeText(editForm.city),
+          role: editForm.role,
+          is_premium: editForm.is_premium
         }
       }
     );
@@ -241,6 +255,7 @@ async function confirmEdit() {
     if (errors.contact_number)
       editErrors.contact_number = errors.contact_number[0];
     if (errors.role) editErrors.role = errors.role[0];
+    if (errors.is_premium) editErrors.is_premium = errors.is_premium[0];
 
     if (!Object.values(errors).length) {
       toast.add({ title: 'Failed to update user.', color: 'error' });
@@ -544,6 +559,7 @@ const deleteConfirmModal = ref({
               <th class="px-4 py-3 text-left font-medium">User</th>
               <th class="px-4 py-3 text-left font-medium">Email</th>
               <th class="px-4 py-3 text-left font-medium">Role</th>
+              <th class="px-4 py-3 text-left font-medium">Premium</th>
               <th class="px-4 py-3 text-left font-medium">Status</th>
               <th class="px-4 py-3 text-center font-medium">Hubs</th>
               <th class="px-4 py-3 text-left font-medium">Joined</th>
@@ -577,6 +593,20 @@ const deleteConfirmModal = ref({
                   "
                 >
                   {{ roleConfig[user.role]?.label ?? user.role }}
+                </span>
+              </td>
+              <!-- Premium -->
+              <td class="px-4 py-3">
+                <span
+                  class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                  :class="
+                    user.is_premium
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-[#f0f4f8] text-[#94a3b8]'
+                  "
+                >
+                  <UIcon name="i-lucide-crown" class="h-3.5 w-3.5" />
+                  {{ user.is_premium ? 'Premium' : 'Standard' }}
                 </span>
               </td>
               <!-- Status badges -->
@@ -972,6 +1002,26 @@ const deleteConfirmModal = ref({
               label-key="label"
               class="w-full"
             />
+          </UFormField>
+          <UFormField
+            label="Premium"
+            :error="
+              editSubmitted && editErrors.is_premium
+                ? editErrors.is_premium
+                : undefined
+            "
+          >
+            <div
+              class="flex items-center justify-between gap-4 rounded-xl border border-[#dbe4ef] bg-[#f8fafc] px-4 py-3"
+            >
+              <div>
+                <p class="text-sm font-medium text-[#0f1728]">Premium status</p>
+                <p class="text-xs text-[#64748b]">
+                  Enable premium perks for this user account.
+                </p>
+              </div>
+              <USwitch v-model="editForm.is_premium" />
+            </div>
           </UFormField>
         </div>
       </template>

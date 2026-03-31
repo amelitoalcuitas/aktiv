@@ -31,6 +31,7 @@ class ProfileResource extends JsonResource
             'profile_privacy'         => $this->resolvedPrivacy(),
             'google_id'               => $this->google_id,
             'role'                    => $this->role->value,
+            'is_premium'              => (bool) $this->is_premium,
             'email_verified_at'       => $this->email_verified_at,
             'is_hub_owner'            => $this->hubs()->exists(),
             'owned_hubs'              => $this->orderedOwnedHubs()->map(fn ($h) => [

@@ -11,28 +11,37 @@ beforeEach(function (): void {
 });
 
 test('unauthenticated user can view member preview and count', function (): void {
+    $this->user->update(['is_premium' => true]);
+
     HubMember::create(['hub_id' => $this->hub->id, 'user_id' => $this->user->id]);
 
     $this->getJson("/api/hubs/{$this->hub->id}/members")
         ->assertOk()
         ->assertJsonStructure(['data', 'meta' => ['total']])
-        ->assertJsonPath('meta.total', 1);
+        ->assertJsonPath('meta.total', 1)
+        ->assertJsonPath('data.0.is_premium', true);
 });
 
 test('unauthenticated user can list members', function (): void {
+    $this->user->update(['is_premium' => true]);
+
     HubMember::create(['hub_id' => $this->hub->id, 'user_id' => $this->user->id]);
 
     $this->getJson("/api/hubs/{$this->hub->id}/members/list")
         ->assertOk()
         ->assertJsonStructure(['data'])
-        ->assertJsonCount(1, 'data');
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.is_premium', true);
 });
 
 test('authenticated user can join a hub', function (): void {
+    $this->user->update(['is_premium' => true]);
+
     $this->actingAs($this->user)
         ->postJson("/api/hubs/{$this->hub->id}/members")
         ->assertCreated()
-        ->assertJsonStructure(['data' => ['id', 'name', 'username', 'avatar_thumb_url']]);
+        ->assertJsonStructure(['data' => ['id', 'name', 'username', 'avatar_thumb_url', 'is_premium']])
+        ->assertJsonPath('data.is_premium', true);
 
     $this->assertDatabaseHas('hub_members', [
         'hub_id'  => $this->hub->id,
@@ -46,12 +55,6 @@ test('user cannot join the same hub twice', function (): void {
     $this->actingAs($this->user)
         ->postJson("/api/hubs/{$this->hub->id}/members")
         ->assertStatus(422);
-});
-
-test('hub owner cannot join their own hub', function (): void {
-    $this->actingAs($this->owner)
-        ->postJson("/api/hubs/{$this->hub->id}/members")
-        ->assertForbidden();
 });
 
 test('authenticated user can leave a hub', function (): void {
@@ -79,13 +82,16 @@ test('unauthenticated user cannot join a hub', function (): void {
 });
 
 test('hub show response includes member data', function (): void {
+    $this->user->update(['is_premium' => true]);
+
     HubMember::create(['hub_id' => $this->hub->id, 'user_id' => $this->user->id]);
 
     $this->getJson("/api/hubs/{$this->hub->id}")
         ->assertOk()
         ->assertJsonStructure(['data' => ['members_count', 'member_preview', 'is_member']])
         ->assertJsonPath('data.members_count', 1)
-        ->assertJsonPath('data.is_member', false);
+        ->assertJsonPath('data.is_member', false)
+        ->assertJsonPath('data.member_preview.0.is_premium', true);
 });
 
 test('hub show response reflects is_member for authenticated user', function (): void {

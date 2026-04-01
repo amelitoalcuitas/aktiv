@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import type { Court } from '~/types/hub';
 import type { BookingDetail, BookingStatus } from '~/types/booking';
+import type { OpenPlaySession } from '~/types/openPlay';
 import { useHubs } from '~/composables/useHubs';
 import { useOwnerBookings } from '~/composables/useOwnerBookings';
+import { useOwnerOpenPlay } from '~/composables/useOwnerOpenPlay';
+import OpenPlayOwnerModal from '~/components/openplay/OpenPlayOwnerModal.vue';
 
 definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
 
@@ -16,17 +19,42 @@ const {
   createWalkIn,
   updateBooking
 } = useOwnerBookings();
+const { fetchSession } = useOwnerOpenPlay();
 const toast = useToast();
 
 const hubId = computed(() => String(route.params.id));
 
 const manageTabs = computed(() => [
-  { label: 'Hub', icon: 'i-heroicons-building-storefront', to: `/hubs/${hubId.value}/edit` },
-  { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: `/hubs/${hubId.value}/courts` },
-  { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: `/hubs/${hubId.value}/bookings` },
-  { label: 'Events', icon: 'i-heroicons-megaphone', to: `/hubs/${hubId.value}/events` },
-  { label: 'Reviews', icon: 'i-heroicons-star', to: `/hubs/${hubId.value}/reviews` },
-  { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: `/hubs/${hubId.value}/settings` }
+  {
+    label: 'Hub',
+    icon: 'i-heroicons-building-storefront',
+    to: `/hubs/${hubId.value}/edit`
+  },
+  {
+    label: 'Courts',
+    icon: 'i-heroicons-squares-2x2',
+    to: `/hubs/${hubId.value}/courts`
+  },
+  {
+    label: 'Bookings',
+    icon: 'i-heroicons-calendar-days',
+    to: `/hubs/${hubId.value}/bookings`
+  },
+  {
+    label: 'Events',
+    icon: 'i-heroicons-megaphone',
+    to: `/hubs/${hubId.value}/events`
+  },
+  {
+    label: 'Reviews',
+    icon: 'i-heroicons-star',
+    to: `/hubs/${hubId.value}/reviews`
+  },
+  {
+    label: 'Settings',
+    icon: 'i-heroicons-cog-6-tooth',
+    to: `/hubs/${hubId.value}/settings`
+  }
 ]);
 
 // ── View mode ─────────────────────────────────────────────────
@@ -153,7 +181,13 @@ const filteredCourts = computed(() => {
 const { apiFetch } = useApi();
 
 onMounted(async () => {
-  await Promise.all([loadBookings(), loadCourts(), fetchHub(hubId.value).then(h => { hubData.value = h; })]);
+  await Promise.all([
+    loadBookings(),
+    loadCourts(),
+    fetchHub(hubId.value).then((h) => {
+      hubData.value = h;
+    })
+  ]);
 
   const bookingIdRaw = Array.isArray(route.query.bookingId)
     ? route.query.bookingId[0]
@@ -302,6 +336,14 @@ async function submitCancel() {
   }
 }
 
+// ── Open play session map ─────────────────────────────────────
+// Keyed by booking_id, populated when a session is created or participant list opened
+const openPlaySessionsMap = ref<Record<string, OpenPlaySession>>({});
+
+function upsertOpenPlaySession(session: OpenPlaySession) {
+  openPlaySessionsMap.value[session.booking_id] = session;
+}
+
 // ── Walk-in modal ─────────────────────────────────────────────
 const isWalkInOpen = ref(false);
 
@@ -325,12 +367,47 @@ function onWalkInCreated(booking: BookingDetail) {
   allBookings.value.unshift(booking);
 }
 
+function onOpenPlayCreated(session: OpenPlaySession) {
+  upsertOpenPlaySession(session);
+  // The booking embedded in the session response has the same shape as BookingDetail
+  if (session.booking) {
+    allBookings.value.unshift(session.booking as unknown as BookingDetail);
+  }
+}
+
+// ── Owner open play modal ─────────────────────────────────────
+const isOpenPlayModalOpen = ref(false);
+const selectedOpenPlaySessionId = ref<string | null>(null);
+
+async function openOpenPlayModal(booking: BookingDetail) {
+  if (!booking.open_play_session_id) return;
+
+  selectedOpenPlaySessionId.value = booking.open_play_session_id;
+  isOpenPlayModalOpen.value = true;
+
+  try {
+    const session = await fetchSession(hubId.value, booking.open_play_session_id);
+    upsertOpenPlaySession(session);
+  } catch {
+    toast.add({ title: 'Failed to load open play session', color: 'error' });
+  }
+}
+
+function onOpenPlayUpdated(session: OpenPlaySession) {
+  upsertOpenPlaySession(session);
+  loadBookings();
+}
+
 // ── Booking details modal ───────────────────────────────────────
 const isDetailsOpen = ref(false);
 const selectedBooking = ref<BookingDetail | null>(null);
 const updatingId = ref<string | null>(null);
 
 function openDetails(booking: BookingDetail) {
+  if (booking.session_type === 'open_play') {
+    openOpenPlayModal(booking);
+    return;
+  }
   selectedBooking.value = booking;
   isDetailsOpen.value = true;
 }
@@ -380,7 +457,8 @@ function replaceBookingInList(updated: BookingDetail) {
 }
 
 function customerLabel(b: BookingDetail): string {
-  if (b.booked_by_user) return `${b.booked_by_user.first_name} ${b.booked_by_user.last_name}`.trim();
+  if (b.booked_by_user)
+    return `${b.booked_by_user.first_name} ${b.booked_by_user.last_name}`.trim();
   if (b.guest_name) return `${b.guest_name} (guest)`;
   return 'Unknown';
 }
@@ -625,7 +703,7 @@ function bookingDropdownItems(booking: BookingDetail) {
           class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
           @click="() => openWalkIn()"
         >
-          Add Walk-in
+          Add Booking
         </UButton>
       </div>
 
@@ -655,10 +733,20 @@ function bookingDropdownItems(booking: BookingDetail) {
           <template #customer-cell="{ row }">
             <div class="space-y-1">
               <p class="text-sm font-medium text-[#0f1728]">
-                {{ customerLabel(row.original) }}
+                {{
+                  row.original.session_type === 'open_play'
+                    ? 'Open Play'
+                    : customerLabel(row.original)
+                }}
               </p>
               <UBadge
-                v-if="row.original.booking_source === 'owner_added'"
+                v-if="row.original.session_type === 'open_play'"
+                label="Open Play"
+                color="primary"
+                variant="subtle"
+              />
+              <UBadge
+                v-else-if="row.original.booking_source === 'owner_added'"
                 label="Walk-in"
                 color="neutral"
                 variant="subtle"
@@ -719,8 +807,21 @@ function bookingDropdownItems(booking: BookingDetail) {
           </template>
 
           <template #actions-cell="{ row }">
+            <UButton
+              v-if="
+                row.original.session_type === 'open_play' &&
+                row.original.open_play_session_id
+              "
+              size="sm"
+              color="primary"
+              variant="outline"
+              icon="i-heroicons-pencil-square"
+              @click="openOpenPlayModal(row.original)"
+            >
+              Manage
+            </UButton>
             <UDropdownMenu
-              v-if="bookingDropdownItems(row.original).length"
+              v-else-if="bookingDropdownItems(row.original).length"
               :items="bookingDropdownItems(row.original)"
             >
               <UButton
@@ -741,12 +842,14 @@ function bookingDropdownItems(booking: BookingDetail) {
           :bookings="filteredBookings"
           :min-time="gridMinTime"
           :max-time="gridMaxTime"
+          :open-play-sessions-map="openPlaySessionsMap"
           :operating-hours="hubData?.operating_hours ?? []"
           @book-slot="openWalkIn"
           @action-confirm="handleConfirm"
           @action-reject="openReject"
           @action-cancel="openCancel"
           @view-booking="openDetails"
+          @view-open-play="openOpenPlayModal"
         />
       </div>
     </div>
@@ -814,7 +917,7 @@ function bookingDropdownItems(booking: BookingDetail) {
       </template>
     </AppModal>
 
-    <!-- ── Walk-in modal ─────────────────────────────────────────────── -->
+    <!-- ── Walk-in / Open Play modal ────────────────────────────────────── -->
     <BookingWalkInModal
       v-model:open="isWalkInOpen"
       :hub-id="hubId"
@@ -824,6 +927,17 @@ function bookingDropdownItems(booking: BookingDetail) {
       :initial-court-id="calendarSlot?.courtId"
       :operating-hours="hubData?.operating_hours ?? []"
       @created="onWalkInCreated"
+      @openplay:created="onOpenPlayCreated"
+    />
+
+    <OpenPlayOwnerModal
+      v-if="selectedOpenPlaySessionId"
+      v-model:open="isOpenPlayModalOpen"
+      :hub-id="hubId"
+      :session-id="selectedOpenPlaySessionId"
+      :courts="hubCourts"
+      :operating-hours="hubData?.operating_hours ?? []"
+      @updated="onOpenPlayUpdated"
     />
 
     <!-- ── Booking Details modal ─────────────────────────────────────── -->

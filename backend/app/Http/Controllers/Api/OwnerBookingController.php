@@ -34,6 +34,7 @@ class OwnerBookingController extends Controller
             ->with([
                 'court:id,name,hub_id',
                 'bookedBy:id,first_name,last_name,email,contact_number,avatar_url',
+                'openPlaySession:id,booking_id',
             ])
             ->orderByDesc('created_at');
 
@@ -397,6 +398,7 @@ class OwnerBookingController extends Controller
             'payment_confirmed_at' => $booking->payment_confirmed_at?->toIso8601String(),
             'expires_at' => $booking->expires_at?->toIso8601String(),
             'cancelled_by' => $booking->cancelled_by,
+            'open_play_session_id' => $booking->openPlaySession?->id,
             'created_at' => $booking->created_at->toIso8601String(),
         ];
     }

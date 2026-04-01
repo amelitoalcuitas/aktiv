@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HubMemberController;
+use App\Http\Controllers\Api\OpenPlayController;
+use App\Http\Controllers\Api\OwnerOpenPlayController;
 use App\Http\Controllers\Api\HubOwnerRequestController;
 use App\Http\Controllers\Api\SuperAdminController;
 use App\Http\Controllers\Api\SuperAdminHubOwnerRequestController;
@@ -62,6 +64,10 @@ Route::get('/hubs/{hub}/members', [HubMemberController::class, 'index'])->name('
 Route::get('/hubs/{hub}/members/list', [HubMemberController::class, 'list'])->name('api.hubs.members.list');
 Route::get('/hubs/{hub}/courts', [CourtController::class, 'index'])->name('api.hubs.courts.index');
 Route::get('/hubs/{hub}/bookings', [BookingController::class, 'hubIndex'])->name('api.hubs.bookings.index');
+Route::get('/hubs/{hub}/open-play', [OpenPlayController::class, 'index'])->name('api.hubs.open-play.index');
+Route::post('/hubs/{hub}/open-play/{session}/guest-verify', [OpenPlayController::class, 'sendVerificationCode'])->name('api.hubs.open-play.guest-verify');
+Route::post('/hubs/{hub}/open-play/{session}/join', [OpenPlayController::class, 'join'])->name('api.hubs.open-play.join');
+Route::post('/hubs/{hub}/open-play/{session}/participants/{participant}/receipt', [OpenPlayController::class, 'uploadReceipt'])->name('api.hubs.open-play.receipt');
 Route::get('/bookings/{code}/qr', [BookingController::class, 'qrCode'])->name('api.bookings.qr');
 Route::get('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'index'])->name('api.hubs.courts.bookings.index');
 Route::post('/hubs/{hub}/vouchers/preview', [BookingController::class, 'previewVoucher'])->name('api.hubs.vouchers.preview');
@@ -84,6 +90,9 @@ Route::get('/users/{user}', [UserController::class, 'show'])->name('api.users.sh
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/hubs/{hub}/courts/{court}/bookings', [BookingController::class, 'store'])->name('api.hubs.courts.bookings.store');
     Route::post('/hubs/{hub}/courts/{court}/bookings/{booking}/receipt', [BookingController::class, 'uploadReceipt'])->name('api.hubs.courts.bookings.receipt');
+
+    // Open play — leave (auth required)
+    Route::delete('/hubs/{hub}/open-play/{session}/leave', [OpenPlayController::class, 'leave'])->name('api.hubs.open-play.leave');
 
     // User bookings
     Route::get('/user/bookings', [UserBookingController::class, 'index'])->name('api.user.bookings.index');
@@ -141,6 +150,16 @@ Route::middleware(['auth:sanctum', 'owner'])->group(function (): void {
     Route::post('/dashboard/hubs/{hub}/courts/{court}/walk-in', [OwnerBookingController::class, 'walkIn'])->name('api.dashboard.hubs.walk-in');
     Route::get('/dashboard/users/search', [OwnerBookingController::class, 'searchUsers'])->name('api.dashboard.users.search');
     Route::get('/dashboard/hubs/{hub}/bookings/verify/{code}', [OwnerBookingController::class, 'verifyByCode'])->name('api.dashboard.hubs.bookings.verify');
+
+    // Owner open play management
+    Route::post('/dashboard/hubs/{hub}/open-play', [OwnerOpenPlayController::class, 'store'])->name('api.dashboard.hubs.open-play.store');
+    Route::get('/dashboard/hubs/{hub}/open-play/{session}', [OwnerOpenPlayController::class, 'show'])->name('api.dashboard.hubs.open-play.show');
+    Route::put('/dashboard/hubs/{hub}/open-play/{session}', [OwnerOpenPlayController::class, 'update'])->name('api.dashboard.hubs.open-play.update');
+    Route::delete('/dashboard/hubs/{hub}/open-play/{session}', [OwnerOpenPlayController::class, 'destroy'])->name('api.dashboard.hubs.open-play.destroy');
+    Route::get('/dashboard/hubs/{hub}/open-play/{session}/participants', [OwnerOpenPlayController::class, 'participants'])->name('api.dashboard.hubs.open-play.participants');
+    Route::post('/dashboard/hubs/{hub}/open-play/{session}/participants/{participant}/confirm', [OwnerOpenPlayController::class, 'confirmParticipant'])->name('api.dashboard.hubs.open-play.participants.confirm');
+    Route::post('/dashboard/hubs/{hub}/open-play/{session}/participants/{participant}/reject', [OwnerOpenPlayController::class, 'rejectParticipant'])->name('api.dashboard.hubs.open-play.participants.reject');
+    Route::delete('/dashboard/hubs/{hub}/open-play/{session}/participants/{participant}', [OwnerOpenPlayController::class, 'cancelParticipant'])->name('api.dashboard.hubs.open-play.participants.cancel');
 
     // Hub events (owner)
     Route::get('/dashboard/hubs/{hub}/events', [HubEventController::class, 'index'])->name('api.dashboard.hubs.events.index');

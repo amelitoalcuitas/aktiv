@@ -5,6 +5,7 @@ import type {
   BookingStatus,
   SelectedSlot
 } from '~/types/booking';
+import type { OpenPlaySession } from '~/types/openPlay';
 
 const props = withDefaults(
   defineProps<{
@@ -14,6 +15,7 @@ const props = withDefaults(
     minTime?: string;
     maxTime?: string;
     selectedSlots?: SelectedSlot[];
+    openPlaySessionsMap?: Record<string, OpenPlaySession>;
     operatingHours?: OperatingHoursEntry[];
     closureEvents?: HubEvent[];
     promoEvents?: HubEvent[];
@@ -22,6 +24,7 @@ const props = withDefaults(
     minTime: '06:00',
     maxTime: '23:00',
     selectedSlots: () => [],
+    openPlaySessionsMap: () => ({}),
     operatingHours: () => [],
     closureEvents: () => [],
     promoEvents: () => []
@@ -32,6 +35,7 @@ const emit = defineEmits<{
   'slot-click': [{ court: Court; date: Date }];
   'update:selectedDate': [Date];
   'own-booking-click': [{ booking: CalendarBooking; court: Court }];
+  'open-play-click': [OpenPlaySession];
 }>();
 
 // ── Time slot generation ───────────────────────────────────────
@@ -219,6 +223,17 @@ function bookingLabel(booking: CalendarBooking): string {
   return 'Reserved';
 }
 
+function getOpenPlaySession(booking: CalendarBooking | null): OpenPlaySession | null {
+  if (!booking || booking.session_type !== 'open_play') return null;
+  return props.openPlaySessionsMap[booking.id] ?? null;
+}
+
+function openPlayPriceLabel(session: OpenPlaySession): string {
+  const price = Number(session.price_per_player);
+  if (price === 0) return 'Free';
+  return `P${price.toLocaleString('en-PH', { maximumFractionDigits: 0 })}/pax`;
+}
+
 function bookingBg(status: BookingStatus): string {
   switch (status) {
     case 'pending_payment':
@@ -391,6 +406,11 @@ function handleCellClick(court: Court, slotIdx: number) {
 function handleBookedCellClick(court: Court, slotIdx: number) {
   const cell = getCellState(court.id, slotIdx);
   if (cell.type !== 'booked' || !cell.booking) return;
+  const session = getOpenPlaySession(cell.booking);
+  if (session) {
+    emit('open-play-click', session);
+    return;
+  }
   if (cell.booking.is_own && cell.booking.status === 'pending_payment') {
     emit('own-booking-click', { booking: cell.booking, court });
   }
@@ -535,9 +555,39 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                 >
                   <!-- Invisible spacer keeps the td height so borders render -->
                   <div class="h-12 w-full" aria-hidden="true" />
+                  <button
+                    v-if="getOpenPlaySession(getCellBooking(court.id, slotIdx))"
+                    type="button"
+                    class="absolute inset-1.5 flex cursor-pointer flex-col items-center justify-center rounded-md border border-[#7c3aed] bg-[#8b5cf6] px-1.5 text-center text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#7c3aed]"
+                    @click="handleBookedCellClick(court, slotIdx)"
+                  >
+                    <span class="truncate max-w-full">
+                      {{
+                        getOpenPlaySession(getCellBooking(court.id, slotIdx))?.sport ??
+                        'Open Play'
+                      }}
+                    </span>
+                    <span class="text-[10px] font-medium opacity-80">
+                      {{
+                        getOpenPlaySession(getCellBooking(court.id, slotIdx))
+                          ?.participants_count
+                      }}
+                      /
+                      {{
+                        getOpenPlaySession(getCellBooking(court.id, slotIdx))
+                          ?.max_players
+                      }}
+                      ·
+                      {{
+                        openPlayPriceLabel(
+                          getOpenPlaySession(getCellBooking(court.id, slotIdx))!
+                        )
+                      }}
+                    </span>
+                  </button>
                   <!-- Own pending_payment booking: clickable to upload receipt -->
                   <button
-                    v-if="
+                    v-else-if="
                       getCellBooking(court.id, slotIdx).is_own &&
                       getCellBooking(court.id, slotIdx).status ===
                         'pending_payment'
@@ -643,6 +693,10 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
       <div class="flex items-center gap-1.5">
         <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#fef9c3]" />
         <span class="text-sm text-[var(--aktiv-muted)]">Pending</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="inline-block h-3.5 w-3.5 rounded-sm border border-[#c4b5fd] bg-[#f3e8ff]" />
+        <span class="text-sm text-[var(--aktiv-muted)]">Open Play</span>
       </div>
       <div class="flex items-center gap-1.5">
         <span class="inline-block h-3.5 w-3.5 rounded-sm bg-[#fee2e2]" />

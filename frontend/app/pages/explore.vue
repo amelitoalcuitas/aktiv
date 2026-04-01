@@ -67,6 +67,7 @@ const userLng = ref<number | null>(null);
 const nearbyHubs = ref<Hub[]>([]);
 const topHubs = ref<Hub[]>([]);
 const topHubsLoading = ref(false);
+const nearbyHubsLoading = ref(false);
 const locationSource = ref<'approximate' | 'precise' | null>(null);
 const approximateLocation = ref<ApproximateLocation | null>(null);
 const locationDenied = ref(false);
@@ -92,6 +93,7 @@ async function loadNearbyHubs(
   lng: number,
   source: 'approximate' | 'precise'
 ) {
+  nearbyHubsLoading.value = true;
   try {
     const result = await fetchHubsPaginated({
       lat,
@@ -104,6 +106,8 @@ async function loadNearbyHubs(
     locationSource.value = result.data.length > 0 ? source : null;
   } catch {
     // silently ignore
+  } finally {
+    nearbyHubsLoading.value = false;
   }
 }
 
@@ -167,6 +171,27 @@ const showProfileScopedOnly = computed(
     profileLocationApplied.value &&
     nearbyHubs.value.length === 0 &&
     hubs.value.length > 0
+);
+
+const showNearbyLoading = computed(
+  () => !hasActiveFilters.value && nearbyHubsLoading.value
+);
+
+const showTopHubsLoading = computed(
+  () =>
+    !hasActiveFilters.value &&
+    !profileLocationApplied.value &&
+    nearbyHubs.value.length === 0 &&
+    topHubsLoading.value
+);
+
+const showProfileScopedLoading = computed(
+  () =>
+    !hasActiveFilters.value &&
+    profileLocationApplied.value &&
+    nearbyHubs.value.length === 0 &&
+    loading.value &&
+    hubs.value.length === 0
 );
 
 const showLocationNotice = computed(
@@ -574,8 +599,20 @@ if (hasActiveFilters.value) {
           {{ meta ? `${meta.total} hubs found` : '\u00a0' }}
         </p>
 
+        <!-- Nearby hubs skeleton -->
+        <div v-if="showNearbyLoading" class="mb-8">
+          <div class="mb-3 h-4 w-32 animate-pulse rounded bg-[var(--aktiv-border)]" />
+          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div
+              v-for="i in 6"
+              :key="`nearby-sk-${i}`"
+              class="h-[360px] animate-pulse rounded-2xl bg-[var(--aktiv-border)]"
+            />
+          </div>
+        </div>
+
         <!-- Nearby hubs (default view: no search/filters active, approximate or precise location available) -->
-        <div v-if="showNearbyOnly" class="mb-8">
+        <div v-else-if="showNearbyOnly" class="mb-8">
           <p
             class="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[#5d7086]"
           >
@@ -584,6 +621,18 @@ if (hasActiveFilters.value) {
           </p>
           <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             <HubCard v-for="hub in nearbyHubs" :key="hub.id" :hub="hub" />
+          </div>
+        </div>
+
+        <!-- Profile-scoped hubs skeleton -->
+        <div v-else-if="showProfileScopedLoading" class="mb-8">
+          <div class="mb-3 h-4 w-40 animate-pulse rounded bg-[var(--aktiv-border)]" />
+          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div
+              v-for="i in 6"
+              :key="`profile-sk-${i}`"
+              class="h-[360px] animate-pulse rounded-2xl bg-[var(--aktiv-border)]"
+            />
           </div>
         </div>
 
@@ -597,6 +646,18 @@ if (hasActiveFilters.value) {
           </p>
           <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
             <HubCard v-for="hub in hubs" :key="hub.id" :hub="hub" />
+          </div>
+        </div>
+
+        <!-- Top hubs skeleton -->
+        <div v-else-if="showTopHubsLoading" class="mb-8">
+          <div class="mb-3 h-4 w-24 animate-pulse rounded bg-[var(--aktiv-border)]" />
+          <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div
+              v-for="i in 6"
+              :key="`top-sk-${i}`"
+              class="h-[360px] animate-pulse rounded-2xl bg-[var(--aktiv-border)]"
+            />
           </div>
         </div>
 

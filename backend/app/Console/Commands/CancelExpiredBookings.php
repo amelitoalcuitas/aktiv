@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Events\BookingSlotUpdated;
 use App\Models\Booking;
 use App\Models\GuestBookingPenalty;
+use App\Models\OpenPlayParticipant;
 use App\Models\User;
 use Illuminate\Console\Command;
 
@@ -22,37 +23,68 @@ class CancelExpiredBookings extends Command
             ->with('court')
             ->get();
 
-        if ($expired->isEmpty()) {
-            $this->info('No expired bookings found.');
-            return self::SUCCESS;
+        if (! $expired->isEmpty()) {
+            $ids = $expired->pluck('id');
+            Booking::whereIn('id', $ids)->update(['status' => 'cancelled', 'cancelled_by' => 'system']);
+
+            $this->info("Cancelled {$expired->count()} expired booking(s).");
+
+            // Broadcast slot updates so scheduler grids update in real time
+            foreach ($expired as $booking) {
+                broadcast(new BookingSlotUpdated(
+                    hubId: $booking->court->hub_id,
+                    courtId: $booking->court_id,
+                    status: 'cancelled',
+                ));
+            }
+
+            // Apply strikes to registered users
+            $userIds = $expired->whereNotNull('booked_by')->pluck('booked_by')->unique();
+            foreach ($userIds as $userId) {
+                $user = User::find($userId);
+                if (! $user) continue;
+                $this->applyUserStrike($user);
+            }
+
+            // Apply strikes to guests by email
+            $guestEmails = $expired->whereNotNull('guest_email')->pluck('guest_email')->unique();
+            foreach ($guestEmails as $email) {
+                $this->applyGuestStrike($email);
+            }
         }
 
-        $ids = $expired->pluck('id');
-        Booking::whereIn('id', $ids)->update(['status' => 'cancelled', 'cancelled_by' => 'system']);
+        // Cancel expired open play participants (same expiry rules as bookings)
+        $expiredParticipants = OpenPlayParticipant::where('payment_status', 'pending_payment')
+            ->whereNotNull('expires_at')
+            ->where('expires_at', '<=', now())
+            ->with('openPlaySession')
+            ->get();
 
-        $this->info("Cancelled {$expired->count()} expired booking(s).");
+        if ($expiredParticipants->isNotEmpty()) {
+            $participantIds = $expiredParticipants->pluck('id');
+            OpenPlayParticipant::whereIn('id', $participantIds)
+                ->update(['payment_status' => 'cancelled', 'cancelled_by' => 'system']);
 
-        // Broadcast slot updates so scheduler grids update in real time
-        foreach ($expired as $booking) {
-            broadcast(new BookingSlotUpdated(
-                hubId: $booking->court->hub_id,
-                courtId: $booking->court_id,
-                status: 'cancelled',
-            ));
-        }
+            $this->info("Cancelled {$expiredParticipants->count()} expired open play participant(s).");
 
-        // Apply strikes to registered users
-        $userIds = $expired->whereNotNull('booked_by')->pluck('booked_by')->unique();
-        foreach ($userIds as $userId) {
-            $user = User::find($userId);
-            if (!$user) continue;
-            $this->applyUserStrike($user);
-        }
+            foreach ($expiredParticipants as $participant) {
+                $participant->openPlaySession->recalculateStatus();
+            }
 
-        // Apply strikes to guests by email
-        $guestEmails = $expired->whereNotNull('guest_email')->pluck('guest_email')->unique();
-        foreach ($guestEmails as $email) {
-            $this->applyGuestStrike($email);
+            // Apply strikes to registered users who let their spots expire
+            $participantUserIds = $expiredParticipants->whereNotNull('user_id')->pluck('user_id')->unique();
+            foreach ($participantUserIds as $userId) {
+                $user = User::find($userId);
+                if ($user) {
+                    $this->applyUserStrike($user);
+                }
+            }
+
+            // Apply strikes to guests who let their spots expire
+            $participantGuestEmails = $expiredParticipants->whereNotNull('guest_email')->pluck('guest_email')->unique();
+            foreach ($participantGuestEmails as $email) {
+                $this->applyGuestStrike($email);
+            }
         }
 
         return self::SUCCESS;

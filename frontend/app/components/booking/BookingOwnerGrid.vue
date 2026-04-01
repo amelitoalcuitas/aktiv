@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Court, OperatingHoursEntry } from '~/types/hub';
 import type { BookingDetail, BookingStatus } from '~/types/booking';
+import type { OpenPlaySession } from '~/types/openPlay';
 
 const props = withDefaults(
   defineProps<{
@@ -9,11 +10,13 @@ const props = withDefaults(
     selectedDate: Date;
     minTime?: string;
     maxTime?: string;
+    openPlaySessionsMap?: Record<string, OpenPlaySession>;
     operatingHours?: OperatingHoursEntry[];
   }>(),
   {
     minTime: '06:00',
     maxTime: '23:00',
+    openPlaySessionsMap: () => ({}),
     operatingHours: () => []
   }
 );
@@ -25,6 +28,7 @@ const emit = defineEmits<{
   'action-reject': [BookingDetail];
   'action-cancel': [BookingDetail];
   'view-booking': [BookingDetail];
+  'view-open-play': [BookingDetail];
 }>();
 
 // ── Time slot generation ───────────────────────────────────────
@@ -162,9 +166,23 @@ function abbreviateName(fullName: string): string {
 }
 
 function bookingLabel(booking: BookingDetail): string {
+  if (booking.session_type === 'open_play') return 'Open Play';
   if (booking.booked_by_user) return abbreviateName(`${booking.booked_by_user.first_name} ${booking.booked_by_user.last_name}`.trim());
   if (booking.guest_name) return abbreviateName(booking.guest_name);
   return 'Booked';
+}
+
+function getOpenPlaySession(booking: BookingDetail): OpenPlaySession | null {
+  return props.openPlaySessionsMap[booking.id] ?? null;
+}
+
+function openPlayPriceLabel(session: OpenPlaySession | null): string {
+  if (!session) return 'Session';
+
+  const price = Number(session.price_per_player);
+  if (price === 0) return 'Free';
+
+  return `P${price.toLocaleString('en-PH', { maximumFractionDigits: 0 })}/pax`;
 }
 
 function bookingBg(status: BookingStatus): string {
@@ -316,6 +334,15 @@ function handleCellClick(court: Court, slotIdx: number) {
   const date = slotStartDate(slot);
   emit('book-slot', { court, date, hour: parseInt(slot.split(':')[0]!) });
 }
+
+function handleBookedCellClick(booking: BookingDetail) {
+  if (booking.session_type === 'open_play') {
+    emit('view-open-play', booking);
+    return;
+  }
+
+  emit('view-booking', booking);
+}
 </script>
 
 <template>
@@ -421,27 +448,50 @@ function handleCellClick(court: Court, slotIdx: number) {
                 <div
                   v-else-if="block.type === 'booked'"
                   class="group relative flex h-12 cursor-pointer flex-col justify-center rounded-lg px-2 transition-opacity hover:opacity-90"
-                  :style="{
-                    backgroundColor: bookingBg(block.booking!.status)
-                  }"
-                  @click="emit('view-booking', block.booking!)"
+                  :class="
+                    block.booking!.session_type === 'open_play'
+                      ? 'border border-[#7c3aed] bg-[#8b5cf6] text-white'
+                      : ''
+                  "
+                  :style="
+                    block.booking!.session_type === 'open_play'
+                      ? undefined
+                      : {
+                          backgroundColor: bookingBg(block.booking!.status)
+                        }
+                  "
+                  @click="handleBookedCellClick(block.booking!)"
                 >
                   <div class="pr-5">
                     <p
                       class="truncate text-[11px] font-bold"
-                      :style="{
-                        color: bookingTextColor(block.booking!.status)
-                      }"
+                      :style="
+                        block.booking!.session_type === 'open_play'
+                          ? undefined
+                          : {
+                              color: bookingTextColor(block.booking!.status)
+                            }
+                      "
                     >
                       {{ bookingLabel(block.booking!) }}
                     </p>
                     <p
                       class="text-[9px] uppercase tracking-wider opacity-80"
-                      :style="{
-                        color: bookingTextColor(block.booking!.status)
-                      }"
+                      :style="
+                        block.booking!.session_type === 'open_play'
+                          ? undefined
+                          : {
+                              color: bookingTextColor(block.booking!.status)
+                            }
+                      "
                     >
-                      {{ statusLabel(block.booking!.status) }}
+                      {{
+                        block.booking!.session_type === 'open_play'
+                          ? getOpenPlaySession(block.booking!)
+                            ? `${getOpenPlaySession(block.booking!)!.participants_count} / ${getOpenPlaySession(block.booking!)!.max_players} · ${openPlayPriceLabel(getOpenPlaySession(block.booking!))}`
+                            : 'Open Session'
+                          : statusLabel(block.booking!.status)
+                      }}
                     </p>
                   </div>
 
@@ -496,6 +546,10 @@ function handleCellClick(court: Court, slotIdx: number) {
         <span class="text-xs text-[var(--aktiv-muted)]">{{
           statusLabel(s)
         }}</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="h-3 w-3 rounded-sm border border-[#7c3aed] bg-[#8b5cf6]" />
+        <span class="text-xs text-[var(--aktiv-muted)]">Open Play</span>
       </div>
       <div class="flex items-center gap-1.5">
         <span

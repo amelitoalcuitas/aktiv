@@ -48,7 +48,7 @@ watch(
   <!-- 112px full-size mode (profile header) -->
   <div
     v-if="isFull"
-    class="rounded-full"
+    class="rounded-full select-none"
     :class="
       props.premium
         ? 'premium-avatar premium-avatar--full p-1'
@@ -80,7 +80,7 @@ watch(
   <!-- Compact sizes: sm / md / xl / 3xl -->
   <div
     v-else
-    class="inline-flex shrink-0 rounded-full"
+    class="inline-flex shrink-0 rounded-full select-none"
     :class="
       props.premium
         ? 'premium-avatar premium-avatar--compact p-[2px]'

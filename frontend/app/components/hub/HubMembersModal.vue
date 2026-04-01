@@ -216,14 +216,7 @@ watch(
                 class="flex min-h-[184px] flex-col items-center rounded-xl border border-[var(--aktiv-border)] bg-white px-4 py-5 text-center"
               >
                 <div class="mb-3">
-                  <div
-                    v-if="member.is_private"
-                    class="flex h-12 w-12 items-center justify-center rounded-full border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] text-[var(--aktiv-muted)]"
-                  >
-                    <UIcon name="i-lucide-lock" class="h-6 w-6" />
-                  </div>
                   <AppAvatar
-                    v-else
                     :src="member.avatar_thumb_url"
                     :name="memberDisplayName(member)"
                     :alt="memberDisplayName(member)"

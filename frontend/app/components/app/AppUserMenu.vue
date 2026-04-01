@@ -4,13 +4,16 @@ import { useAuth } from '~/composables/useAuth';
 const props = defineProps<{ variant?: 'sidebar' | 'header' }>();
 
 const { user, logout, isOwner, isSuperAdmin } = useAuth();
-const { canApply, applyCtaLabel, applyRoute, hasPendingRequest } = useHubOwnerRequest();
+const { canApply, applyCtaLabel, applyRoute, hasPendingRequest } =
+  useHubOwnerRequest();
 
 const fullName = computed(() =>
   user.value ? `${user.value.first_name} ${user.value.last_name}`.trim() : ''
 );
 
-const avatarSrc = computed(() => user.value?.avatar_thumb_url ?? user.value?.avatar_url ?? null);
+const avatarSrc = computed(
+  () => user.value?.avatar_thumb_url ?? user.value?.avatar_url ?? null
+);
 
 const profileLink = computed(() =>
   user.value?.username
@@ -25,7 +28,11 @@ const menuItems = computed(() => {
 
   if (isSuperAdmin.value) {
     items.push([
-      { label: 'Super Admin Panel', icon: 'i-heroicons-shield-check', to: '/panel' }
+      {
+        label: 'Super Admin Panel',
+        icon: 'i-heroicons-shield-check',
+        to: '/panel'
+      }
     ]);
   }
 
@@ -81,11 +88,7 @@ const menuItems = computed(() => {
       {{ applyCtaLabel }}
     </UButton>
 
-    <UDropdownMenu
-      :modal="false"
-      :items="menuItems"
-      :ui="{ content: 'w-52' }"
-    >
+    <UDropdownMenu :modal="false" :items="menuItems" :ui="{ content: 'w-52' }">
       <!-- Sidebar variant: avatar + name + ellipsis -->
       <button
         v-if="variant === 'sidebar'"

@@ -2,13 +2,16 @@
 import maplibregl from 'maplibre-gl';
 import type { Hub, Court } from '~/types/hub';
 import type { CalendarBooking, SelectedSlot } from '~/types/booking';
+import type { OpenPlaySession } from '~/types/openPlay';
 import { useAuthStore } from '~/stores/auth';
+import OpenPlayJoinModal from '~/components/openplay/OpenPlayJoinModal.vue';
 
 definePageMeta({ layout: 'hub' });
 
 const route = useRoute();
 const { fetchCourts } = useHubs();
 const { fetchHubBookings } = useBooking();
+const { fetchSessions } = useOpenPlay();
 const authStore = useAuthStore();
 const toast = useToast();
 
@@ -72,6 +75,7 @@ const mobileGrandTotal = computed(() => {
 // ── Scheduler: selected date & bookings ────────────────────────────────────
 const selectedDate = ref(new Date());
 const bookingsMap = ref<Record<string, CalendarBooking[]>>({});
+const openPlaySessions = ref<OpenPlaySession[]>([]);
 
 function formatDateString(date: Date): string {
   const y = date.getFullYear();
@@ -93,6 +97,14 @@ async function loadAllBookings() {
   }
 }
 
+async function loadOpenPlaySessions() {
+  try {
+    openPlaySessions.value = await fetchSessions(hubId.value);
+  } catch {
+    openPlaySessions.value = [];
+  }
+}
+
 watch(
   () => courts.value,
   () => loadAllBookings(),
@@ -100,6 +112,8 @@ watch(
 );
 
 watch(selectedDate, () => loadAllBookings());
+
+await loadOpenPlaySessions();
 
 // ── Court filter ───────────────────────────────────────────────────────────
 const filteredCourtId = ref<string | null>(null);
@@ -187,6 +201,45 @@ function onRemoveSlots(slots: SelectedSlot[]) {
 
 function onBookingCreated() {
   // The websocket event (booking.slot.updated) triggers loadAllBookings already.
+}
+
+const selectedOpenPlaySessionId = ref<string | null>(null);
+const openPlayModalOpen = ref(false);
+
+const filteredOpenPlaySessionsMap = computed<Record<string, OpenPlaySession>>(
+  () => {
+    const selectedDateKey = formatDateString(selectedDate.value);
+
+    return Object.fromEntries(
+      openPlaySessions.value
+        .filter((session) => {
+          if (!session.booking) return false;
+
+          return (
+            new Date(session.booking.start_time).toLocaleDateString('en-CA', {
+              timeZone: 'Asia/Manila'
+            }) === selectedDateKey
+          );
+        })
+        .map((session) => [session.booking_id, session])
+    );
+  }
+);
+
+const selectedOpenPlaySession = computed(
+  () =>
+    openPlaySessions.value.find(
+      (session) => session.id === selectedOpenPlaySessionId.value
+    ) ?? null
+);
+
+function openOpenPlaySession(session: OpenPlaySession) {
+  selectedOpenPlaySessionId.value = session.id;
+  openPlayModalOpen.value = true;
+}
+
+async function onOpenPlayUpdated() {
+  await Promise.all([loadAllBookings(), loadOpenPlaySessions()]);
 }
 
 function scrollToSchedule() {
@@ -643,6 +696,7 @@ onUnmounted(() => {
               :bookings-map="bookingsMap"
               :selected-date="selectedDate"
               :selected-slots="selectedSlots"
+              :open-play-sessions-map="filteredOpenPlaySessionsMap"
               :min-time="gridMinTime"
               :max-time="gridMaxTime"
               :operating-hours="hub?.operating_hours ?? []"
@@ -657,6 +711,7 @@ onUnmounted(() => {
               @slot-click="onSlotClick"
               @update:selected-date="selectedDate = $event"
               @own-booking-click="onOwnBookingClick"
+              @open-play-click="openOpenPlaySession"
             />
           </div>
 
@@ -706,6 +761,14 @@ onUnmounted(() => {
         :court-id="String(pendingReceiptCourtId ?? '')"
         :court-name="pendingReceiptCourtName"
         @receipt-uploaded="onBookingCreated"
+      />
+
+      <OpenPlayJoinModal
+        v-model:open="openPlayModalOpen"
+        :hub-id="hubId"
+        :hub="hub ?? null"
+        :session="selectedOpenPlaySession"
+        @updated="onOpenPlayUpdated"
       />
 
       <!-- Mobile floating booking bar -->

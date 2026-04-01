@@ -98,16 +98,17 @@ onMounted(() => {
       </NuxtLink>
 
       <!-- Nav -->
-      <nav class="flex items-center gap-2">
+      <nav class="flex items-center gap-1">
         <UButton
           to="/explore"
           variant="ghost"
           :color="route.path === '/explore' ? 'primary' : 'neutral'"
-          :class="
+          :class="[
+            'h-11 rounded-none border-b-4 border-transparent px-4',
             route.path === '/explore'
-              ? 'underline underline-offset-4 font-semibold'
-              : ''
-          "
+              ? 'border-[#0f76bf] bg-[#e8f0f8] font-semibold'
+              : 'hover:bg-[#f0f4f8]'
+          ]"
         >
           Hubs
         </UButton>

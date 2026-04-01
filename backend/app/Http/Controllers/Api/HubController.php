@@ -268,7 +268,7 @@ class HubController extends Controller
 
         $membersCount = $hub->members()->count();
         $memberPreview = $hub->members()
-            ->with('user:id,first_name,last_name,username,avatar_thumb_url,profile_privacy,is_premium')
+            ->with('user:id,first_name,last_name,username,avatar_url,avatar_thumb_url,profile_privacy,is_premium')
             ->limit(5)
             ->get();
         $isMember = auth('sanctum')->id()

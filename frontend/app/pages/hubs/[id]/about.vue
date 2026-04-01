@@ -445,7 +445,7 @@ onUnmounted(() => {
               (hub.contact_numbers && hub.contact_numbers.length > 0) ||
               (hub.websites && hub.websites.length > 0)
             "
-            class="grid grid-cols-1 divide-y divide-[var(--aktiv-border)] sm:grid-cols-2 sm:divide-x sm:divide-y-0"
+            class="grid divide-x divide-[var(--aktiv-border)] grid-cols-2"
           >
             <!-- Contact Numbers -->
             <div
@@ -479,9 +479,7 @@ onUnmounted(() => {
               v-if="hub.websites && hub.websites.length > 0"
               class="p-4 md:p-6"
             >
-              <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">
-                Links
-              </h2>
+              <h2 class="text-lg font-bold text-[var(--aktiv-ink)]">Links</h2>
               <AppLinksList
                 :links="hub.websites"
                 list-class="mt-2 flex flex-wrap items-center gap-3"

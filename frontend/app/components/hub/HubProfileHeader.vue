@@ -137,6 +137,13 @@ const localMembersCount = ref(activeHub.value?.members_count ?? 0);
 const localMemberPreview = ref<HubMember[]>([
   ...(activeHub.value?.member_preview ?? [])
 ]);
+const visibleMemberPreviewLimit = 3;
+const visibleMemberPreview = computed(() =>
+  localMemberPreview.value.slice(0, visibleMemberPreviewLimit)
+);
+const hiddenMemberCount = computed(() =>
+  Math.max(0, localMembersCount.value - visibleMemberPreview.value.length)
+);
 
 watch(
   () => activeHub.value?.is_member,
@@ -334,15 +341,22 @@ async function toggleMembership() {
             <p class="mb-1.5 text-xs font-bold text-white">
               Members · {{ localMembersCount }}
             </p>
-            <div class="flex gap-1.5">
+            <div class="flex items-center -space-x-3">
               <AppAvatar
-                v-for="member in localMemberPreview.slice(0, 5)"
+                v-for="member in visibleMemberPreview"
                 :key="member.id"
                 :src="member.avatar_thumb_url"
                 :alt="member.name"
                 size="sm"
                 :premium="member.is_premium"
+                class="relative ring-2 ring-white/80 transition-opacity hover:opacity-80"
               />
+              <div
+                v-if="hiddenMemberCount > 0"
+                class="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/80 text-[11px] font-black text-[var(--aktiv-ink)] ring-2 ring-white/80"
+              >
+                +{{ hiddenMemberCount }}
+              </div>
             </div>
           </div>
 

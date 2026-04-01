@@ -56,7 +56,7 @@ const isDesktop = useMediaQuery('(min-width: 768px)');
 
 const drawerUi = computed(() => {
   const { content: _content, ...rest } = props.ui ?? {};
-  return { content: 'max-h-[85dvh]', body: 'overflow-y-auto', ...rest };
+  return { content: 'max-h-[85dvh] flex flex-col', body: 'overflow-y-auto flex-1', ...rest };
 });
 </script>
 

@@ -33,10 +33,11 @@ export interface OperatingHoursEntry {
 
 export interface HubMember {
   id: string;
-  name: string;
-  username: string;
+  name: string | null;
+  username: string | null;
   avatar_thumb_url: string | null;
   is_premium: boolean;
+  is_private: boolean;
 }
 
 /** Matches the Hub object returned by the API */

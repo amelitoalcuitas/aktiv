@@ -15,9 +15,26 @@ const props = withDefaults(
 const isFull = computed(() => props.size === 'full');
 const imageFailed = ref(false);
 
-const fallbackInitial = computed(() =>
-  props.name ? props.name.charAt(0).toUpperCase() : '?'
-);
+const compactSizeClasses = computed(() => {
+  switch (props.size) {
+    case 'sm':
+      return 'h-8 w-8';
+    case 'xl':
+      return 'h-12 w-12';
+    case '3xl':
+      return 'h-16 w-16';
+    case 'md':
+    default:
+      return 'h-10 w-10';
+  }
+});
+
+const fallbackInitial = computed(() => {
+  const normalized = (props.name ?? '').trim().replace(/^@+/, '');
+  const initial = normalized.match(/[A-Za-z0-9]/)?.[0];
+
+  return initial ? initial.toUpperCase() : '?';
+});
 
 watch(
   () => props.src,
@@ -31,7 +48,7 @@ watch(
   <!-- 112px full-size mode (profile header) -->
   <div
     v-if="isFull"
-    class="inline-flex shrink-0 rounded-full"
+    class="rounded-full"
     :class="
       props.premium
         ? 'premium-avatar premium-avatar--full p-1'
@@ -39,7 +56,7 @@ watch(
     "
   >
     <div
-      class="h-28 w-28 rounded-full overflow-hidden bg-[var(--aktiv-border)] flex items-center justify-center"
+      class="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--aktiv-border)]"
       :class="props.premium ? 'premium-avatar__inner' : ''"
     >
       <img
@@ -48,12 +65,12 @@ watch(
         :alt="alt"
         referrerpolicy="no-referrer"
         crossorigin="anonymous"
-        class="h-full w-full object-cover"
+        class="block h-full w-full object-cover"
         @error="imageFailed = true"
       />
       <span
         v-else
-        class="text-3xl font-black text-[var(--aktiv-muted)] select-none uppercase"
+        class="flex h-full w-full select-none items-center justify-center text-3xl font-black uppercase text-[var(--aktiv-muted)]"
       >
         {{ fallbackInitial }}
       </span>
@@ -63,7 +80,7 @@ watch(
   <!-- Compact sizes: sm / md / xl / 3xl -->
   <div
     v-else
-    class="inline-flex rounded-full"
+    class="inline-flex shrink-0 rounded-full"
     :class="
       props.premium
         ? 'premium-avatar premium-avatar--compact p-[2px]'
@@ -71,8 +88,11 @@ watch(
     "
   >
     <div
-      class="rounded-full overflow-hidden"
-      :class="props.premium ? 'premium-avatar__inner' : ''"
+      class="flex shrink-0 items-center justify-center overflow-hidden rounded-full"
+      :class="[
+        compactSizeClasses,
+        props.premium ? 'premium-avatar__inner' : ''
+      ]"
     >
       <img
         v-if="src && !imageFailed"
@@ -80,23 +100,17 @@ watch(
         :alt="alt"
         referrerpolicy="no-referrer"
         crossorigin="anonymous"
-        class="rounded-full object-cover"
-        :class="{
-          'h-8 w-8': size === 'sm',
-          'h-10 w-10': size === 'md',
-          'h-12 w-12': size === 'xl',
-          'h-16 w-16': size === '3xl'
-        }"
+        class="block h-full w-full rounded-full object-cover"
         @error="imageFailed = true"
       />
       <div
         v-else
-        class="flex items-center justify-center rounded-full bg-[var(--aktiv-border)] text-[var(--aktiv-muted)] font-black uppercase"
+        class="flex h-full w-full items-center justify-center rounded-full bg-[var(--aktiv-border)] font-black uppercase text-[var(--aktiv-muted)]"
         :class="{
-          'h-8 w-8 text-xs': size === 'sm',
-          'h-10 w-10 text-sm': size === 'md',
-          'h-12 w-12 text-base': size === 'xl',
-          'h-16 w-16 text-lg': size === '3xl'
+          'text-xs': size === 'sm',
+          'text-sm': size === 'md',
+          'text-base': size === 'xl',
+          'text-lg': size === '3xl'
         }"
       >
         {{ fallbackInitial }}

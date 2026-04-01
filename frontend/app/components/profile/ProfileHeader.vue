@@ -196,14 +196,23 @@ const name = computed(() => {
           </button>
         </div>
 
-        <!-- Badges (Hub Owner, hearts) -->
+        <!-- Badges (Premium, Hub Owner, hearts) -->
         <div
           v-if="
+            profile.is_premium ||
             profile.is_hub_owner ||
             (showHearts && heartsCount !== null)
           "
           class="mt-1.5 flex flex-wrap items-center justify-center gap-2"
         >
+          <UBadge
+            v-if="profile.is_premium"
+            color="neutral"
+            variant="soft"
+            class="rounded-full border border-[#f3d27a] bg-[#fff4d6] px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-[#9a6700]"
+          >
+            Premium
+          </UBadge>
           <UBadge v-if="profile.is_hub_owner" color="primary" variant="soft">
             Hub Owner
           </UBadge>

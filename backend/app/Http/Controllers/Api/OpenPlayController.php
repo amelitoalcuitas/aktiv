@@ -7,9 +7,12 @@ use App\Http\Requests\OpenPlay\JoinOpenPlaySessionRequest;
 use App\Http\Requests\OpenPlay\SendGuestVerificationRequest;
 use App\Http\Resources\OpenPlayParticipantResource;
 use App\Http\Resources\OpenPlaySessionResource;
+use App\Models\Booking;
+use App\Models\GuestBookingPenalty;
 use App\Models\Hub;
 use App\Models\OpenPlayParticipant;
 use App\Models\OpenPlaySession;
+use App\Models\User;
 use App\Services\BookingNotificationService;
 use App\Services\ImageUploadService;
 use App\Services\OpenPlayNotificationService;
@@ -33,7 +36,7 @@ class OpenPlayController extends Controller
     public function index(Hub $hub, Request $request): JsonResponse
     {
         $courtIds = $hub->courts()->pluck('id');
-        $user = $request->user('sanctum');
+        $user = $request->user('sanctum') ?? $request->user();
 
         $sessions = OpenPlaySession::whereIn('status', ['open', 'full'])
             ->whereHas('booking', fn ($q) => $q
@@ -86,6 +89,10 @@ class OpenPlayController extends Controller
             return response()->json(['message' => 'This session is not available for joining.'], 422);
         }
 
+        if ($response = $this->ensureGuestCanJoin($hub, $session, $request->email)) {
+            return $response;
+        }
+
         $existingGuest = $session->participants()
             ->where('guest_email', $request->email)
             ->where('payment_status', '!=', 'cancelled')
@@ -128,7 +135,14 @@ class OpenPlayController extends Controller
             return response()->json(['message' => 'This session is already full.'], 422);
         }
 
-        $user = $request->user('sanctum');
+        $user = $request->user('sanctum') ?? $request->user();
+
+        if ($user) {
+            $response = $this->ensureUserCanJoin($user);
+            if ($response) {
+                return $response;
+            }
+        }
 
         if ($user) {
             // Prevent duplicate join
@@ -144,6 +158,10 @@ class OpenPlayController extends Controller
             // Guest join
             if (! $session->guests_can_join) {
                 return response()->json(['message' => 'This session does not allow guest participants.'], 403);
+            }
+
+            if ($response = $this->ensureGuestCanJoin($hub, $session, $request->guest_email)) {
+                return $response;
             }
 
             $storedOtp = Cache::get($this->otpCacheKey($session, $request->guest_email));
@@ -205,7 +223,7 @@ class OpenPlayController extends Controller
     public function leave(Hub $hub, OpenPlaySession $session, Request $request): JsonResponse
     {
         $this->assertSessionBelongsToHub($session, $hub);
-        $user = $request->user('sanctum');
+        $user = $request->user('sanctum') ?? $request->user();
 
         $participant = $session->participants()
             ->where('user_id', $user?->id)
@@ -245,7 +263,7 @@ class OpenPlayController extends Controller
         abort_if($participant->open_play_session_id !== $session->id, 404);
 
         // Auth: must be the owning user or the guest with a valid token
-        $user = $request->user('sanctum');
+        $user = $request->user('sanctum') ?? $request->user();
         if ($user) {
             abort_if($participant->user_id !== $user->id, 403);
         } else {
@@ -293,5 +311,66 @@ class OpenPlayController extends Controller
     private function otpCacheKey(OpenPlaySession $session, string $email): string
     {
         return "open_play_guest_otp:{$session->id}:{$email}";
+    }
+
+    private function ensureUserCanJoin(User $user): ?JsonResponse
+    {
+        if (! $user->isBookingBanned()) {
+            return null;
+        }
+
+        return response()->json([
+            'message' => 'Your account is temporarily restricted from making new bookings.',
+            'banned_until' => $user->booking_banned_until?->toIso8601String(),
+        ], 403);
+    }
+
+    private function ensureGuestCanJoin(Hub $hub, OpenPlaySession $session, string $email): ?JsonResponse
+    {
+        $penalty = GuestBookingPenalty::where('email', $email)->first();
+
+        if ($penalty?->isBanned()) {
+            return response()->json([
+                'message' => 'This email is temporarily restricted from making new bookings.',
+                'banned_until' => $penalty->banned_until?->toIso8601String(),
+            ], 403);
+        }
+
+        $guestBookingLimit = $hub->settings?->guest_booking_limit ?? 1;
+        $activeCommitments = $this->activeGuestCommitmentCount($hub, $email, $session->id);
+
+        if ($activeCommitments >= $guestBookingLimit) {
+            return response()->json([
+                'message' => "You have reached the active guest limit ({$guestBookingLimit}) for bookings and open play joins at this hub.",
+            ], 422);
+        }
+
+        return null;
+    }
+
+    private function activeGuestCommitmentCount(Hub $hub, string $email, ?string $excludingSessionId = null): int
+    {
+        $courtIds = $hub->courts()->pluck('id');
+
+        $activeGuestBookings = Booking::whereIn('court_id', $courtIds)
+            ->where('guest_email', $email)
+            ->whereNotIn('status', ['cancelled', 'completed'])
+            ->where('end_time', '>', now())
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->count();
+
+        $activeGuestOpenPlayJoins = OpenPlayParticipant::query()
+            ->where('guest_email', $email)
+            ->whereNotIn('payment_status', ['cancelled'])
+            ->when($excludingSessionId, fn ($query) => $query->where('open_play_session_id', '!=', $excludingSessionId))
+            ->whereHas('openPlaySession.booking', fn ($query) => $query
+                ->whereIn('court_id', $courtIds)
+                ->where('status', 'confirmed')
+                ->where('end_time', '>', now())
+            )
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->count();
+
+        return $activeGuestBookings + $activeGuestOpenPlayJoins;
     }
 }

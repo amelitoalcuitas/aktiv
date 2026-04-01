@@ -8,6 +8,9 @@
         $hub = $booking->court->hub;
         $courtName = $booking->court->name;
         $sport = $session->sport ?? 'Open Play';
+        $expired = $participant->cancelled_by === 'system'
+            && $participant->expires_at
+            && \Carbon\Carbon::parse($participant->expires_at)->isPast();
         $trackingUrl = $participant->guest_tracking_token
             ? "{$frontendUrl}/open-play/track/{$participant->guest_tracking_token}"
             : "{$frontendUrl}/hubs/{$hub->id}/open-play";
@@ -16,8 +19,14 @@
 
     <div style="text-align:center; margin-bottom:28px;">
         <div style="display:inline-block; width:48px; height:48px; background:#fee2e2; border-radius:50%; line-height:48px; font-size:24px; margin-bottom:12px;">❌</div>
-        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Your Spot Has Been Released</h1>
-        <p style="color:#64748b; font-size:0.875rem; margin:0;">Your spot in the <strong>{{ $sport }}</strong> session at <strong>{{ $hub->name }}</strong> has been cancelled.</p>
+        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">{{ $expired ? 'Join Expired' : 'Join Cancelled' }}</h1>
+        <p style="color:#64748b; font-size:0.875rem; margin:0;">
+            @if ($expired)
+                Your join for the <strong>{{ $sport }}</strong> session at <strong>{{ $hub->name }}</strong> expired and the reserved spot was released.
+            @else
+                Your join for the <strong>{{ $sport }}</strong> session at <strong>{{ $hub->name }}</strong> has been cancelled.
+            @endif
+        </p>
     </div>
 
     <div style="background:#f0f4f8; border-radius:8px; padding:16px; margin:24px 0; font-size:0.875rem;">
@@ -39,6 +48,14 @@
                 </td>
             </tr>
         </table>
+    </div>
+
+    <div style="background:{{ $expired ? '#f1f5f9' : '#fee2e2' }}; border:1px solid {{ $expired ? '#cbd5e1' : '#fecaca' }}; border-radius:8px; padding:14px 16px; font-size:0.8125rem; color:{{ $expired ? '#475569' : '#991b1b' }}; margin:20px 0;">
+        @if ($expired)
+            Your status is <strong>Expired</strong>. You would need to join again if seats are still available.
+        @else
+            Your status is <strong>Cancelled</strong>.
+        @endif
     </div>
 
     <div style="text-align:center; margin:28px 0 8px;">

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { OpenPlaySession } from '~/types/openPlay';
+import { getOpenPlaySessionPresentation } from '~/utils/openPlayPresentation';
 
 const props = defineProps<{
   session: OpenPlaySession;
@@ -33,23 +34,7 @@ function formatDate(session: OpenPlaySession): string {
   })}`;
 }
 
-const ctaLabel = computed(() => {
-  if (props.session.viewer_participant?.payment_status === 'confirmed') return 'Joined';
-  if (props.session.viewer_participant?.payment_status === 'payment_sent') return 'Under Review';
-  if (props.session.viewer_participant?.payment_status === 'pending_payment') {
-    return props.session.viewer_participant.payment_method === 'digital_bank'
-      ? 'Upload Receipt'
-      : 'Pending Payment';
-  }
-  if (props.session.status === 'full') return 'Full';
-  return 'Join';
-});
-
-const badgeColor = computed(() => {
-  if (props.session.viewer_participant?.payment_status === 'confirmed') return 'success';
-  if (props.session.status === 'full') return 'warning';
-  return 'primary';
-});
+const presentation = computed(() => getOpenPlaySessionPresentation(props.session));
 </script>
 
 <template>
@@ -68,8 +53,8 @@ const badgeColor = computed(() => {
               <h3 class="text-base font-bold text-[var(--aktiv-ink)]">
                 Open Play
               </h3>
-              <UBadge :color="badgeColor" variant="soft">
-                {{ ctaLabel }}
+              <UBadge :color="presentation.color" variant="soft">
+                {{ presentation.label }}
               </UBadge>
             </div>
             <p class="mt-1 text-sm text-[var(--aktiv-muted)]">
@@ -99,6 +84,9 @@ const badgeColor = computed(() => {
         >
           "{{ session.notes }}"
         </p>
+        <p class="mt-3 text-sm text-[var(--aktiv-muted)]">
+          {{ presentation.helperText }}
+        </p>
       </div>
 
       <div class="md:pl-4">
@@ -107,7 +95,7 @@ const badgeColor = computed(() => {
           :variant="session.status === 'full' && !session.viewer_participant ? 'soft' : 'solid'"
           @click="emit('open', session.id)"
         >
-          {{ ctaLabel }}
+          {{ presentation.actionLabel }}
         </UButton>
       </div>
     </div>

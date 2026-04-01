@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { BookingStatus, MyBookingItem } from '~/types/booking';
 import { useUserBookingStore } from '~/stores/booking';
+import { getOpenPlayBookingPresentation } from '~/utils/openPlayPresentation';
 
 defineEmits<{ close: [] }>();
 
@@ -20,6 +21,22 @@ const statusConfig: Record<DisplayStatus, { label: string; color: 'warning' | 'i
 function effectiveStatus(booking: MyBookingItem): DisplayStatus {
   if (booking.status === 'cancelled' && booking.cancelled_by === 'system') return 'expired';
   return booking.status;
+}
+
+function bookingBadge(booking: MyBookingItem): {
+  label: string;
+  color: 'warning' | 'info' | 'success' | 'error' | 'neutral';
+} {
+  if (booking.entry_type === 'open_play_participant') {
+    const presentation = getOpenPlayBookingPresentation(booking);
+
+    return {
+      label: presentation.label,
+      color: presentation.color === 'primary' ? 'neutral' : presentation.color
+    };
+  }
+
+  return statusConfig[effectiveStatus(booking)] ?? statusConfig.completed;
 }
 
 function formatDate(iso: string): string {
@@ -79,12 +96,12 @@ function formatTime(start: string, end: string): string {
             </p>
           </div>
           <UBadge
-            :color="statusConfig[effectiveStatus(booking)]?.color ?? 'neutral'"
+            :color="bookingBadge(booking).color"
             variant="subtle"
             size="xs"
             class="mt-0.5 shrink-0"
           >
-            {{ statusConfig[effectiveStatus(booking)]?.label ?? booking.status }}
+            {{ bookingBadge(booking).label }}
           </UBadge>
         </NuxtLink>
       </template>

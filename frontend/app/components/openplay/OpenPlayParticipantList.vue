@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { OpenPlaySession, OpenPlayParticipant, ParticipantPaymentStatus } from '~/types/openPlay';
+import type { OpenPlaySession, OpenPlayParticipant } from '~/types/openPlay';
 import { useOwnerOpenPlay } from '~/composables/useOwnerOpenPlay';
+import { getOpenPlayParticipantPresentation } from '~/utils/openPlayPresentation';
 
 const props = defineProps<{
   open: boolean;
@@ -160,24 +161,12 @@ function participantName(p: OpenPlayParticipant): string {
   return p.guest_name ?? 'Unknown';
 }
 
-function statusColor(
-  status: ParticipantPaymentStatus
-): 'warning' | 'primary' | 'success' | 'error' | 'neutral' {
-  switch (status) {
-    case 'pending_payment': return 'warning';
-    case 'payment_sent': return 'primary';
-    case 'confirmed': return 'success';
-    case 'cancelled': return 'error';
-  }
+function participantStatusLabel(participant: OpenPlayParticipant): string {
+  return getOpenPlayParticipantPresentation(participant).label;
 }
 
-function statusLabel(status: ParticipantPaymentStatus): string {
-  switch (status) {
-    case 'pending_payment': return 'Pending';
-    case 'payment_sent': return 'Receipt Sent';
-    case 'confirmed': return 'Confirmed';
-    case 'cancelled': return 'Cancelled';
-  }
+function participantStatusColor(participant: OpenPlayParticipant) {
+  return getOpenPlayParticipantPresentation(participant).color;
 }
 
 function participantDropdownItems(p: OpenPlayParticipant) {
@@ -339,8 +328,8 @@ function formatSessionTime(session: OpenPlaySession): string {
               <td class="px-4 py-3">
                 <div class="space-y-1">
                   <UBadge
-                    :label="statusLabel(p.payment_status)"
-                    :color="statusColor(p.payment_status)"
+                    :label="participantStatusLabel(p)"
+                    :color="participantStatusColor(p)"
                     variant="subtle"
                   />
                   <p

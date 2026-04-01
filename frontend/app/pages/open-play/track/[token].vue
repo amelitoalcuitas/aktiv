@@ -3,6 +3,7 @@ import type {
   GuestOpenPlayTrackingParticipant,
   GuestOpenPlayTrackingStatus
 } from '~/composables/useGuestOpenPlayTracking';
+import { getOpenPlayParticipantPresentation } from '~/utils/openPlayPresentation';
 
 definePageMeta({ layout: false });
 
@@ -103,15 +104,15 @@ const countdownLabel = computed(() => {
   return `${formatSeconds(secondsLeft.value)} remaining`;
 });
 
-const payOnSiteInfoLabel = computed(() => {
-  if (
-    participant.value?.status !== 'pending_payment' ||
-    participant.value?.payment_method !== 'pay_on_site'
-  ) {
-    return null;
-  }
+const participantPresentation = computed(() => {
+  if (!participant.value) return null;
 
-  return 'Your join is pending venue confirmation. Contact the hub if you need help before the session starts.';
+  return getOpenPlayParticipantPresentation({
+    payment_status: participant.value.status,
+    payment_method: participant.value.payment_method,
+    cancelled_by: participant.value.cancelled_by,
+    expires_at: participant.value.expires_at
+  });
 });
 
 const selectedFile = ref<File | null>(null);
@@ -131,8 +132,8 @@ async function submitReceipt() {
     participant.value = await uploadGuestOpenPlayReceipt(token, selectedFile.value);
     clearFile();
     toast.add({
-      title: 'Receipt uploaded!',
-      description: 'The hub owner will review your payment shortly.',
+      title: 'Receipt uploaded',
+      description: 'Your status is now Under Review while the hub checks your payment.',
       color: 'success'
     });
   } catch (err: unknown) {
@@ -187,32 +188,16 @@ function formatTime(iso: string): string {
 
 const statusConfig: Record<
   GuestOpenPlayTrackingStatus,
-  { label: string; color: 'warning' | 'info' | 'success' | 'error' | 'neutral' }
+  { color: 'warning' | 'info' | 'success' | 'error' | 'neutral' }
 > = {
-  pending_payment: { label: 'Pending', color: 'warning' },
-  payment_sent: { label: 'Receipt Submitted', color: 'info' },
-  confirmed: { label: 'Confirmed', color: 'success' },
-  cancelled: { label: 'Cancelled', color: 'error' }
+  pending_payment: { color: 'warning' },
+  payment_sent: { color: 'info' },
+  confirmed: { color: 'success' },
+  cancelled: { color: 'error' }
 };
 
 const statusLabel = computed(() => {
-  if (!participant.value) return '';
-
-  if (
-    participant.value.status === 'pending_payment' &&
-    participant.value.payment_method === 'digital_bank'
-  ) {
-    return 'Awaiting Receipt';
-  }
-
-  if (
-    participant.value.status === 'pending_payment' &&
-    participant.value.payment_method === 'pay_on_site'
-  ) {
-    return 'Pending Venue Confirmation';
-  }
-
-  return statusConfig[participant.value.status]?.label ?? participant.value.status;
+  return participantPresentation.value?.label ?? '';
 });
 </script>
 
@@ -264,7 +249,7 @@ const statusLabel = computed(() => {
               </div>
               <UBadge
                 :label="statusLabel"
-                :color="statusConfig[participant.status]?.color ?? 'neutral'"
+                :color="participantPresentation?.color ?? statusConfig[participant.status]?.color ?? 'neutral'"
                 variant="subtle"
               />
             </div>
@@ -325,7 +310,7 @@ const statusLabel = computed(() => {
             >
               <UIcon name="i-heroicons-clock" class="h-4 w-4 flex-shrink-0" />
               <span v-if="isExpired">
-                This open play join has expired and can no longer receive a receipt.
+                This join expired and your reserved spot was released.
               </span>
               <span v-else>
                 Upload before your join expires — {{ countdownLabel }}
@@ -333,12 +318,12 @@ const statusLabel = computed(() => {
             </div>
 
             <div
-              v-if="payOnSiteInfoLabel"
+              v-if="participantPresentation?.helperText"
               class="rounded-lg border border-[#dbe4ef] bg-[var(--aktiv-background)] px-3 py-2 text-sm text-[#64748b]"
             >
-              <p class="font-medium text-[#0f1728]">Pending venue confirmation</p>
+              <p class="font-medium text-[#0f1728]">{{ participantPresentation.label }}</p>
               <p class="mt-0.5">
-                {{ payOnSiteInfoLabel }}
+                {{ participantPresentation.helperText }}
               </p>
             </div>
 

@@ -8,11 +8,15 @@
         $hub = $booking->court->hub;
         $courtName = $booking->court->name;
         $sport = $session->sport ?? 'Open Play';
+        $trackingUrl = $participant->guest_tracking_token
+            ? "{$frontendUrl}/open-play/track/{$participant->guest_tracking_token}"
+            : "{$frontendUrl}/hubs/{$hub->id}/open-play";
+        $ctaLabel = $participant->guest_tracking_token ? 'Manage Join' : 'View Session';
     @endphp
 
     <div style="text-align:center; margin-bottom:28px;">
         <div style="display:inline-block; width:48px; height:48px; background:#dcfce7; border-radius:50%; line-height:48px; font-size:24px; margin-bottom:12px;">✓</div>
-        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Your Spot is Confirmed!</h1>
+        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Confirmed</h1>
         <p style="color:#64748b; font-size:0.875rem; margin:0;">Your payment has been confirmed for <strong>{{ $sport }}</strong> at <strong>{{ $hub->name }}</strong>.</p>
     </div>
 
@@ -47,8 +51,12 @@
         </table>
     </div>
 
+    <div style="background:#ecfdf5; border:1px solid #86efac; border-radius:8px; padding:14px 16px; font-size:0.8125rem; color:#166534; margin:20px 0;">
+        Your status is <strong>Confirmed</strong>. You're all set for the session.
+    </div>
+
     <div style="text-align:center; margin:28px 0 8px;">
-        <a href="{{ $frontendUrl }}/hubs/{{ $hub->id }}/open-play" style="display:inline-block; background:#004e89; color:#fff; text-decoration:none; padding:12px 28px; border-radius:6px; font-size:0.9375rem; font-weight:600;">View Session</a>
+        <a href="{{ $trackingUrl }}" style="display:inline-block; background:#004e89; color:#fff; text-decoration:none; padding:12px 28px; border-radius:6px; font-size:0.9375rem; font-weight:600;">{{ $ctaLabel }}</a>
     </div>
 @endsection
 

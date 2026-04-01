@@ -14,7 +14,7 @@ class JoinOpenPlaySessionRequest extends FormRequest
 
     public function rules(): array
     {
-        $isGuest = ! $this->user('sanctum');
+        $isGuest = ! ($this->user('sanctum') ?? $this->user());
         $session = $this->route('session');
         $allowedPaymentMethods = $session?->booking?->court?->hub?->settings?->payment_methods ?? ['pay_on_site'];
 

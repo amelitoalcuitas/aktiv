@@ -176,7 +176,8 @@ it('includes the guest tracking link in open play guest join confirmation emails
 
     Mail::assertQueued(OpenPlayJoinConfirmation::class, function ($mail) use ($participant) {
         return $mail->hasTo('guest@example.com')
-            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}");
+            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}")
+            && str_contains($mail->render(), 'Pending Venue Confirmation');
     });
 });
 
@@ -197,7 +198,8 @@ it('includes the guest tracking link in open play guest payment pending emails',
 
     Mail::assertQueued(OpenPlayPaymentPending::class, function ($mail) use ($participant) {
         return $mail->hasTo('guest@example.com')
-            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}");
+            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}")
+            && str_contains($mail->render(), 'Awaiting Receipt');
     });
 });
 
@@ -275,6 +277,28 @@ it('sends direct email to guest when confirmed', function () {
     Mail::assertQueued(OpenPlayParticipantConfirmed::class, fn ($mail) => $mail->hasTo('guest@example.com'));
 });
 
+it('includes the guest tracking link in open play guest confirmed emails', function () {
+    Mail::fake();
+
+    $owner = makeNotifOwner();
+    $hub   = makeNotifHub($owner);
+    $court = makeNotifCourt($hub);
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub');
+
+    $participant = makeNotifGuestParticipant($session, ['payment_status' => 'confirmed']);
+    $participant->setRelation('openPlaySession', $session);
+
+    app(OpenPlayNotificationService::class)->notifyParticipantConfirmed($participant, $session);
+
+    Mail::assertQueued(OpenPlayParticipantConfirmed::class, function ($mail) use ($participant) {
+        return $mail->hasTo('guest@example.com')
+            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}")
+            && str_contains($mail->render(), 'Confirmed');
+    });
+});
+
 // ── notifyParticipantRejected ─────────────────────────────────────
 
 it('sends in-app + broadcast notification to registered user when receipt rejected', function () {
@@ -338,7 +362,8 @@ it('includes the guest tracking link in open play guest rejection emails', funct
 
     Mail::assertQueued(OpenPlayParticipantRejected::class, function ($mail) use ($participant) {
         return $mail->hasTo('guest@example.com')
-            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}");
+            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}")
+            && str_contains($mail->render(), 'Awaiting Receipt');
     });
 });
 
@@ -378,7 +403,11 @@ it('sends direct email to guest when they are cancelled', function () {
     $session = makeNotifSession($court);
     $session->load('booking.court.hub');
 
-    $participant = makeNotifGuestParticipant($session, ['payment_status' => 'cancelled', 'cancelled_by' => 'system']);
+    $participant = makeNotifGuestParticipant($session, [
+        'payment_status' => 'cancelled',
+        'cancelled_by' => 'system',
+        'expires_at' => now()->subMinute(),
+    ]);
     $participant->setRelation('openPlaySession', $session);
 
     app(OpenPlayNotificationService::class)->notifyParticipantCancelled($participant, $session, 'system');
@@ -396,14 +425,19 @@ it('includes the guest tracking link in open play guest cancellation emails', fu
     $session = makeNotifSession($court);
     $session->load('booking.court.hub');
 
-    $participant = makeNotifGuestParticipant($session, ['payment_status' => 'cancelled', 'cancelled_by' => 'system']);
+    $participant = makeNotifGuestParticipant($session, [
+        'payment_status' => 'cancelled',
+        'cancelled_by' => 'system',
+        'expires_at' => now()->subMinute(),
+    ]);
     $participant->setRelation('openPlaySession', $session);
 
     app(OpenPlayNotificationService::class)->notifyParticipantCancelled($participant, $session, 'system');
 
     Mail::assertQueued(OpenPlayParticipantCancelled::class, function ($mail) use ($participant) {
         return $mail->hasTo('guest@example.com')
-            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}");
+            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}")
+            && str_contains($mail->render(), 'Join Expired');
     });
 });
 

@@ -5,6 +5,7 @@ use App\Events\BookingSlotUpdated;
 use App\Events\NotificationBroadcast;
 use App\Models\Booking;
 use App\Models\Court;
+use App\Models\GuestBookingPenalty;
 use App\Models\Hub;
 use App\Models\HubEvent;
 use App\Models\OpenPlayParticipant;
@@ -588,6 +589,26 @@ it('authenticated user can join an open play session', function () {
     expect(OpenPlayParticipant::where('open_play_session_id', $session->id)->count())->toBe(1);
 });
 
+it('booking-banned authenticated user cannot join an open play session', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $session = makeOpenPlaySession($court);
+    $player = makePlayer();
+    $player->booking_banned_until = now()->addDays(2);
+    $player->save();
+
+    $this->actingAs($player, 'sanctum')
+        ->postJson("/api/hubs/{$hub->id}/open-play/{$session->id}/join", [
+            'payment_method' => 'pay_on_site',
+        ])
+        ->assertForbidden()
+        ->assertJsonPath('message', 'Your account is temporarily restricted from making new bookings.')
+        ->assertJsonPath('banned_until', $player->fresh()->booking_banned_until->toIso8601String());
+
+    expect(OpenPlayParticipant::where('open_play_session_id', $session->id)->count())->toBe(0);
+});
+
 it('authenticated user can join an in-progress open play session that has more than 1 hour remaining', function () {
     $owner = makeOwner();
     $hub = makeOwnerHub($owner);
@@ -792,6 +813,57 @@ it('guest can request a verification code for an open play session', function ()
     expect(Cache::get("open_play_guest_otp:{$session->id}:guest@example.com"))->not->toBeNull();
 });
 
+it('banned guest cannot request an open play verification code', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $session = makeOpenPlaySession($court, ['session' => ['guests_can_join' => true]]);
+
+    $penalty = GuestBookingPenalty::create([
+        'email' => 'guest@example.com',
+        'strikes' => 0,
+        'banned_until' => now()->addDays(2),
+    ]);
+
+    $this->postJson("/api/hubs/{$hub->id}/open-play/{$session->id}/guest-verify", [
+        'email' => 'guest@example.com',
+    ])
+        ->assertForbidden()
+        ->assertJsonPath('message', 'This email is temporarily restricted from making new bookings.')
+        ->assertJsonPath('banned_until', $penalty->banned_until->toIso8601String());
+
+    expect(Cache::get("open_play_guest_otp:{$session->id}:guest@example.com"))->toBeNull();
+});
+
+it('guest verification is blocked when the shared guest hub limit is already reached by a booking', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $session = makeOpenPlaySession($court, ['session' => ['guests_can_join' => true]]);
+
+    Booking::create([
+        'court_id' => $court->id,
+        'guest_name' => 'Existing Guest',
+        'guest_email' => 'guest@example.com',
+        'guest_phone' => '09171234567',
+        'sport' => 'badminton',
+        'start_time' => now()->addDay()->setHour(14),
+        'end_time' => now()->addDay()->setHour(16),
+        'session_type' => 'private',
+        'status' => 'pending_payment',
+        'booking_source' => 'self_booked',
+        'payment_method' => 'pay_on_site',
+        'total_price' => 500,
+        'expires_at' => now()->addHour(),
+    ]);
+
+    $this->postJson("/api/hubs/{$hub->id}/open-play/{$session->id}/guest-verify", [
+        'email' => 'guest@example.com',
+    ])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'You have reached the active guest limit (1) for bookings and open play joins at this hub.');
+});
+
 it('guest can join with a valid verification code', function () {
     $owner = makeOwner();
     $hub = makeOwnerHub($owner);
@@ -813,6 +885,103 @@ it('guest can join with a valid verification code', function () {
 
     expect(OpenPlayParticipant::where('open_play_session_id', $session->id)->count())->toBe(1);
     expect(Cache::get("open_play_guest_otp:{$session->id}:guest@example.com"))->toBeNull();
+});
+
+it('banned guest cannot join an open play session even with a valid verification code', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $session = makeOpenPlaySession($court, ['session' => ['guests_can_join' => true]]);
+
+    Cache::put("open_play_guest_otp:{$session->id}:guest@example.com", '123456', now()->addMinutes(10));
+
+    $penalty = GuestBookingPenalty::create([
+        'email' => 'guest@example.com',
+        'strikes' => 0,
+        'banned_until' => now()->addDays(2),
+    ]);
+
+    $this->postJson("/api/hubs/{$hub->id}/open-play/{$session->id}/join", [
+        'payment_method' => 'pay_on_site',
+        'guest_name' => 'Guest Player',
+        'guest_phone' => '09171234567',
+        'guest_email' => 'guest@example.com',
+        'otp' => '123456',
+    ])
+        ->assertForbidden()
+        ->assertJsonPath('message', 'This email is temporarily restricted from making new bookings.')
+        ->assertJsonPath('banned_until', $penalty->banned_until->toIso8601String());
+
+    expect(OpenPlayParticipant::where('open_play_session_id', $session->id)->count())->toBe(0);
+});
+
+it('guest join is blocked when the shared guest hub limit is already reached by another open play join', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $existingSession = makeOpenPlaySession($court, ['session' => ['guests_can_join' => true]]);
+    $targetSession = makeOpenPlaySession($court, [
+        'booking' => [
+            'start_time' => now()->addDays(2)->setHour(10)->setMinute(0)->setSecond(0),
+            'end_time' => now()->addDays(2)->setHour(12)->setMinute(0)->setSecond(0),
+        ],
+        'session' => ['guests_can_join' => true],
+    ]);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $existingSession->id,
+        'guest_name' => 'Guest Player',
+        'guest_email' => 'guest@example.com',
+        'guest_phone' => '09171234567',
+        'guest_tracking_token' => null,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'pending_payment',
+        'expires_at' => now()->addHour(),
+        'joined_at' => now(),
+    ]);
+
+    Cache::put("open_play_guest_otp:{$targetSession->id}:guest@example.com", '123456', now()->addMinutes(10));
+
+    $this->postJson("/api/hubs/{$hub->id}/open-play/{$targetSession->id}/join", [
+        'payment_method' => 'pay_on_site',
+        'guest_name' => 'Guest Player',
+        'guest_phone' => '09171234567',
+        'guest_email' => 'guest@example.com',
+        'otp' => '123456',
+    ])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'You have reached the active guest limit (1) for bookings and open play joins at this hub.');
+});
+
+it('expired guest open play joins do not count toward the shared guest hub limit', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $existingSession = makeOpenPlaySession($court, ['session' => ['guests_can_join' => true]]);
+    $targetSession = makeOpenPlaySession($court, [
+        'booking' => [
+            'start_time' => now()->addDays(2)->setHour(10)->setMinute(0)->setSecond(0),
+            'end_time' => now()->addDays(2)->setHour(12)->setMinute(0)->setSecond(0),
+        ],
+        'session' => ['guests_can_join' => true],
+    ]);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $existingSession->id,
+        'guest_name' => 'Guest Player',
+        'guest_email' => 'guest@example.com',
+        'guest_phone' => '09171234567',
+        'payment_method' => 'digital_bank',
+        'payment_status' => 'pending_payment',
+        'expires_at' => now()->subMinute(),
+        'joined_at' => now()->subHours(2),
+    ]);
+
+    $this->postJson("/api/hubs/{$hub->id}/open-play/{$targetSession->id}/guest-verify", [
+        'email' => 'guest@example.com',
+    ])
+        ->assertOk()
+        ->assertJsonPath('message', 'Verification code sent. Check your email.');
 });
 
 it('guest cannot join with an invalid verification code', function () {
@@ -1109,6 +1278,94 @@ it('CancelExpiredBookings does not apply strikes for payment_sent expirations', 
     Artisan::call('bookings:cancel-expired');
 
     expect($player->fresh()->expired_booking_strikes)->toBe(0);
+});
+
+it('expired open play joins can trigger a booking ban that blocks a new authenticated open play join', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $player = makePlayer();
+
+    foreach (range(1, 3) as $dayOffset) {
+        $session = makeOpenPlaySession($court, [
+            'booking' => [
+                'start_time' => now()->addDays($dayOffset)->setHour(10)->setMinute(0)->setSecond(0),
+                'end_time' => now()->addDays($dayOffset)->setHour(12)->setMinute(0)->setSecond(0),
+            ],
+        ]);
+
+        OpenPlayParticipant::create([
+            'open_play_session_id' => $session->id,
+            'user_id' => $player->id,
+            'payment_method' => 'digital_bank',
+            'payment_status' => 'pending_payment',
+            'expires_at' => now()->subMinute(),
+            'joined_at' => now()->subHours(2),
+        ]);
+        Artisan::call('bookings:cancel-expired');
+    }
+
+    $targetSession = makeOpenPlaySession($court, [
+        'booking' => [
+            'start_time' => now()->addDays(5)->setHour(10)->setMinute(0)->setSecond(0),
+            'end_time' => now()->addDays(5)->setHour(12)->setMinute(0)->setSecond(0),
+        ],
+    ]);
+
+    $player = $player->fresh();
+
+    expect($player->isBookingBanned())->toBeTrue();
+
+    $this->actingAs($player, 'sanctum')
+        ->postJson("/api/hubs/{$hub->id}/open-play/{$targetSession->id}/join", [
+            'payment_method' => 'pay_on_site',
+        ])
+        ->assertForbidden()
+        ->assertJsonPath('message', 'Your account is temporarily restricted from making new bookings.');
+});
+
+it('expired open play joins can trigger a guest ban that blocks a new verification request', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+
+    foreach (range(1, 3) as $dayOffset) {
+        $session = makeOpenPlaySession($court, [
+            'booking' => [
+                'start_time' => now()->addDays($dayOffset)->setHour(10)->setMinute(0)->setSecond(0),
+                'end_time' => now()->addDays($dayOffset)->setHour(12)->setMinute(0)->setSecond(0),
+            ],
+            'session' => ['guests_can_join' => true],
+        ]);
+
+        OpenPlayParticipant::create([
+            'open_play_session_id' => $session->id,
+            'guest_name' => 'Guest Player',
+            'guest_email' => 'guest@example.com',
+            'guest_phone' => '09171234567',
+            'payment_method' => 'digital_bank',
+            'payment_status' => 'pending_payment',
+            'expires_at' => now()->subMinute(),
+            'joined_at' => now()->subHours(2),
+        ]);
+        Artisan::call('bookings:cancel-expired');
+    }
+
+    $targetSession = makeOpenPlaySession($court, [
+        'booking' => [
+            'start_time' => now()->addDays(5)->setHour(10)->setMinute(0)->setSecond(0),
+            'end_time' => now()->addDays(5)->setHour(12)->setMinute(0)->setSecond(0),
+        ],
+        'session' => ['guests_can_join' => true],
+    ]);
+
+    $this->postJson("/api/hubs/{$hub->id}/open-play/{$targetSession->id}/guest-verify", [
+        'email' => 'guest@example.com',
+    ])
+        ->assertForbidden()
+        ->assertJsonPath('message', 'This email is temporarily restricted from making new bookings.');
+
+    expect(GuestBookingPenalty::where('email', 'guest@example.com')->first()?->isBanned())->toBeTrue();
 });
 
 it('expires_at is set to end_time minus 1 hour on paid join', function () {

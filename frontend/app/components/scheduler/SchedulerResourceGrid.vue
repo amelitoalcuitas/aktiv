@@ -6,6 +6,7 @@ import type {
   SelectedSlot
 } from '~/types/booking';
 import type { OpenPlaySession } from '~/types/openPlay';
+import { getOpenPlayParticipantPresentation } from '~/utils/openPlayPresentation';
 
 const props = withDefaults(
   defineProps<{
@@ -235,18 +236,9 @@ function openPlayPriceLabel(session: OpenPlaySession): string {
 }
 
 function openPlayViewerLabel(session: OpenPlaySession): string | null {
-  switch (session.viewer_participant?.payment_status) {
-    case 'confirmed':
-      return 'Joined';
-    case 'payment_sent':
-      return 'Under Review';
-    case 'pending_payment':
-      return session.viewer_participant.payment_method === 'digital_bank'
-        ? 'Complete Payment'
-        : 'Pending';
-    default:
-      return null;
-  }
+  if (!session.viewer_participant) return null;
+
+  return getOpenPlayParticipantPresentation(session.viewer_participant).label;
 }
 
 function bookingBg(status: BookingStatus): string {

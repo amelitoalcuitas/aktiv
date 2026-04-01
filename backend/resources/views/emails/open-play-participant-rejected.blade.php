@@ -15,8 +15,8 @@
 
     <div style="text-align:center; margin-bottom:28px;">
         <div style="display:inline-block; width:48px; height:48px; background:#fff7ed; border-radius:50%; line-height:48px; font-size:24px; margin-bottom:12px;">⚠</div>
-        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Receipt Not Accepted</h1>
-        <p style="color:#64748b; font-size:0.875rem; margin:0;">Your payment receipt for <strong>{{ $sport }}</strong> at <strong>{{ $hub->name }}</strong> was not accepted.</p>
+        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Receipt Needs Attention</h1>
+        <p style="color:#64748b; font-size:0.875rem; margin:0;">Your receipt for <strong>{{ $sport }}</strong> at <strong>{{ $hub->name }}</strong> needs to be uploaded again.</p>
     </div>
 
     <div style="background:#f0f4f8; border-radius:8px; padding:16px; margin:24px 0; font-size:0.875rem;">
@@ -46,7 +46,7 @@
     </div>
     @endif
 
-    <p style="font-size:0.875rem; color:#64748b;">Please re-upload your receipt before your spot expires.</p>
+    <p style="font-size:0.875rem; color:#64748b;">Your status is back to <strong>Awaiting Receipt</strong>. Re-upload your receipt before the deadline to keep your reserved spot.</p>
 
     <div style="text-align:center; margin:28px 0 8px;">
         <a href="{{ $trackingUrl }}" style="display:inline-block; background:#004e89; color:#fff; text-decoration:none; padding:12px 28px; border-radius:6px; font-size:0.9375rem; font-weight:600;">Re-upload Receipt</a>

@@ -5,6 +5,7 @@ import type {
   MyBookingItem
 } from '~/types/booking';
 import type { OpenPlayParticipant, OpenPlaySession } from '~/types/openPlay';
+import { getOpenPlayBookingPresentation } from '~/utils/openPlayPresentation';
 
 definePageMeta({ middleware: ['auth'], layout: 'page' });
 
@@ -64,6 +65,22 @@ function effectiveStatus(booking: MyBookingItem): DisplayStatus {
   if (booking.status === 'cancelled' && booking.cancelled_by === 'system')
     return 'expired';
   return booking.status;
+}
+
+function bookingBadge(booking: MyBookingItem): {
+  label: string;
+  color: 'warning' | 'info' | 'success' | 'error' | 'neutral';
+} {
+  if (booking.entry_type === 'open_play_participant') {
+    const presentation = getOpenPlayBookingPresentation(booking);
+
+    return {
+      label: presentation.label,
+      color: presentation.color === 'primary' ? 'neutral' : presentation.color
+    };
+  }
+
+  return statusConfig[effectiveStatus(booking)] ?? statusConfig.completed;
 }
 
 // ── Load bookings ─────────────────────────────────────────────
@@ -551,14 +568,10 @@ function displayActionLabel(booking: MyBookingItem): string {
           <!-- Right: status + price -->
           <div class="flex flex-col items-end gap-1.5 shrink-0">
             <UBadge
-              :color="
-                statusConfig[effectiveStatus(booking)]?.color ?? 'neutral'
-              "
+              :color="bookingBadge(booking).color"
               variant="subtle"
             >
-              {{
-                statusConfig[effectiveStatus(booking)]?.label ?? booking.status
-              }}
+              {{ bookingBadge(booking).label }}
             </UBadge>
             <template v-if="booking.entry_type === 'open_play_participant'">
               <span class="text-3xl font-semibold text-[var(--aktiv-primary)]">

@@ -8,6 +8,8 @@
         $hub = $booking->court->hub;
         $courtName = $booking->court->name;
         $sport = $session->sport ?? 'Open Play';
+        $isFree = (float) $session->price_per_player === 0.0;
+        $isPayOnSite = $participant->payment_method === 'pay_on_site' && ! $isFree;
         $trackingUrl = $participant->guest_tracking_token
             ? "{$frontendUrl}/open-play/track/{$participant->guest_tracking_token}"
             : "{$frontendUrl}/hubs/{$hub->id}/open-play";
@@ -16,8 +18,16 @@
 
     <div style="text-align:center; margin-bottom:28px;">
         <div style="display:inline-block; width:48px; height:48px; background:#dcfce7; border-radius:50%; line-height:48px; font-size:24px; margin-bottom:12px;">✓</div>
-        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">You're In!</h1>
-        <p style="color:#64748b; font-size:0.875rem; margin:0;">Your spot has been confirmed for <strong>{{ $sport }}</strong> at <strong>{{ $hub->name }}</strong>.</p>
+        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">
+            {{ $isPayOnSite ? 'Pending Venue Confirmation' : 'Spot Confirmed' }}
+        </h1>
+        <p style="color:#64748b; font-size:0.875rem; margin:0;">
+            @if ($isPayOnSite)
+                Your join for <strong>{{ $sport }}</strong> at <strong>{{ $hub->name }}</strong> is pending venue confirmation.
+            @else
+                Your spot is confirmed for <strong>{{ $sport }}</strong> at <strong>{{ $hub->name }}</strong>.
+            @endif
+        </p>
     </div>
 
     <div style="background:#f0f4f8; border-radius:8px; padding:16px; margin:24px 0; font-size:0.875rem;">
@@ -55,6 +65,14 @@
             </tr>
             @endif
         </table>
+    </div>
+
+    <div style="background:{{ $isPayOnSite ? '#fefce8' : '#ecfdf5' }}; border:1px solid {{ $isPayOnSite ? '#fde047' : '#86efac' }}; border-radius:8px; padding:14px 16px; font-size:0.8125rem; color:{{ $isPayOnSite ? '#713f12' : '#166534' }}; margin:20px 0;">
+        @if ($isPayOnSite)
+            Your status is <strong>Pending Venue Confirmation</strong>. The venue may still review your join before the session starts.
+        @else
+            Your status is <strong>Confirmed</strong>. You're all set for the session.
+        @endif
     </div>
 
     <div style="text-align:center; margin:28px 0 8px;">

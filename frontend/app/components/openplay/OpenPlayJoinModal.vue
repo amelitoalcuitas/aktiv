@@ -3,6 +3,10 @@ import type { Hub } from '~/types/hub';
 import type { OpenPlayParticipant, OpenPlaySession } from '~/types/openPlay';
 import { useAuthStore } from '~/stores/auth';
 import OpenPlayReceiptUploadModal from '~/components/openplay/OpenPlayReceiptUploadModal.vue';
+import {
+  getOpenPlayParticipantPresentation,
+  getOpenPlaySessionPresentation
+} from '~/utils/openPlayPresentation';
 
 const props = defineProps<{
   open: boolean;
@@ -88,8 +92,16 @@ const confirmStepDescription = computed(() => {
     return "Your spot will be created and you'll upload a receipt next.";
   }
 
-  return 'Your join will be created as pending venue confirmation.';
+  return 'Your join will be created as pending venue confirmation and may still be reviewed by the venue.';
 });
+const currentParticipantPresentation = computed(() =>
+  currentParticipant.value
+    ? getOpenPlayParticipantPresentation(currentParticipant.value)
+    : null
+);
+const sessionPresentation = computed(() =>
+  props.session ? getOpenPlaySessionPresentation(props.session) : null
+);
 
 watch(
   () => [props.open, props.hub?.payment_methods],
@@ -151,21 +163,6 @@ function formatSessionDate(session: OpenPlaySession): string {
     minute: '2-digit',
     hour12: true
   })}`;
-}
-
-function participantStatusLabel(participant: OpenPlayParticipant): string {
-  switch (participant.payment_status) {
-    case 'confirmed':
-      return 'You are confirmed for this session.';
-    case 'payment_sent':
-      return 'Your receipt is under review.';
-    case 'pending_payment':
-      return participant.payment_method === 'digital_bank'
-        ? 'Complete payment to confirm your spot.'
-        : 'Your join is pending venue confirmation.';
-    case 'cancelled':
-      return 'This join has been cancelled.';
-  }
 }
 
 function closeJoinModal() {
@@ -247,7 +244,7 @@ async function handleConfirmJoin() {
 
     if (participant.payment_status === 'confirmed') {
       toast.add({
-        title: 'You joined the session!',
+        title: 'Spot confirmed',
         color: 'success'
       });
       closeModal();
@@ -260,7 +257,7 @@ async function handleConfirmJoin() {
       emit('updated');
       toast.add({
         title: 'Spot reserved',
-        description: 'Upload your payment receipt next to continue with confirmation.',
+        description: 'Your status is now Awaiting Receipt. Upload your receipt next so the hub can review it.',
         color: 'success'
       });
       closeJoinModal();
@@ -271,7 +268,7 @@ async function handleConfirmJoin() {
     toast.add({
       title: 'Join submitted',
       description:
-        'Your join is now pending venue confirmation. The hub may still review your status before the session starts.',
+        'Your status is now Pending Venue Confirmation. The venue may still review your join before the session starts.',
       color: 'success'
     });
     closeModal();
@@ -347,16 +344,19 @@ function goBack() {
               </p>
             </div>
             <UBadge
-              :color="session.status === 'full' ? 'warning' : 'primary'"
+              :color="sessionPresentation?.color ?? 'primary'"
               variant="soft"
             >
-              {{ session.participants_count }} / {{ session.max_players }}
+              {{ sessionPresentation?.label ?? 'Open' }}
             </UBadge>
           </div>
 
           <div
             class="mt-3 flex flex-wrap gap-2 text-sm text-[var(--aktiv-muted)]"
           >
+            <span class="rounded-md bg-[var(--aktiv-surface)] px-2.5 py-1">
+              {{ session.participants_count }} / {{ session.max_players }} players
+            </span>
             <span class="rounded-md bg-[var(--aktiv-surface)] px-2.5 py-1">
               {{
                 isFree
@@ -375,6 +375,9 @@ function goBack() {
           <p v-if="session.notes" class="mt-3 text-sm text-[var(--aktiv-ink)]">
             {{ session.notes }}
           </p>
+          <p class="mt-3 text-sm text-[var(--aktiv-muted)]">
+            {{ sessionPresentation?.helperText }}
+          </p>
         </div>
 
         <div
@@ -387,9 +390,15 @@ function goBack() {
               class="h-5 w-5 text-[var(--aktiv-primary)]"
             />
             <p class="text-sm font-semibold text-[var(--aktiv-ink)]">
-              {{ participantStatusLabel(currentParticipant) }}
+              {{ currentParticipantPresentation?.label }}
             </p>
           </div>
+          <p
+            v-if="currentParticipantPresentation?.helperText"
+            class="mt-2 text-sm text-[var(--aktiv-muted)]"
+          >
+            {{ currentParticipantPresentation.helperText }}
+          </p>
 
           <p
             v-if="currentParticipant.payment_note"
@@ -417,6 +426,14 @@ function goBack() {
               })
             }}
           </p>
+        </div>
+
+        <div
+          v-else-if="joinDisabled"
+          class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
+        >
+          <p class="font-semibold text-amber-900">Session full</p>
+          <p class="mt-1">{{ sessionPresentation?.helperText }}</p>
         </div>
 
         <template v-else>

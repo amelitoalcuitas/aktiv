@@ -15,8 +15,8 @@
 
     <div style="text-align:center; margin-bottom:28px;">
         <div style="display:inline-block; width:48px; height:48px; background:#dbeafe; border-radius:50%; line-height:48px; font-size:24px; margin-bottom:12px;">💳</div>
-        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Complete Your Payment</h1>
-        <p style="color:#64748b; font-size:0.875rem; margin:0;">You've joined <strong>{{ $sport }}</strong> at <strong>{{ $hub->name }}</strong>. Upload your receipt to confirm your spot.</p>
+        <h1 style="margin:0 0 4px; font-size:1.25rem; color:#0f1728;">Awaiting Receipt</h1>
+        <p style="color:#64748b; font-size:0.875rem; margin:0;">Your join for <strong>{{ $sport }}</strong> at <strong>{{ $hub->name }}</strong> is awaiting your receipt upload.</p>
     </div>
 
     <div style="background:#f0f4f8; border-radius:8px; padding:16px; margin:24px 0; font-size:0.875rem;">
@@ -51,7 +51,7 @@
     </div>
 
     <div style="background:#fefce8; border:1px solid #fde047; border-radius:8px; padding:14px 16px; font-size:0.8125rem; color:#713f12; margin:20px 0;">
-        Your spot is <strong>tentatively held</strong>. Upload your payment receipt before the deadline to secure it.
+        Your status is <strong>Awaiting Receipt</strong>. Your spot is reserved until the deadline below.
     </div>
 
     <div style="text-align:center; margin:28px 0 8px;">

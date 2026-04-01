@@ -4,18 +4,24 @@ export type NotificationActivityType =
   | 'booking_confirmed'
   | 'booking_rejected'
   | 'booking_cancelled'
-  | 'booking_cancelled_by_guest';
+  | 'booking_cancelled_by_guest'
+  | 'open_play_receipt_uploaded'
+  | 'open_play_participant_confirmed'
+  | 'open_play_participant_rejected'
+  | 'open_play_participant_cancelled'
+  | 'open_play_session_cancelled';
 
 export interface NotificationData {
   activity_type: NotificationActivityType;
-  booking_id: string;
-  booking_code: string;
-  customer_name: string;
+  booking_id?: string;
+  booking_code?: string;
+  customer_name?: string;
   court_name: string;
   hub_name: string;
   hub_id: string;
   start_time: string;
   message: string;
+  session_id?: string;
 }
 
 export interface AppNotification {

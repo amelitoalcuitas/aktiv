@@ -76,6 +76,7 @@ export interface VoucherPreview {
 export interface BookingDetail extends Booking {
   court: { id: string; name: string; hub_id: string } | null;
   open_play_session_id?: string | null;
+  open_play_session?: import('./openPlay').OpenPlaySession | null;
   booked_by_user: {
     id: string;
     first_name: string;

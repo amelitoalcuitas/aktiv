@@ -418,6 +418,7 @@ async function submitBooking() {
       err?.status === 409
         ? 'One or more time slots were just taken. Please update your selection and try again.'
         : (err?.data?.message ?? 'Booking failed. Please try again.');
+    toast.add({ title: submitError.value!, color: 'error' });
     // Refresh grid so user sees updated availability
     emit('booking-created');
   } finally {

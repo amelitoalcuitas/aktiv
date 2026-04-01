@@ -234,6 +234,21 @@ function openPlayPriceLabel(session: OpenPlaySession): string {
   return `P${price.toLocaleString('en-PH', { maximumFractionDigits: 0 })}/pax`;
 }
 
+function openPlayViewerLabel(session: OpenPlaySession): string | null {
+  switch (session.viewer_participant?.payment_status) {
+    case 'confirmed':
+      return 'Joined';
+    case 'payment_sent':
+      return 'Under Review';
+    case 'pending_payment':
+      return session.viewer_participant.payment_method === 'digital_bank'
+        ? 'Complete Payment'
+        : 'Pending';
+    default:
+      return null;
+  }
+}
+
 function bookingBg(status: BookingStatus): string {
   switch (status) {
     case 'pending_payment':
@@ -561,6 +576,20 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                     class="absolute inset-1.5 flex cursor-pointer flex-col items-center justify-center rounded-md border border-[#7c3aed] bg-[#8b5cf6] px-1.5 text-center text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#7c3aed]"
                     @click="handleBookedCellClick(court, slotIdx)"
                   >
+                    <span
+                      v-if="
+                        openPlayViewerLabel(
+                          getOpenPlaySession(getCellBooking(court.id, slotIdx))!
+                        )
+                      "
+                      class="mb-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                    >
+                      {{
+                        openPlayViewerLabel(
+                          getOpenPlaySession(getCellBooking(court.id, slotIdx))!
+                        )
+                      }}
+                    </span>
                     <span class="truncate max-w-full">Open Play</span>
                     <span class="text-[10px] font-medium opacity-80">
                       {{

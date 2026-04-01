@@ -29,6 +29,31 @@ async function loadSessions() {
 
 await loadSessions();
 
+// ── Real-time slot count updates ──────────────────────────────────
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let hubChannel: any = null;
+
+onMounted(() => {
+  const { $echo } = useNuxtApp();
+  if (!$echo) return;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const echo = $echo as any;
+  echo.connector.pusher.connection.connect();
+  hubChannel = echo.channel(`hub.${hubId.value}`);
+  hubChannel.listen('.booking.slot.updated', () => {
+    loadSessions();
+  });
+});
+
+onUnmounted(() => {
+  const { $echo } = useNuxtApp();
+  if ($echo && hubChannel) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ($echo as any).leaveChannel(`hub.${hubId.value}`);
+    hubChannel = null;
+  }
+});
+
 const selectedSession = computed(
   () =>
     sessions.value.find((session) => session.id === selectedSessionId.value) ??

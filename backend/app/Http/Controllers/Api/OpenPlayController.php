@@ -12,6 +12,7 @@ use App\Models\OpenPlayParticipant;
 use App\Models\OpenPlaySession;
 use App\Services\BookingNotificationService;
 use App\Services\ImageUploadService;
+use App\Services\OpenPlayNotificationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,8 @@ use Illuminate\Support\Str;
 class OpenPlayController extends Controller
 {
     public function __construct(
-        private BookingNotificationService $notifications
+        private BookingNotificationService $notifications,
+        private OpenPlayNotificationService $openPlayNotifications,
     ) {}
 
     /**
@@ -37,7 +39,7 @@ class OpenPlayController extends Controller
             ->whereHas('booking', fn ($q) => $q
                 ->whereIn('court_id', $courtIds)
                 ->where('status', 'confirmed')
-                ->where('end_time', '>', now())
+                ->where('end_time', '>', now()->addHour())
             )
             ->with(['booking.court'])
             ->withCount([
@@ -83,6 +85,15 @@ class OpenPlayController extends Controller
             return response()->json(['message' => 'This session is not available for joining.'], 422);
         }
 
+        $existingGuest = $session->participants()
+            ->where('guest_email', $request->email)
+            ->where('payment_status', '!=', 'cancelled')
+            ->exists();
+
+        if ($existingGuest) {
+            return response()->json(['message' => 'This email has already joined this session.'], 422);
+        }
+
         $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 
         Cache::put($this->otpCacheKey($session, $request->email), $code, now()->addMinutes(10));
@@ -104,6 +115,10 @@ class OpenPlayController extends Controller
 
         if ($session->status !== 'open') {
             return response()->json(['message' => 'This session is not available for joining.'], 422);
+        }
+
+        if ($session->booking->end_time->lte(now()->addHour())) {
+            return response()->json(['message' => 'This session is no longer accepting new participants.'], 422);
         }
 
         $user = $request->user('sanctum');
@@ -140,8 +155,8 @@ class OpenPlayController extends Controller
             }
         }
 
-        $isFree = (float) $session->price_per_player === 0.0;
-        $startTime = $session->booking->start_time;
+        $isFree   = (float) $session->price_per_player === 0.0;
+        $endTime  = $session->booking->end_time;
 
         $participant = $session->participants()->create([
             'user_id'              => $user?->id,
@@ -151,7 +166,7 @@ class OpenPlayController extends Controller
             'guest_tracking_token' => $user ? null : (string) Str::uuid(),
             'payment_method'       => $request->payment_method,
             'payment_status'       => $isFree ? 'confirmed' : 'pending_payment',
-            'expires_at'           => $isFree ? null : $this->resolveExpiresAt($request->payment_method, $startTime),
+            'expires_at'           => $isFree ? null : $this->resolveExpiresAt($endTime),
             'joined_at'            => now(),
         ]);
 
@@ -162,6 +177,10 @@ class OpenPlayController extends Controller
         if ($isFree) {
             $session->recalculateStatus();
         }
+
+        $session->loadMissing('booking.court.hub');
+        $participant->setRelation('openPlaySession', $session);
+        $this->openPlayNotifications->notifyParticipantJoined($participant, $session);
 
         return response()->json([
             'message' => $isFree ? "You've joined the session!" : 'Joined! Please complete your payment to confirm your spot.',
@@ -184,6 +203,10 @@ class OpenPlayController extends Controller
 
         if (! $participant) {
             return response()->json(['message' => 'You are not a participant in this session.'], 404);
+        }
+
+        if ($participant->payment_status === 'confirmed') {
+            return response()->json(['message' => 'Confirmed participants cannot leave this session.'], 422);
         }
 
         $participant->update([
@@ -233,6 +256,10 @@ class OpenPlayController extends Controller
             'payment_status'      => 'payment_sent',
         ]);
 
+        $session->loadMissing('booking.court.hub.owner');
+        $participant->setRelation('openPlaySession', $session);
+        $this->openPlayNotifications->notifyReceiptUploaded($participant, $session);
+
         return response()->json([
             'message' => 'Receipt uploaded. The hub owner will review your payment.',
             'data'    => new OpenPlayParticipantResource($participant),
@@ -247,13 +274,9 @@ class OpenPlayController extends Controller
         abort_if(! $courtIds->contains($session->booking->court_id), 404);
     }
 
-    private function resolveExpiresAt(string $paymentMethod, Carbon $startTime): Carbon
+    private function resolveExpiresAt(Carbon $endTime): Carbon
     {
-        if ($paymentMethod === 'pay_on_site') {
-            return $startTime->copy();
-        }
-
-        return now()->addHour()->min($startTime);
+        return $endTime->copy()->subHour();
     }
 
     private function otpCacheKey(OpenPlaySession $session, string $email): string

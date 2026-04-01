@@ -242,6 +242,7 @@ async function handleSendCode() {
       err?.data?.errors?.voucher_code?.[0] ??
       err?.data?.message ??
       'Failed to send code. Please try again.';
+    toast.add({ title: sendError.value!, color: 'error' });
   } finally {
     isSendingCode.value = false;
   }
@@ -303,6 +304,7 @@ async function handleVerifyAndBook() {
       err?.status === 409
         ? 'One or more time slots were just taken. Please update your selection and try again.'
         : (err?.data?.message ?? 'Booking failed. Please try again.');
+    toast.add({ title: bookingError.value!, color: 'error' });
   } finally {
     isBooking.value = false;
   }
@@ -319,6 +321,7 @@ async function handleResendCode() {
   } catch (e: unknown) {
     const err = e as { data?: { message?: string } };
     sendError.value = err?.data?.message ?? 'Failed to resend code.';
+    toast.add({ title: sendError.value!, color: 'error' });
   } finally {
     isSendingCode.value = false;
   }

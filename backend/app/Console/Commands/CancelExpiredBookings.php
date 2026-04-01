@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\GuestBookingPenalty;
 use App\Models\OpenPlayParticipant;
 use App\Models\User;
+use App\Services\OpenPlayNotificationService;
 use Illuminate\Console\Command;
 
 class CancelExpiredBookings extends Command
@@ -53,11 +54,11 @@ class CancelExpiredBookings extends Command
             }
         }
 
-        // Cancel expired open play participants (same expiry rules as bookings)
-        $expiredParticipants = OpenPlayParticipant::where('payment_status', 'pending_payment')
+        // Cancel expired open play participants (pending_payment or payment_sent past expires_at)
+        $expiredParticipants = OpenPlayParticipant::whereIn('payment_status', ['pending_payment', 'payment_sent'])
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', now())
-            ->with('openPlaySession')
+            ->with(['openPlaySession.booking.court.hub', 'user'])
             ->get();
 
         if ($expiredParticipants->isNotEmpty()) {
@@ -67,24 +68,58 @@ class CancelExpiredBookings extends Command
 
             $this->info("Cancelled {$expiredParticipants->count()} expired open play participant(s).");
 
+            $openPlayNotifications = app(OpenPlayNotificationService::class);
+
+            // Track which were pending_payment before we mutate the models (payment_sent expirations
+            // are the owner's fault for not reviewing — no strike applied to those participants).
+            $pendingPaymentParticipants = $expiredParticipants->where('payment_status', 'pending_payment');
+
             foreach ($expiredParticipants as $participant) {
-                $participant->openPlaySession->recalculateStatus();
+                $participant->payment_status = 'cancelled';
+                $session = $participant->openPlaySession;
+                $session->recalculateStatus();
+                $openPlayNotifications->notifyParticipantCancelled($participant, $session, 'system');
+
+                broadcast(new BookingSlotUpdated(
+                    hubId: $session->booking->court->hub_id,
+                    courtId: $session->booking->court_id,
+                    status: 'open_play',
+                ));
             }
 
-            // Apply strikes to registered users who let their spots expire
-            $participantUserIds = $expiredParticipants->whereNotNull('user_id')->pluck('user_id')->unique();
-            foreach ($participantUserIds as $userId) {
+            $strikableUserIds = $pendingPaymentParticipants->whereNotNull('user_id')->pluck('user_id')->unique();
+            foreach ($strikableUserIds as $userId) {
                 $user = User::find($userId);
                 if ($user) {
                     $this->applyUserStrike($user);
                 }
             }
 
-            // Apply strikes to guests who let their spots expire
-            $participantGuestEmails = $expiredParticipants->whereNotNull('guest_email')->pluck('guest_email')->unique();
-            foreach ($participantGuestEmails as $email) {
+            $strikableGuestEmails = $pendingPaymentParticipants->whereNotNull('guest_email')->pluck('guest_email')->unique();
+            foreach ($strikableGuestEmails as $email) {
                 $this->applyGuestStrike($email);
             }
+        }
+
+        // Send session-started notifications to confirmed participants
+        $startedSessions = \App\Models\OpenPlaySession::whereIn('status', ['open', 'full'])
+            ->whereNull('start_notification_sent_at')
+            ->whereHas('booking', fn ($q) => $q
+                ->where('status', 'confirmed')
+                ->where('start_time', '<=', now())
+            )
+            ->with(['booking.court.hub', 'participants' => fn ($q) => $q->where('payment_status', 'confirmed')->with('user')])
+            ->get();
+
+        if ($startedSessions->isNotEmpty()) {
+            $openPlayNotifications = app(OpenPlayNotificationService::class);
+
+            foreach ($startedSessions as $session) {
+                $openPlayNotifications->notifySessionStarted($session);
+                $session->update(['start_notification_sent_at' => now()]);
+            }
+
+            $this->info("Sent session-started notifications for {$startedSessions->count()} open play session(s).");
         }
 
         return self::SUCCESS;

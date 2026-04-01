@@ -94,10 +94,24 @@ export const useNotificationStore = defineStore('notifications', () => {
             onClick: () => {
               toast.remove(t.id);
               markRead(payload.id);
+              const openPlayActivityTypes = [
+                'open_play_participant_confirmed',
+                'open_play_participant_rejected',
+                'open_play_participant_cancelled',
+                'open_play_session_cancelled',
+              ];
+              const ownerOpenPlayTypes = ['open_play_receipt_uploaded'];
               const userFacing = ['booking_confirmed', 'booking_rejected', 'booking_cancelled'];
-              const destination = userFacing.includes(payload.activity_type)
-                ? `/bookings?bookingId=${payload.data.booking_id}`
-                : `/hubs/${payload.data.hub_id}/bookings?bookingId=${payload.data.booking_id}`;
+              let destination: string;
+              if (openPlayActivityTypes.includes(payload.activity_type)) {
+                destination = `/hubs/${payload.data.hub_id}/open-play`;
+              } else if (ownerOpenPlayTypes.includes(payload.activity_type)) {
+                destination = `/hubs/${payload.data.hub_id}/bookings`;
+              } else if (userFacing.includes(payload.activity_type)) {
+                destination = `/bookings?bookingId=${payload.data.booking_id}`;
+              } else {
+                destination = `/hubs/${payload.data.hub_id}/bookings?bookingId=${payload.data.booking_id}`;
+              }
               navigateTo(destination);
             }
           }

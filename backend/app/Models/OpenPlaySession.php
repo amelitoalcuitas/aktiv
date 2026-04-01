@@ -19,14 +19,16 @@ class OpenPlaySession extends Model
         'notes',
         'guests_can_join',
         'status',
+        'start_notification_sent_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'price_per_player' => 'decimal:2',
-            'guests_can_join'  => 'boolean',
-            'max_players'      => 'integer',
+            'price_per_player'            => 'decimal:2',
+            'guests_can_join'             => 'boolean',
+            'max_players'                 => 'integer',
+            'start_notification_sent_at'  => 'datetime',
         ];
     }
 

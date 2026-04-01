@@ -176,15 +176,6 @@ function getOpenPlaySession(booking: BookingDetail): OpenPlaySession | null {
   return props.openPlaySessionsMap[booking.id] ?? null;
 }
 
-function openPlayPriceLabel(session: OpenPlaySession | null): string {
-  if (!session) return 'Session';
-
-  const price = Number(session.price_per_player);
-  if (price === 0) return 'Free';
-
-  return `P${price.toLocaleString('en-PH', { maximumFractionDigits: 0 })}/pax`;
-}
-
 function bookingBg(status: BookingStatus): string {
   switch (status) {
     case 'pending_payment':
@@ -488,7 +479,7 @@ function handleBookedCellClick(booking: BookingDetail) {
                       {{
                         block.booking!.session_type === 'open_play'
                           ? getOpenPlaySession(block.booking!)
-                            ? `${getOpenPlaySession(block.booking!)!.participants_count} / ${getOpenPlaySession(block.booking!)!.max_players} · ${openPlayPriceLabel(getOpenPlaySession(block.booking!))}`
+                            ? `${getOpenPlaySession(block.booking!)!.participants_count} / ${getOpenPlaySession(block.booking!)!.max_players}`
                             : 'Open Session'
                           : statusLabel(block.booking!.status)
                       }}

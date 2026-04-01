@@ -205,11 +205,38 @@ async function refreshAll() {
   await Promise.all([loadSession(), loadParticipants()]);
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let hubChannel: any = null;
+
 watch(
   [() => props.open, () => props.sessionId],
   async ([open, sessionId]) => {
-    if (!open || !sessionId) return;
+    if (!open || !sessionId) {
+      if (hubChannel) {
+        const { $echo } = useNuxtApp();
+        if ($echo) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ($echo as any).leaveChannel(`hub.${props.hubId}`);
+        }
+        hubChannel = null;
+      }
+      return;
+    }
+
     await refreshAll();
+
+    if (!hubChannel) {
+      const { $echo } = useNuxtApp();
+      if ($echo) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const echo = $echo as any;
+        echo.connector.pusher.connection.connect();
+        hubChannel = echo.channel(`hub.${props.hubId}`);
+        hubChannel.listen('.booking.slot.updated', () => {
+          loadParticipants();
+        });
+      }
+    }
   },
   { immediate: true }
 );

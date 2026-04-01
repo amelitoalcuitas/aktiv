@@ -107,6 +107,7 @@ async function loadCourts() {
 const bookingsLoading = ref(false);
 const allBookings = ref<BookingDetail[]>([]);
 const tableDate = ref(new Date());
+let bookingsLoadRequestId = 0;
 
 function formatDateString(date: Date): string {
   const y = date.getFullYear();
@@ -126,19 +127,26 @@ const tableDateLabel = computed(() =>
 );
 
 async function loadBookings() {
+  const requestId = ++bookingsLoadRequestId;
   bookingsLoading.value = true;
   try {
     const date =
       viewMode.value === 'table' ? tableDate.value : selectedDate.value;
     const dayStr = formatDateString(date);
-    allBookings.value = await fetchHubBookings(hubId.value, {
+    const bookings = await fetchHubBookings(hubId.value, {
       date_from: dayStr,
       date_to: dayStr
     });
+    if (requestId !== bookingsLoadRequestId) return;
+
+    allBookings.value = bookings;
+    syncOpenPlaySessionsFromBookings(bookings);
   } catch {
     toast.add({ title: 'Failed to load bookings', color: 'error' });
   } finally {
-    bookingsLoading.value = false;
+    if (requestId === bookingsLoadRequestId) {
+      bookingsLoading.value = false;
+    }
   }
 }
 
@@ -342,6 +350,26 @@ const openPlaySessionsMap = ref<Record<string, OpenPlaySession>>({});
 
 function upsertOpenPlaySession(session: OpenPlaySession) {
   openPlaySessionsMap.value[session.booking_id] = session;
+}
+
+function syncOpenPlaySessionsFromBookings(bookings: BookingDetail[]) {
+  const nextBookingIds = new Set(
+    bookings
+      .filter((b) => b.session_type === 'open_play' && b.open_play_session_id)
+      .map((b) => b.id)
+  );
+
+  openPlaySessionsMap.value = Object.fromEntries(
+    Object.entries(openPlaySessionsMap.value).filter(([bookingId]) =>
+      nextBookingIds.has(bookingId)
+    )
+  );
+
+  bookings.forEach((booking) => {
+    if (booking.open_play_session) {
+      upsertOpenPlaySession(booking.open_play_session);
+    }
+  });
 }
 
 // ── Walk-in modal ─────────────────────────────────────────────

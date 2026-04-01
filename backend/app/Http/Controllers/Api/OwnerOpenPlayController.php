@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Events\BookingSlotUpdated;
 use App\Http\Controllers\Controller;
+use App\Services\OpenPlayNotificationService;
 use App\Http\Requests\OpenPlay\StoreOpenPlaySessionRequest;
 use App\Http\Requests\OpenPlay\UpdateOpenPlaySessionRequest;
 use App\Http\Resources\OpenPlayParticipantResource;
@@ -21,6 +22,10 @@ use Illuminate\Support\Facades\DB;
 
 class OwnerOpenPlayController extends Controller
 {
+    public function __construct(
+        private OpenPlayNotificationService $openPlayNotifications,
+    ) {}
+
     public function store(Hub $hub, StoreOpenPlaySessionRequest $request): JsonResponse
     {
         abort_if($hub->owner_id !== $request->user()->id, 403);
@@ -197,6 +202,8 @@ class OwnerOpenPlayController extends Controller
 
         $courtId = $session->booking->court_id;
 
+        $session->loadMissing('booking.court.hub');
+
         DB::transaction(function () use ($session): void {
             // Cancel all active participants
             $session->participants()
@@ -209,6 +216,8 @@ class OwnerOpenPlayController extends Controller
             // Cancel the session
             $session->update(['status' => 'cancelled']);
         });
+
+        $this->openPlayNotifications->notifySessionCancelled($session);
 
         broadcast(new BookingSlotUpdated(
             hubId: $hub->id,
@@ -257,6 +266,11 @@ class OwnerOpenPlayController extends Controller
 
         $session->recalculateStatus();
 
+        $session->loadMissing('booking.court.hub');
+        $participant->setRelation('openPlaySession', $session);
+        $participant->loadMissing('user');
+        $this->openPlayNotifications->notifyParticipantConfirmed($participant, $session);
+
         return response()->json([
             'message' => 'Participant confirmed.',
             'data'    => new OpenPlayParticipantResource($participant->load('user')),
@@ -284,8 +298,13 @@ class OwnerOpenPlayController extends Controller
             'payment_note'        => $request->payment_note,
             'receipt_image_url'   => null,
             'receipt_uploaded_at' => null,
-            'expires_at'          => $this->resolveExpiresAt($participant->payment_method, $session->booking->start_time),
+            'expires_at'          => $this->resolveExpiresAt($session->booking->end_time),
         ]);
+
+        $session->loadMissing('booking.court.hub');
+        $participant->setRelation('openPlaySession', $session);
+        $participant->loadMissing('user');
+        $this->openPlayNotifications->notifyParticipantRejected($participant, $session);
 
         return response()->json([
             'message' => 'Receipt rejected. Participant can re-upload.',
@@ -313,6 +332,11 @@ class OwnerOpenPlayController extends Controller
         ]);
 
         $session->recalculateStatus();
+
+        $session->loadMissing('booking.court.hub');
+        $participant->setRelation('openPlaySession', $session);
+        $participant->loadMissing('user');
+        $this->openPlayNotifications->notifyParticipantCancelled($participant, $session, 'owner');
 
         return response()->json([
             'message' => 'Participant cancelled.',
@@ -362,12 +386,8 @@ class OwnerOpenPlayController extends Controller
             ->first(fn (HubEvent $event) => $event->appliesToCourt($court->id));
     }
 
-    private function resolveExpiresAt(string $paymentMethod, Carbon $startTime): Carbon
+    private function resolveExpiresAt(Carbon $endTime): Carbon
     {
-        if ($paymentMethod === 'pay_on_site') {
-            return $startTime->copy();
-        }
-
-        return now()->addHour()->min($startTime);
+        return $endTime->copy()->subHour();
     }
 }

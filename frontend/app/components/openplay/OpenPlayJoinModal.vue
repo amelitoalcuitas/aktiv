@@ -38,6 +38,14 @@ const canUploadReceipt = computed(
     currentParticipant.value?.payment_status === 'pending_payment' &&
     currentParticipant.value?.payment_method === 'digital_bank'
 );
+const canLeaveSession = computed(
+  () =>
+    isAuthenticated.value &&
+    (
+      currentParticipant.value?.payment_status === 'pending_payment' ||
+      currentParticipant.value?.payment_status === 'payment_sent'
+    )
+);
 
 const isReceiptModalOpen = ref(false);
 const step = ref<'details' | 'verify'>('details');
@@ -161,6 +169,7 @@ async function handleSendCode() {
     actionError.value =
       (err as { data?: { message?: string } })?.data?.message ??
       'Failed to send code. Please try again.';
+    toast.add({ title: actionError.value!, color: 'error' });
   } finally {
     sendingCode.value = false;
   }
@@ -215,6 +224,7 @@ async function handleJoin() {
     actionError.value =
       (err as { data?: { message?: string } })?.data?.message ??
       'Failed to join this session.';
+    toast.add({ title: actionError.value!, color: 'error' });
   } finally {
     joining.value = false;
   }
@@ -239,6 +249,7 @@ async function handleLeave() {
     actionError.value =
       (err as { data?: { message?: string } })?.data?.message ??
       'Failed to leave the session.';
+    toast.add({ title: actionError.value!, color: 'error' });
   } finally {
     leaving.value = false;
   }
@@ -463,10 +474,7 @@ async function handleLeave() {
             Upload Receipt
           </UButton>
           <UButton
-            v-if="
-              isAuthenticated &&
-              currentParticipant.payment_status !== 'cancelled'
-            "
+            v-if="canLeaveSession"
             color="error"
             :loading="leaving"
             @click="handleLeave"

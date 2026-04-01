@@ -15,7 +15,6 @@ class OpenPlaySessionResource extends JsonResource
         return [
             'id'               => $this->id,
             'booking_id'       => $this->booking_id,
-            'sport'            => $this->sport,
             'max_players'      => $this->max_players,
             'price_per_player' => $this->price_per_player,
             'notes'            => $this->notes,

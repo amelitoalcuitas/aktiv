@@ -17,7 +17,6 @@ class UpdateOpenPlaySessionRequest extends FormRequest
             'court_id'         => ['required', 'uuid', 'exists:courts,id'],
             'start_time'       => ['required', 'date'],
             'end_time'         => ['required', 'date', 'after:start_time'],
-            'sport'            => ['nullable', 'string', 'max:100'],
             'max_players'      => ['required', 'integer', 'min:2'],
             'price_per_player' => ['required', 'numeric', 'min:0'],
             'notes'            => ['nullable', 'string', 'max:500'],

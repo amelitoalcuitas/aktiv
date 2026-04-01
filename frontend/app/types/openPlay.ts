@@ -8,7 +8,6 @@ export type ParticipantPaymentStatus =
 export interface OpenPlaySession {
   id: string
   booking_id: string
-  sport: string | null
   max_players: number
   price_per_player: string
   notes: string | null

@@ -56,7 +56,6 @@ class OwnerOpenPlayController extends Controller
             $booking = Booking::create([
                 'court_id'       => $court->id,
                 'created_by'     => $request->user()->id,
-                'sport'          => $request->sport,
                 'start_time'     => $startTime,
                 'end_time'       => $endTime,
                 'session_type'   => 'open_play',
@@ -68,7 +67,6 @@ class OwnerOpenPlayController extends Controller
 
             return OpenPlaySession::create([
                 'booking_id'       => $booking->id,
-                'sport'            => $request->sport,
                 'max_players'      => $request->max_players,
                 'price_per_player' => $request->price_per_player,
                 'notes'            => $request->notes,
@@ -154,11 +152,9 @@ class OwnerOpenPlayController extends Controller
                 'court_id'   => $court->id,
                 'start_time' => $startTime,
                 'end_time'   => $endTime,
-                'sport'      => $request->sport,
             ]);
 
             $session->update([
-                'sport'            => $request->sport,
                 'max_players'      => $request->max_players,
                 'price_per_player' => $request->price_per_player,
                 'notes'            => $request->notes,
@@ -228,7 +224,11 @@ class OwnerOpenPlayController extends Controller
         abort_if($hub->owner_id !== $request->user()->id, 403);
         $this->assertBelongsToHub($session, $hub);
 
-        $session->load('participants.user');
+        $session->load([
+            'participants' => fn ($query) => $query
+                ->where('payment_status', '!=', 'cancelled')
+                ->with('user'),
+        ]);
 
         return response()->json([
             'data' => OpenPlayParticipantResource::collection($session->participants),
@@ -332,7 +332,7 @@ class OwnerOpenPlayController extends Controller
     {
         return $session->load(['booking.court'])
             ->loadCount([
-                'participants',
+                'participants as participants_count' => fn ($query) => $query->where('payment_status', '!=', 'cancelled'),
                 'participants as confirmed_participants_count' => fn ($query) => $query->where('payment_status', 'confirmed'),
             ]);
     }

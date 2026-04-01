@@ -145,7 +145,7 @@ async function submit() {
           class="rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-background)] p-3 text-sm"
         >
           <p class="font-semibold text-[var(--aktiv-ink)]">
-            {{ session.sport ?? 'Open Play' }} · {{ session.booking?.court?.name ?? 'Court' }}
+            Open Play · {{ session.booking?.court?.name ?? 'Court' }}
           </p>
           <p class="mt-0.5 text-[var(--aktiv-muted)]">
             {{ formatSchedule(session) }}

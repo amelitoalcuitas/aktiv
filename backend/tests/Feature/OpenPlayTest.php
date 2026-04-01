@@ -74,14 +74,13 @@ it('owner can create an open play session', function () {
             'court_id'         => $court->id,
             'start_time'       => $start,
             'end_time'         => $end,
-            'sport'            => 'badminton',
             'max_players'      => 8,
             'price_per_player' => 150,
             'guests_can_join'  => false,
         ])
         ->assertCreated()
         ->assertJsonPath('data.status', 'open')
-        ->assertJsonPath('data.sport', 'badminton');
+        ->assertJsonMissingPath('data.sport');
 
     expect(OpenPlaySession::count())->toBe(1);
     expect(Booking::where('session_type', 'open_play')->count())->toBe(1);
@@ -98,7 +97,6 @@ it('owner cannot create a session on another hub\'s court', function () {
             'court_id'         => $otherCourt->id,
             'start_time'       => now()->addDay()->setHour(10)->toIso8601String(),
             'end_time'         => now()->addDay()->setHour(12)->toIso8601String(),
-            'sport'            => 'badminton',
             'max_players'      => 8,
             'price_per_player' => 150,
         ])
@@ -117,6 +115,12 @@ it('owner can fetch a single open play session', function () {
         'payment_status' => 'confirmed',
         'joined_at' => now(),
     ]);
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'cancelled',
+        'joined_at' => now(),
+    ]);
 
     $this->actingAs($owner)
         ->getJson("/api/dashboard/hubs/{$hub->id}/open-play/{$session->id}")
@@ -125,7 +129,8 @@ it('owner can fetch a single open play session', function () {
         ->assertJsonPath('data.booking_id', $session->booking_id)
         ->assertJsonPath('data.booking.court.id', $court->id)
         ->assertJsonPath('data.participants_count', 1)
-        ->assertJsonPath('data.confirmed_participants_count', 1);
+        ->assertJsonPath('data.confirmed_participants_count', 1)
+        ->assertJsonMissingPath('data.sport');
 });
 
 it('owner can update open play session metadata', function () {
@@ -142,25 +147,22 @@ it('owner can update open play session metadata', function () {
             'court_id' => $court->id,
             'start_time' => $start->toIso8601String(),
             'end_time' => $end->toIso8601String(),
-            'sport' => 'pickleball',
             'max_players' => 10,
             'price_per_player' => 200,
             'notes' => 'Bring water.',
             'guests_can_join' => true,
         ])
         ->assertOk()
-        ->assertJsonPath('data.sport', 'pickleball')
         ->assertJsonPath('data.max_players', 10)
         ->assertJsonPath('data.price_per_player', '200.00')
         ->assertJsonPath('data.notes', 'Bring water.')
         ->assertJsonPath('data.guests_can_join', true)
         ->assertJsonPath('data.booking.start_time', $start->toIso8601String())
-        ->assertJsonPath('data.booking.end_time', $end->toIso8601String());
+        ->assertJsonPath('data.booking.end_time', $end->toIso8601String())
+        ->assertJsonMissingPath('data.sport');
 
-    expect($session->fresh()->sport)->toBe('pickleball');
     expect($session->fresh()->max_players)->toBe(10);
     expect($session->fresh()->price_per_player)->toBe('200.00');
-    expect($session->booking->fresh()->sport)->toBe('pickleball');
 });
 
 it('owner can move an open play session to another available slot and court', function () {
@@ -178,7 +180,6 @@ it('owner can move an open play session to another available slot and court', fu
             'court_id' => $targetCourt->id,
             'start_time' => $start->toIso8601String(),
             'end_time' => $end->toIso8601String(),
-            'sport' => 'badminton',
             'max_players' => 8,
             'price_per_player' => 150,
             'notes' => null,
@@ -216,7 +217,6 @@ it('owner cannot update a session to a conflicting slot', function () {
             'court_id' => $court->id,
             'start_time' => $start->toIso8601String(),
             'end_time' => $end->toIso8601String(),
-            'sport' => 'badminton',
             'max_players' => 8,
             'price_per_player' => 150,
             'notes' => null,
@@ -252,7 +252,6 @@ it('owner cannot update a session into a closure event', function () {
             'court_id' => $court->id,
             'start_time' => $start->toIso8601String(),
             'end_time' => $end->toIso8601String(),
-            'sport' => 'badminton',
             'max_players' => 8,
             'price_per_player' => 150,
             'notes' => null,
@@ -287,7 +286,6 @@ it('owner cannot reduce max players below confirmed participants', function () {
             'court_id' => $court->id,
             'start_time' => $session->booking->start_time->toIso8601String(),
             'end_time' => $session->booking->end_time->toIso8601String(),
-            'sport' => 'badminton',
             'max_players' => 1,
             'price_per_player' => 150,
             'notes' => null,
@@ -322,7 +320,6 @@ it('owner cannot create a session on a conflicting slot', function () {
             'court_id'         => $court->id,
             'start_time'       => $start->toIso8601String(),
             'end_time'         => $end->toIso8601String(),
-            'sport'            => 'badminton',
             'max_players'      => 8,
             'price_per_player' => 150,
         ])
@@ -340,7 +337,6 @@ it('non-owner cannot create a session', function () {
             'court_id'         => $court->id,
             'start_time'       => now()->addDay()->setHour(10)->toIso8601String(),
             'end_time'         => now()->addDay()->setHour(12)->toIso8601String(),
-            'sport'            => 'badminton',
             'max_players'      => 8,
             'price_per_player' => 150,
         ])
@@ -401,6 +397,33 @@ it('lists upcoming open play sessions for a hub', function () {
         ->assertJsonCount(2, 'data');
 });
 
+it('owner participant list excludes cancelled participants', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $session = makeOpenPlaySession($court);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'confirmed',
+        'joined_at' => now(),
+    ]);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'cancelled',
+        'joined_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->getJson("/api/dashboard/hubs/{$hub->id}/open-play/{$session->id}/participants")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.payment_status', 'confirmed');
+});
+
 it('includes viewer participant metadata for the authenticated user', function () {
     $owner = makeOwner();
     $hub = makeOwnerHub($owner);
@@ -438,6 +461,41 @@ it('does not list cancelled sessions', function () {
         ->assertJsonCount(1, 'data');
 });
 
+it('lists in-progress open play sessions until they end', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+
+    $session = makeOpenPlaySession($court, [
+        'booking' => [
+            'start_time' => now()->subMinutes(30),
+            'end_time' => now()->addMinutes(30),
+        ],
+    ]);
+
+    $this->getJson("/api/hubs/{$hub->id}/open-play")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $session->id);
+});
+
+it('does not list open play sessions once they have ended', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+
+    makeOpenPlaySession($court, [
+        'booking' => [
+            'start_time' => now()->subHours(2),
+            'end_time' => now()->subHour(),
+        ],
+    ]);
+
+    $this->getJson("/api/hubs/{$hub->id}/open-play")
+        ->assertOk()
+        ->assertJsonCount(0, 'data');
+});
+
 // ── Join ────────────────────────────────────────────────────────
 
 it('authenticated user can join an open play session', function () {
@@ -455,6 +513,26 @@ it('authenticated user can join an open play session', function () {
         ->assertJsonPath('data.payment_status', 'pending_payment');
 
     expect(OpenPlayParticipant::where('open_play_session_id', $session->id)->count())->toBe(1);
+});
+
+it('authenticated user can join an in-progress open play session', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $session = makeOpenPlaySession($court, [
+        'booking' => [
+            'start_time' => now()->subMinutes(30),
+            'end_time' => now()->addMinutes(30),
+        ],
+    ]);
+    $player = makePlayer();
+
+    $this->actingAs($player)
+        ->postJson("/api/hubs/{$hub->id}/open-play/{$session->id}/join", [
+            'payment_method' => 'pay_on_site',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.payment_status', 'pending_payment');
 });
 
 it('authenticated user can join without guest fields', function () {

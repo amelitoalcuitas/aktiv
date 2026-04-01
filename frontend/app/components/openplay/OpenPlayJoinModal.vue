@@ -259,7 +259,7 @@ async function handleLeave() {
           <div class="flex items-start justify-between gap-3">
             <div>
               <h3 class="text-base font-bold text-[var(--aktiv-ink)]">
-                {{ session.sport ?? 'Open Play' }}
+                Open Play
               </h3>
               <p class="mt-1 text-sm text-[var(--aktiv-muted)]">
                 {{ session.booking?.court?.name ?? 'Court' }} ·

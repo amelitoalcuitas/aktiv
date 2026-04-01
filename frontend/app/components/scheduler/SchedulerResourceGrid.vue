@@ -561,12 +561,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                     class="absolute inset-1.5 flex cursor-pointer flex-col items-center justify-center rounded-md border border-[#7c3aed] bg-[#8b5cf6] px-1.5 text-center text-[11px] font-semibold text-white shadow-sm transition hover:bg-[#7c3aed]"
                     @click="handleBookedCellClick(court, slotIdx)"
                   >
-                    <span class="truncate max-w-full">
-                      {{
-                        getOpenPlaySession(getCellBooking(court.id, slotIdx))?.sport ??
-                        'Open Play'
-                      }}
-                    </span>
+                    <span class="truncate max-w-full">Open Play</span>
                     <span class="text-[10px] font-medium opacity-80">
                       {{
                         getOpenPlaySession(getCellBooking(court.id, slotIdx))

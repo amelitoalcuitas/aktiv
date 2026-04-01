@@ -5,7 +5,6 @@ interface CreateSessionPayload {
   court_id: string;
   start_time: string;
   end_time: string;
-  sport?: string | null;
   max_players: number;
   price_per_player: number;
   notes?: string | null;

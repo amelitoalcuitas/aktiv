@@ -15,7 +15,6 @@ const { data: hub } = useNuxtData<Hub>(`hub-${hubId.value}`);
 
 const loading = ref(true);
 const sessions = ref<OpenPlaySession[]>([]);
-const selectedSport = ref<string>('all');
 const joinModalOpen = ref(false);
 const selectedSessionId = ref<string | null>(null);
 
@@ -29,20 +28,6 @@ async function loadSessions() {
 }
 
 await loadSessions();
-
-const sportOptions = computed(() => {
-  const items = sessions.value
-    .map((session) => session.sport)
-    .filter((sport): sport is string => !!sport);
-
-  return ['all', ...new Set(items)];
-});
-
-const filteredSessions = computed(() =>
-  sessions.value.filter((session) =>
-    selectedSport.value === 'all' ? true : session.sport === selectedSport.value
-  )
-);
 
 const selectedSession = computed(
   () =>
@@ -80,13 +65,6 @@ function openSession(sessionId: string) {
           </div>
         </div>
 
-        <UFormField label="Sport" class="min-w-[180px]">
-          <USelect
-            v-model="selectedSport"
-            :items="sportOptions"
-            class="w-full"
-          />
-        </UFormField>
       </div>
     </UCard>
 
@@ -98,7 +76,7 @@ function openSession(sessionId: string) {
     </div>
 
     <div
-      v-else-if="filteredSessions.length === 0"
+      v-else-if="sessions.length === 0"
       class="rounded-2xl border border-dashed border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-10 text-center"
     >
       <UIcon
@@ -115,7 +93,7 @@ function openSession(sessionId: string) {
 
     <div v-else class="space-y-4">
       <OpenPlaySessionCard
-        v-for="session in filteredSessions"
+        v-for="session in sessions"
         :key="session.id"
         :session="session"
         @open="openSession"

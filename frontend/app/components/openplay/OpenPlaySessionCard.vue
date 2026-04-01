@@ -66,7 +66,7 @@ const badgeColor = computed(() => {
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-base font-bold text-[var(--aktiv-ink)]">
-                {{ session.sport ?? 'Open Play' }}
+                Open Play
               </h3>
               <UBadge :color="badgeColor" variant="soft">
                 {{ ctaLabel }}

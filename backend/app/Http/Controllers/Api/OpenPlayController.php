@@ -37,7 +37,7 @@ class OpenPlayController extends Controller
             ->whereHas('booking', fn ($q) => $q
                 ->whereIn('court_id', $courtIds)
                 ->where('status', 'confirmed')
-                ->where('start_time', '>', now())
+                ->where('end_time', '>', now())
             )
             ->with(['booking.court'])
             ->withCount([

@@ -254,7 +254,7 @@ function formatSessionTime(session: OpenPlaySession): string {
 <template>
   <AppModal
     v-model:open="isOpen"
-    :title="`${session.sport.charAt(0).toUpperCase() + session.sport.slice(1)} Open Play`"
+    title="Open Play"
     :ui="{ content: 'sm:max-w-2xl' }"
     :confirm="undefined"
     cancel="Close"

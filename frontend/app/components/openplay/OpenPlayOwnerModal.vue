@@ -2,11 +2,7 @@
 import { z } from 'zod';
 import type { FormSubmitEvent } from '#ui/types';
 import type { Court, OperatingHoursEntry } from '~/types/hub';
-import type {
-  OpenPlayParticipant,
-  OpenPlaySession,
-  ParticipantPaymentStatus
-} from '~/types/openPlay';
+import type { OpenPlayParticipant, OpenPlaySession } from '~/types/openPlay';
 import { useOwnerOpenPlay } from '~/composables/useOwnerOpenPlay';
 
 const props = defineProps<{
@@ -51,7 +47,6 @@ const schema = z
     date: z.string().min(1, 'Select a date.'),
     startHour: z.number(),
     endHour: z.number(),
-    sport: z.string().max(100, 'Max 100 characters.').optional().or(z.literal('')),
     maxPlayers: z
       .number({ invalid_type_error: 'Enter a number.' })
       .int()
@@ -83,7 +78,6 @@ const state = reactive<Schema>({
   date: '',
   startHour: 8,
   endHour: 9,
-  sport: '',
   maxPlayers: 2,
   pricePerPlayer: 0,
   notes: '',
@@ -173,7 +167,6 @@ function hydrateForm(nextSession: OpenPlaySession) {
   state.date = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
   state.startHour = start.getHours();
   state.endHour = end.getHours();
-  state.sport = nextSession.sport ?? '';
   state.maxPlayers = nextSession.max_players;
   state.pricePerPlayer = Number(nextSession.price_per_player);
   state.notes = nextSession.notes ?? '';
@@ -229,7 +222,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     startHour,
     endHour,
     courtId,
-    sport,
     maxPlayers,
     pricePerPlayer,
     notes,
@@ -248,7 +240,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       court_id: courtId,
       start_time: startDt.toISOString(),
       end_time: endDt.toISOString(),
-      sport: sport?.trim() || null,
       max_players: maxPlayers,
       price_per_player: pricePerPlayer,
       notes: notes?.trim() || null,
@@ -386,34 +377,6 @@ function participantName(participant: OpenPlayParticipant): string {
   return participant.guest_name ?? 'Unknown';
 }
 
-function statusColor(
-  status: ParticipantPaymentStatus
-): 'warning' | 'primary' | 'success' | 'error' | 'neutral' {
-  switch (status) {
-    case 'pending_payment':
-      return 'warning';
-    case 'payment_sent':
-      return 'primary';
-    case 'confirmed':
-      return 'success';
-    case 'cancelled':
-      return 'error';
-  }
-}
-
-function statusLabel(status: ParticipantPaymentStatus): string {
-  switch (status) {
-    case 'pending_payment':
-      return 'Pending';
-    case 'payment_sent':
-      return 'Receipt Sent';
-    case 'confirmed':
-      return 'Confirmed';
-    case 'cancelled':
-      return 'Cancelled';
-  }
-}
-
 function participantDropdownItems(participant: OpenPlayParticipant) {
   const groups: {
     label: string;
@@ -467,6 +430,8 @@ function participantDropdownItems(participant: OpenPlayParticipant) {
 const confirmedCount = computed(
   () => participants.value.filter((participant) => participant.payment_status === 'confirmed').length
 );
+
+const activeParticipantsCount = computed(() => participants.value.length);
 
 function formatSessionTime(nextSession: OpenPlaySession | null): string {
   if (!nextSession?.booking) return '';
@@ -536,7 +501,7 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                     </p>
                   </div>
                   <UBadge
-                    :label="`${confirmedCount} / ${state.maxPlayers} confirmed`"
+                    :label="`${activeParticipantsCount} / ${state.maxPlayers} active · ${confirmedCount} confirmed`"
                     color="success"
                     variant="subtle"
                   />
@@ -586,14 +551,6 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                   />
                 </UFormField>
               </div>
-
-              <UFormField label="Sport (optional)" name="sport">
-                <UInput
-                  v-model="state.sport"
-                  placeholder="e.g. Badminton"
-                  class="w-full"
-                />
-              </UFormField>
 
               <div class="grid grid-cols-2 gap-3">
                 <UFormField label="Max Players" name="maxPlayers">
@@ -688,8 +645,6 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                       <th class="px-4 py-2.5 text-left">Name</th>
                       <th class="px-4 py-2.5 text-left">Type</th>
                       <th class="px-4 py-2.5 text-left">Payment</th>
-                      <th class="px-4 py-2.5 text-left">Status</th>
-                      <th class="px-4 py-2.5 text-left">Receipt</th>
                       <th class="px-4 py-2.5" />
                     </tr>
                   </thead>
@@ -721,39 +676,6 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                             ? 'Pay on Site'
                             : 'Digital Bank'
                         }}
-                      </td>
-                      <td class="px-4 py-3">
-                        <div class="space-y-1">
-                          <UBadge
-                            :label="statusLabel(participant.payment_status)"
-                            :color="statusColor(participant.payment_status)"
-                            variant="subtle"
-                          />
-                          <p
-                            v-if="
-                              participant.payment_note &&
-                              participant.payment_status === 'pending_payment'
-                            "
-                            class="rounded bg-[#fef9c3] px-1.5 py-0.5 text-xs text-[#92400e]"
-                          >
-                            {{ participant.payment_note }}
-                          </p>
-                        </div>
-                      </td>
-                      <td class="px-4 py-3">
-                        <a
-                          v-if="participant.receipt_image_url"
-                          :href="participant.receipt_image_url"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <img
-                            :src="participant.receipt_image_url"
-                            alt="Receipt"
-                            class="h-10 w-10 rounded-md border border-[#dbe4ef] object-cover transition-opacity hover:opacity-75"
-                          />
-                        </a>
-                        <span v-else class="text-[#c8d5e0]">—</span>
                       </td>
                       <td class="px-4 py-3">
                         <UDropdownMenu

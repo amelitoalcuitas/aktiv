@@ -2,7 +2,7 @@
 import { useHubEvents } from '~/composables/useHubEvents';
 import type { HubEvent, EventType, DiscountType } from '~/types/hub';
 
-definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
+definePageMeta({ middleware: 'owner-hub', layout: 'dashboard-hub' });
 
 const route = useRoute();
 const { fetchEvents, createEvent, updateEvent, deleteEvent, toggleEvent } =

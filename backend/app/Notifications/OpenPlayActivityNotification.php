@@ -92,6 +92,7 @@ class OpenPlayActivityNotification extends Notification
 
         return [
             'activity_type' => $this->activityType,
+            'item_id'       => $participant->id,
             'session_id'    => $session->id,
             'hub_id'        => $hub->id,
             'hub_name'      => $hub->name,

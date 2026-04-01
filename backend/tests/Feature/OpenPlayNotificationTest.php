@@ -159,6 +159,48 @@ it('sends join confirmation email to guest on pay_on_site join', function () {
     Mail::assertQueued(OpenPlayJoinConfirmation::class, fn ($mail) => $mail->hasTo('guest@example.com'));
 });
 
+it('includes the guest tracking link in open play guest join confirmation emails', function () {
+    Mail::fake();
+
+    $owner = makeNotifOwner();
+    $hub   = makeNotifHub($owner);
+    $court = makeNotifCourt($hub);
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub');
+
+    $participant = makeNotifGuestParticipant($session, ['payment_method' => 'pay_on_site', 'payment_status' => 'pending_payment']);
+    $participant->setRelation('openPlaySession', $session);
+
+    app(OpenPlayNotificationService::class)->notifyParticipantJoined($participant, $session);
+
+    Mail::assertQueued(OpenPlayJoinConfirmation::class, function ($mail) use ($participant) {
+        return $mail->hasTo('guest@example.com')
+            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}");
+    });
+});
+
+it('includes the guest tracking link in open play guest payment pending emails', function () {
+    Mail::fake();
+
+    $owner = makeNotifOwner();
+    $hub   = makeNotifHub($owner);
+    $court = makeNotifCourt($hub);
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub');
+
+    $participant = makeNotifGuestParticipant($session);
+    $participant->setRelation('openPlaySession', $session);
+
+    app(OpenPlayNotificationService::class)->notifyParticipantJoined($participant, $session);
+
+    Mail::assertQueued(OpenPlayPaymentPending::class, function ($mail) use ($participant) {
+        return $mail->hasTo('guest@example.com')
+            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}");
+    });
+});
+
 // ── notifyReceiptUploaded ─────────────────────────────────────────
 
 it('sends in-app notification and email to owner when receipt uploaded', function () {
@@ -207,7 +249,9 @@ it('sends in-app + broadcast notification to registered user when confirmed', fu
     app(OpenPlayNotificationService::class)->notifyParticipantConfirmed($participant, $session);
 
     expect($player->notifications()->count())->toBe(1)
-        ->and($player->notifications()->first()->data['activity_type'])->toBe('open_play_participant_confirmed');
+        ->and($player->notifications()->first()->data['activity_type'])->toBe('open_play_participant_confirmed')
+        ->and($player->notifications()->first()->data['item_id'])->toBe($participant->id)
+        ->and($player->notifications()->first()->data['session_id'])->toBe($session->id);
 
     Event::assertDispatched(NotificationBroadcast::class);
     Event::assertDispatched(BookingSlotUpdated::class);
@@ -252,7 +296,9 @@ it('sends in-app + broadcast notification to registered user when receipt reject
     app(OpenPlayNotificationService::class)->notifyParticipantRejected($participant, $session);
 
     expect($player->notifications()->count())->toBe(1)
-        ->and($player->notifications()->first()->data['activity_type'])->toBe('open_play_participant_rejected');
+        ->and($player->notifications()->first()->data['activity_type'])->toBe('open_play_participant_rejected')
+        ->and($player->notifications()->first()->data['item_id'])->toBe($participant->id)
+        ->and($player->notifications()->first()->data['session_id'])->toBe($session->id);
 
     Event::assertDispatched(NotificationBroadcast::class);
 });
@@ -273,6 +319,27 @@ it('sends direct email to guest when receipt rejected', function () {
     app(OpenPlayNotificationService::class)->notifyParticipantRejected($participant, $session);
 
     Mail::assertQueued(OpenPlayParticipantRejected::class, fn ($mail) => $mail->hasTo('guest@example.com'));
+});
+
+it('includes the guest tracking link in open play guest rejection emails', function () {
+    Mail::fake();
+
+    $owner = makeNotifOwner();
+    $hub   = makeNotifHub($owner);
+    $court = makeNotifCourt($hub);
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub');
+
+    $participant = makeNotifGuestParticipant($session, ['payment_status' => 'pending_payment', 'payment_note' => 'Blurry image']);
+    $participant->setRelation('openPlaySession', $session);
+
+    app(OpenPlayNotificationService::class)->notifyParticipantRejected($participant, $session);
+
+    Mail::assertQueued(OpenPlayParticipantRejected::class, function ($mail) use ($participant) {
+        return $mail->hasTo('guest@example.com')
+            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}");
+    });
 });
 
 // ── notifyParticipantCancelled ────────────────────────────────────
@@ -296,7 +363,9 @@ it('sends in-app notification to registered user when owner cancels them', funct
     app(OpenPlayNotificationService::class)->notifyParticipantCancelled($participant, $session, 'owner');
 
     expect($player->notifications()->count())->toBe(1)
-        ->and($player->notifications()->first()->data['activity_type'])->toBe('open_play_participant_cancelled');
+        ->and($player->notifications()->first()->data['activity_type'])->toBe('open_play_participant_cancelled')
+        ->and($player->notifications()->first()->data['item_id'])->toBe($participant->id)
+        ->and($player->notifications()->first()->data['session_id'])->toBe($session->id);
 });
 
 it('sends direct email to guest when they are cancelled', function () {
@@ -315,6 +384,27 @@ it('sends direct email to guest when they are cancelled', function () {
     app(OpenPlayNotificationService::class)->notifyParticipantCancelled($participant, $session, 'system');
 
     Mail::assertQueued(OpenPlayParticipantCancelled::class, fn ($mail) => $mail->hasTo('guest@example.com'));
+});
+
+it('includes the guest tracking link in open play guest cancellation emails', function () {
+    Mail::fake();
+
+    $owner = makeNotifOwner();
+    $hub   = makeNotifHub($owner);
+    $court = makeNotifCourt($hub);
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub');
+
+    $participant = makeNotifGuestParticipant($session, ['payment_status' => 'cancelled', 'cancelled_by' => 'system']);
+    $participant->setRelation('openPlaySession', $session);
+
+    app(OpenPlayNotificationService::class)->notifyParticipantCancelled($participant, $session, 'system');
+
+    Mail::assertQueued(OpenPlayParticipantCancelled::class, function ($mail) use ($participant) {
+        return $mail->hasTo('guest@example.com')
+            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}");
+    });
 });
 
 // ── notifySessionCancelled ────────────────────────────────────────
@@ -340,8 +430,16 @@ it('notifies all active participants when session is cancelled', function () {
 
     app(OpenPlayNotificationService::class)->notifySessionCancelled($session);
 
-    expect($player1->notifications()->count())->toBe(1);
-    expect($player2->notifications()->count())->toBe(1);
+    expect($player1->notifications()->count())->toBe(1)
+        ->and($player1->notifications()->first()->data['item_id'])->toBe(
+            $session->participants()->where('user_id', $player1->id)->firstOrFail()->id
+        )
+        ->and($player1->notifications()->first()->data['session_id'])->toBe($session->id);
+    expect($player2->notifications()->count())->toBe(1)
+        ->and($player2->notifications()->first()->data['item_id'])->toBe(
+            $session->participants()->where('user_id', $player2->id)->firstOrFail()->id
+        )
+        ->and($player2->notifications()->first()->data['session_id'])->toBe($session->id);
     Mail::assertQueued(OpenPlaySessionCancelled::class, 1);
 });
 
@@ -369,8 +467,16 @@ it('notifies all confirmed participants when session starts', function () {
     app(OpenPlayNotificationService::class)->notifySessionStarted($session);
 
     expect($player1->notifications()->count())->toBe(1)
-        ->and($player1->notifications()->first()->data['activity_type'])->toBe('open_play_session_started');
-    expect($player2->notifications()->count())->toBe(1);
+        ->and($player1->notifications()->first()->data['activity_type'])->toBe('open_play_session_started')
+        ->and($player1->notifications()->first()->data['item_id'])->toBe(
+            $session->participants()->where('user_id', $player1->id)->firstOrFail()->id
+        )
+        ->and($player1->notifications()->first()->data['session_id'])->toBe($session->id);
+    expect($player2->notifications()->count())->toBe(1)
+        ->and($player2->notifications()->first()->data['item_id'])->toBe(
+            $session->participants()->where('user_id', $player2->id)->firstOrFail()->id
+        )
+        ->and($player2->notifications()->first()->data['session_id'])->toBe($session->id);
     Mail::assertQueued(OpenPlaySessionStarted::class, 1);
 });
 

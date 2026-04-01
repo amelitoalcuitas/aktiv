@@ -224,6 +224,9 @@ function participantDropdownItems(p: OpenPlayParticipant) {
 const confirmedCount = computed(
   () => participants.value.filter((p) => p.payment_status === 'confirmed').length
 );
+const activeParticipantsCount = computed(
+  () => participants.value.filter((p) => p.payment_status !== 'cancelled').length
+);
 
 function formatSessionTime(session: OpenPlaySession): string {
   if (!session.booking) return '';
@@ -274,7 +277,7 @@ function formatSessionTime(session: OpenPlaySession): string {
         </div>
         <div class="flex items-center gap-3">
           <UBadge
-            :label="`${confirmedCount} / ${session.max_players} confirmed`"
+            :label="`${activeParticipantsCount} / ${session.max_players} active · ${confirmedCount} confirmed`"
             color="success"
             variant="subtle"
           />

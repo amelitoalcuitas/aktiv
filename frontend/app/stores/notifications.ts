@@ -77,6 +77,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     echoInstance.connector.pusher.connection.connect();
 
     const toast = useToast();
+    const { resolveNotificationDestination } = useNotificationBooking();
 
     const channel = echoInstance.private(`App.Models.User.${userId}`);
     channel.listen('.notification.new', (payload: AppNotification) => {
@@ -94,24 +95,12 @@ export const useNotificationStore = defineStore('notifications', () => {
             onClick: () => {
               toast.remove(t.id);
               markRead(payload.id);
-              const openPlayActivityTypes = [
-                'open_play_participant_confirmed',
-                'open_play_participant_rejected',
-                'open_play_participant_cancelled',
-                'open_play_session_cancelled',
-              ];
-              const ownerOpenPlayTypes = ['open_play_receipt_uploaded'];
-              const userFacing = ['booking_confirmed', 'booking_rejected', 'booking_cancelled'];
-              let destination: string;
-              if (openPlayActivityTypes.includes(payload.activity_type)) {
-                destination = `/hubs/${payload.data.hub_id}/open-play`;
-              } else if (ownerOpenPlayTypes.includes(payload.activity_type)) {
-                destination = `/hubs/${payload.data.hub_id}/bookings`;
-              } else if (userFacing.includes(payload.activity_type)) {
-                destination = `/bookings?bookingId=${payload.data.booking_id}`;
-              } else {
-                destination = `/hubs/${payload.data.hub_id}/bookings?bookingId=${payload.data.booking_id}`;
-              }
+              const destination = resolveNotificationDestination({
+                activityType: payload.activity_type,
+                hubId: payload.data.hub_id,
+                itemId: payload.data.item_id,
+                bookingId: payload.data.booking_id
+              });
               navigateTo(destination);
             }
           }

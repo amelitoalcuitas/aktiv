@@ -9,10 +9,12 @@ export type NotificationActivityType =
   | 'open_play_participant_confirmed'
   | 'open_play_participant_rejected'
   | 'open_play_participant_cancelled'
-  | 'open_play_session_cancelled';
+  | 'open_play_session_cancelled'
+  | 'open_play_session_started';
 
 export interface NotificationData {
   activity_type: NotificationActivityType;
+  item_id?: string;
   booking_id?: string;
   booking_code?: string;
   customer_name?: string;

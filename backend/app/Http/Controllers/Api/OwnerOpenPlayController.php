@@ -137,15 +137,15 @@ class OwnerOpenPlayController extends Controller
             ], 409);
         }
 
-        $confirmedParticipants = $session->participants()
-            ->where('payment_status', 'confirmed')
+        $reservedParticipants = $session->participants()
+            ->whereIn('payment_status', OpenPlaySession::reservedParticipantStatuses())
             ->count();
 
-        if ($request->integer('max_players') < $confirmedParticipants) {
+        if ($request->integer('max_players') < $reservedParticipants) {
             return response()->json([
-                'message' => 'Max players cannot be lower than the number of confirmed participants.',
+                'message' => 'Max players cannot be lower than the number of active reserved participants.',
                 'errors' => [
-                    'max_players' => ['Max players cannot be lower than the number of confirmed participants.'],
+                    'max_players' => ['Max players cannot be lower than the number of active reserved participants.'],
                 ],
             ], 422);
         }
@@ -258,6 +258,10 @@ class OwnerOpenPlayController extends Controller
             return response()->json(['message' => 'This participant cannot be confirmed.'], 422);
         }
 
+        if (! in_array($participant->payment_status, OpenPlaySession::reservedParticipantStatuses(), true)) {
+            return response()->json(['message' => 'This participant no longer has a reserved seat.'], 422);
+        }
+
         $participant->update([
             'payment_status'       => 'confirmed',
             'payment_confirmed_by' => $request->user()->id,
@@ -356,7 +360,8 @@ class OwnerOpenPlayController extends Controller
     {
         return $session->load(['booking.court'])
             ->loadCount([
-                'participants as participants_count' => fn ($query) => $query->where('payment_status', '!=', 'cancelled'),
+                'participants as participants_count' => fn ($query) => $query
+                    ->whereIn('payment_status', OpenPlaySession::reservedParticipantStatuses()),
                 'participants as confirmed_participants_count' => fn ($query) => $query->where('payment_status', 'confirmed'),
             ]);
     }

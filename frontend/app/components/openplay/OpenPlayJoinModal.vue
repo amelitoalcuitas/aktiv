@@ -48,7 +48,7 @@ const canLeaveSession = computed(
 );
 
 const isReceiptModalOpen = ref(false);
-const step = ref<'details' | 'verify'>('details');
+const step = ref<'details' | 'verify' | 'confirm'>('details');
 const selectedPaymentMethod = ref<'pay_on_site' | 'digital_bank' | null>(null);
 const guestName = ref('');
 const guestEmail = ref('');
@@ -61,6 +61,35 @@ const leaving = ref(false);
 const joinDisabled = computed(
   () => props.session?.status === 'full' && !currentParticipant.value
 );
+const selectedPaymentLabel = computed(() => {
+  if (isFree.value) return 'Free session';
+  if (selectedPaymentMethod.value === 'digital_bank') return 'Digital bank transfer';
+  if (selectedPaymentMethod.value === 'pay_on_site') return 'Pay on site';
+  return 'Not selected';
+});
+const participantIdentityLabel = computed(() => {
+  if (isAuthenticated.value) {
+    const fullName = [authStore.user?.first_name, authStore.user?.last_name]
+      .filter(Boolean)
+      .join(' ');
+
+    return fullName || authStore.user?.email || 'Signed-in Aktiv account';
+  }
+
+  return guestName.value || guestEmail.value || 'Guest participant';
+});
+const participantIdentityDetail = computed(() => {
+  if (isAuthenticated.value) return authStore.user?.email || null;
+  return [guestEmail.value, guestPhone.value].filter(Boolean).join(' · ') || null;
+});
+const confirmStepDescription = computed(() => {
+  if (isFree.value) return 'You will join immediately.';
+  if (selectedPaymentMethod.value === 'digital_bank') {
+    return "Your spot will be created and you'll upload a receipt next.";
+  }
+
+  return 'Your join will be created as pending venue confirmation.';
+});
 
 watch(
   () => [props.open, props.hub?.payment_methods],
@@ -71,6 +100,9 @@ watch(
     step.value = 'details';
     otp.value = '';
     localParticipant.value = null;
+    guestName.value = '';
+    guestEmail.value = '';
+    guestPhone.value = '';
     selectedPaymentMethod.value =
       (paymentMethods?.[0] as 'pay_on_site' | 'digital_bank' | undefined) ??
       'pay_on_site';
@@ -130,21 +162,39 @@ function participantStatusLabel(participant: OpenPlayParticipant): string {
     case 'pending_payment':
       return participant.payment_method === 'digital_bank'
         ? 'Complete payment to confirm your spot.'
-        : 'Your spot is pending venue confirmation.';
+        : 'Your join is pending venue confirmation.';
     case 'cancelled':
       return 'This join has been cancelled.';
   }
 }
 
-function closeModal() {
-  isReceiptModalOpen.value = false;
+function closeJoinModal() {
   isOpen.value = false;
   actionError.value = null;
+}
+
+function closeModal() {
+  isReceiptModalOpen.value = false;
+  closeJoinModal();
 }
 
 function handleReceiptUploaded() {
   emit('updated');
   closeModal();
+}
+
+function goToConfirmStep() {
+  actionError.value = null;
+  step.value = 'confirm';
+}
+
+async function handleContinueFromDetails() {
+  if (isAuthenticated.value) {
+    goToConfirmStep();
+    return;
+  }
+
+  await handleSendCode();
 }
 
 async function handleSendCode() {
@@ -175,7 +225,12 @@ async function handleSendCode() {
   }
 }
 
-async function handleJoin() {
+function handleContinueFromVerify() {
+  if (otp.value.length !== 6) return;
+  goToConfirmStep();
+}
+
+async function handleConfirmJoin() {
   if (!props.session || !selectedPaymentMethod.value) return;
 
   joining.value = true;
@@ -204,18 +259,19 @@ async function handleJoin() {
       localParticipant.value = participant;
       emit('updated');
       toast.add({
-        title: 'Join created',
-        description: 'Upload your payment receipt to confirm your spot.',
+        title: 'Spot reserved',
+        description: 'Upload your payment receipt next to continue with confirmation.',
         color: 'success'
       });
+      closeJoinModal();
       isReceiptModalOpen.value = true;
       return;
     }
 
     toast.add({
-      title: 'Join created',
+      title: 'Join submitted',
       description:
-        'Show up at the venue to complete your payment confirmation.',
+        'Your join is now pending venue confirmation. The hub may still review your status before the session starts.',
       color: 'success'
     });
     closeModal();
@@ -252,6 +308,19 @@ async function handleLeave() {
     toast.add({ title: actionError.value!, color: 'error' });
   } finally {
     leaving.value = false;
+  }
+}
+
+function goBack() {
+  actionError.value = null;
+
+  if (step.value === 'confirm') {
+    step.value = isAuthenticated.value ? 'details' : 'verify';
+    return;
+  }
+
+  if (step.value === 'verify') {
+    step.value = 'details';
   }
 }
 </script>
@@ -398,12 +467,12 @@ async function handleLeave() {
                   color="info"
                   variant="soft"
                   icon="i-heroicons-envelope"
-                  description="We’ll send a 6-digit verification code to your email before creating your join."
+                  description="We’ll send a 6-digit verification code to your email before you confirm this join."
                 />
               </div>
             </template>
 
-            <template v-else>
+            <template v-else-if="step === 'verify'">
               <div class="space-y-3">
                 <p class="text-sm text-[var(--aktiv-muted)]">
                   A 6-digit code was sent to
@@ -446,6 +515,86 @@ async function handleLeave() {
               </div>
             </template>
           </template>
+
+          <div
+            v-if="step === 'confirm'"
+            class="space-y-4 rounded-xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)] p-4"
+          >
+            <div class="flex items-center gap-2">
+              <UIcon
+                name="i-heroicons-check-badge"
+                class="h-5 w-5 text-[var(--aktiv-primary)]"
+              />
+              <p class="text-sm font-semibold text-[var(--aktiv-ink)]">
+                Confirm your open play booking
+              </p>
+            </div>
+
+            <div class="grid gap-3 text-sm sm:grid-cols-2">
+              <div class="rounded-lg bg-[var(--aktiv-background)] p-3">
+                <p class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]">
+                  Court
+                </p>
+                <p class="mt-1 font-semibold text-[var(--aktiv-ink)]">
+                  {{ session.booking?.court?.name ?? 'Court' }}
+                </p>
+              </div>
+
+              <div class="rounded-lg bg-[var(--aktiv-background)] p-3">
+                <p class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]">
+                  Schedule
+                </p>
+                <p class="mt-1 font-semibold text-[var(--aktiv-ink)]">
+                  {{ formatSessionDate(session) }}
+                </p>
+              </div>
+
+              <div class="rounded-lg bg-[var(--aktiv-background)] p-3">
+                <p class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]">
+                  Price
+                </p>
+                <p class="mt-1 font-semibold text-[var(--aktiv-ink)]">
+                  {{
+                    isFree
+                      ? 'Free session'
+                      : `P${formatPrice(session.price_per_player)} / player`
+                  }}
+                </p>
+              </div>
+
+              <div class="rounded-lg bg-[var(--aktiv-background)] p-3">
+                <p class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]">
+                  Payment Method
+                </p>
+                <p class="mt-1 font-semibold text-[var(--aktiv-ink)]">
+                  {{ selectedPaymentLabel }}
+                </p>
+              </div>
+            </div>
+
+            <div class="rounded-lg bg-[var(--aktiv-background)] p-3 text-sm">
+              <p class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]">
+                Joining As
+              </p>
+              <p class="mt-1 font-semibold text-[var(--aktiv-ink)]">
+                {{ participantIdentityLabel }}
+              </p>
+              <p
+                v-if="participantIdentityDetail"
+                class="mt-1 text-[var(--aktiv-muted)]"
+              >
+                {{ participantIdentityDetail }}
+              </p>
+            </div>
+
+            <UAlert
+              color="info"
+              variant="soft"
+              icon="i-heroicons-information-circle"
+              title="What happens next"
+              :description="confirmStepDescription"
+            />
+          </div>
         </template>
 
         <UAlert
@@ -459,8 +608,16 @@ async function handleLeave() {
 
     <template #footer>
       <div class="flex w-full justify-end gap-2">
+        <UButton
+          v-if="!currentParticipant && step !== 'details'"
+          color="neutral"
+          variant="ghost"
+          @click="goBack"
+        >
+          Back
+        </UButton>
         <UButton color="neutral" variant="ghost" @click="closeModal">
-          Close
+          {{ currentParticipant || step === 'details' ? 'Close' : 'Cancel' }}
         </UButton>
 
         <template v-if="currentParticipant">
@@ -485,18 +642,28 @@ async function handleLeave() {
 
         <template v-else-if="isAuthenticated || session?.guests_can_join">
           <UButton
-            v-if="!isAuthenticated && step === 'details'"
+            v-if="step === 'details'"
             color="primary"
-            :loading="sendingCode"
+            :loading="!isAuthenticated ? sendingCode : false"
             :disabled="
-              !guestName ||
-              !guestEmail ||
-              !guestPhone ||
+              (!isAuthenticated && (!guestName || !guestEmail || !guestPhone)) ||
               (!isFree && !selectedPaymentMethod)
             "
-            @click="handleSendCode"
+            @click="handleContinueFromDetails"
           >
-            Send Verification Code
+            Continue
+          </UButton>
+          <UButton
+            v-else-if="step === 'verify'"
+            color="primary"
+            :disabled="
+              joinDisabled ||
+              (!isFree && !selectedPaymentMethod) ||
+              otp.length !== 6
+            "
+            @click="handleContinueFromVerify"
+          >
+            Continue
           </UButton>
           <UButton
             v-else
@@ -504,12 +671,11 @@ async function handleLeave() {
             :loading="joining"
             :disabled="
               joinDisabled ||
-              (!isFree && !selectedPaymentMethod) ||
-              (!isAuthenticated && step === 'verify' && otp.length !== 6)
+              (!isFree && !selectedPaymentMethod)
             "
-            @click="handleJoin"
+            @click="handleConfirmJoin"
           >
-            {{ isFree ? 'Join Session' : 'Join & Continue' }}
+            Confirm Join
           </UButton>
         </template>
       </div>

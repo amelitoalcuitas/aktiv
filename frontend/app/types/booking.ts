@@ -102,6 +102,43 @@ export interface UserBooking extends Booking {
   } | null;
 }
 
+export type MyBookingEntryType = 'booking' | 'open_play_participant';
+
+export interface MyBookingItem {
+  id: string;
+  entry_type: MyBookingEntryType;
+  participant_id: string | null;
+  booking_id: string | null;
+  session_id: string | null;
+  booking_code: string | null;
+  sport: string | null;
+  start_time: string;
+  end_time: string;
+  session_type: SessionType;
+  status: BookingStatus;
+  booking_source: BookingSource | null;
+  payment_method: PaymentMethod | null;
+  total_price: string | null;
+  price_per_player: string | null;
+  original_price: string | null;
+  discount_amount: string | null;
+  applied_promo_title: string | null;
+  receipt_image_url: string | null;
+  receipt_uploaded_at: string | null;
+  payment_note: string | null;
+  expires_at: string | null;
+  cancelled_by: CancelledBy | null;
+  participants_count: number | null;
+  max_players: number | null;
+  is_open_play_join: boolean;
+  created_at: string;
+  court: {
+    id: string;
+    name: string;
+    hub: { id: string; name: string; cover_image_url?: string | null } | null;
+  } | null;
+}
+
 /** Minimal booking shape for rendering the calendar (no PII). */
 export interface CalendarBooking {
   id: string;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HubRating } from '~/types/hub';
 
-definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
+definePageMeta({ middleware: 'owner-hub', layout: 'dashboard-hub' });
 
 const route = useRoute();
 const { fetchHubRatings, fetchHubRatingCourts, fetchHub } = useHubs();

@@ -13,7 +13,7 @@ import {
 } from '~/composables/useHubs';
 import { LINK_PLATFORMS } from '~/types/links';
 
-definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
+definePageMeta({ middleware: 'owner-hub', layout: 'dashboard-hub' });
 
 const route = useRoute();
 const { fetchHub, fetchCourts, updateHub, deleteHub } = useHubs();

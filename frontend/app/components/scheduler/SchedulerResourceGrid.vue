@@ -379,8 +379,8 @@ function scrollToCurrentTime() {
     const h = parseInt(slot.split(':')[0] ?? '0', 10);
     return h >= nowH;
   });
-  // Show one row above current time for context; each row ≈ 64px
-  scrollWrapper.value.scrollTop = Math.max(0, (idx - 1) * 64);
+  // Show one row above current time for context; each row ≈ 72px
+  scrollWrapper.value.scrollTop = Math.max(0, (idx - 1) * 72);
 }
 
 onMounted(() => nextTick(scrollToCurrentTime));
@@ -550,7 +550,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                 <!-- Closed slot -->
                 <div
                   v-if="getCellState(court.id, slotIdx).type === 'closed'"
-                  class="h-12 rounded-md bg-[#fee2e2] flex items-center justify-center"
+                  class="h-14 rounded-md bg-[#fee2e2] flex items-center justify-center"
                 >
                   <span
                     class="text-xs font-bold tracking-widest text-[#991b1b] uppercase"
@@ -561,7 +561,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                 <!-- Past slot -->
                 <div
                   v-else-if="getCellState(court.id, slotIdx).type === 'past'"
-                  class="h-12 rounded-md bg-[#f1f5f9] opacity-50"
+                  class="h-14 rounded-md bg-[#f1f5f9] opacity-50"
                 />
 
                 <!-- Booked slot -->
@@ -569,7 +569,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                   v-else-if="getCellState(court.id, slotIdx).type === 'booked'"
                 >
                   <!-- Invisible spacer keeps the td height so borders render -->
-                  <div class="h-12 w-full" aria-hidden="true" />
+                  <div class="h-14 w-full" aria-hidden="true" />
                   <button
                     v-if="getOpenPlaySession(getCellBooking(court.id, slotIdx))"
                     type="button"
@@ -657,7 +657,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                   v-else
                   type="button"
                   :class="[
-                    'flex cursor-pointer h-12 w-full items-center justify-center gap-1 rounded-md text-sm font-semibold transition-colors active:scale-95',
+                    'flex cursor-pointer h-14 w-full items-center justify-center gap-1 rounded-md text-sm font-semibold transition-colors active:scale-95',
                     isSlotSelected(court.id, slotIdx)
                       ? getCourtPriceInfo(court).hasDiscount
                         ? 'slot-promo-selected'
@@ -719,7 +719,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
         <span class="text-sm text-[var(--aktiv-muted)]">Pending</span>
       </div>
       <div class="flex items-center gap-1.5">
-        <span class="inline-block h-3.5 w-3.5 rounded-sm border border-[#c4b5fd] bg-[#f3e8ff]" />
+        <span class="inline-block h-3.5 w-3.5 rounded-sm border border-[#7c3aed] bg-[#8b5cf6]" />
         <span class="text-sm text-[var(--aktiv-muted)]">Open Play</span>
       </div>
       <div class="flex items-center gap-1.5">

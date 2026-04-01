@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\CourtController;
 use App\Http\Controllers\Api\GuestBookingController;
 use App\Http\Controllers\Api\GuestBookingTrackingController;
+use App\Http\Controllers\Api\GuestOpenPlayTrackingController;
 use App\Http\Controllers\Api\HubController;
 use App\Http\Controllers\Api\LocationController;
 use App\Http\Controllers\Api\HubRatingController;
@@ -82,6 +83,11 @@ Route::get('/guest-bookings/{token}', [GuestBookingTrackingController::class, 's
 Route::post('/guest-bookings/{token}/receipt', [GuestBookingTrackingController::class, 'uploadReceipt'])->name('api.guest-bookings.receipt');
 Route::post('/guest-bookings/{token}/cancel', [GuestBookingTrackingController::class, 'cancel'])->name('api.guest-bookings.cancel');
 
+// Guest open play tracking routes (public — protected by per-participant UUID token)
+Route::get('/guest-open-play/{token}', [GuestOpenPlayTrackingController::class, 'show'])->name('api.guest-open-play.show');
+Route::post('/guest-open-play/{token}/receipt', [GuestOpenPlayTrackingController::class, 'uploadReceipt'])->name('api.guest-open-play.receipt');
+Route::post('/guest-open-play/{token}/cancel', [GuestOpenPlayTrackingController::class, 'cancel'])->name('api.guest-open-play.cancel');
+
 // Public user profiles
 Route::get('/users/resolve/{username}', [UserController::class, 'resolveUsername'])->name('api.users.resolve');
 Route::get('/users/{user}', [UserController::class, 'show'])->name('api.users.show');
@@ -99,6 +105,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/user/bookings/page-of', [UserBookingController::class, 'pageOf'])->name('api.user.bookings.page-of');
     Route::get('/user/pending-review', [UserBookingController::class, 'pendingReview'])->name('api.user.pending-review');
     Route::post('/user/booking-review-skip', [UserBookingController::class, 'skipReview'])->name('api.user.booking-review-skip');
+    Route::post('/user/bookings/{entryType}/{entryId}/cancel', [UserBookingController::class, 'cancelItem'])->name('api.user.bookings.cancel-item');
     Route::post('/user/bookings/{booking}/cancel', [UserBookingController::class, 'cancel'])->name('api.user.bookings.cancel');
 
     // Profile

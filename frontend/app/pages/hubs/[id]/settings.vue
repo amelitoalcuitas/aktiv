@@ -2,7 +2,7 @@
 import type { Hub } from '~/types/hub';
 import { useHubs } from '~/composables/useHubs';
 
-definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
+definePageMeta({ middleware: 'owner-hub', layout: 'dashboard-hub' });
 
 const route = useRoute();
 const { fetchHub, updateHub } = useHubs();

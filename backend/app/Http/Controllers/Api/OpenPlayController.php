@@ -43,7 +43,8 @@ class OpenPlayController extends Controller
             )
             ->with(['booking.court'])
             ->withCount([
-                'participants as participants_count' => fn ($q) => $q->where('payment_status', '!=', 'cancelled'),
+                'participants as participants_count' => fn ($q) => $q
+                    ->whereIn('payment_status', OpenPlaySession::reservedParticipantStatuses()),
                 'participants as confirmed_participants_count' => fn ($q) => $q->where('payment_status', 'confirmed'),
             ])
             ->get();
@@ -121,6 +122,12 @@ class OpenPlayController extends Controller
             return response()->json(['message' => 'This session is no longer accepting new participants.'], 422);
         }
 
+        if ($session->reservedParticipantCount() >= $session->max_players) {
+            $session->recalculateStatus();
+
+            return response()->json(['message' => 'This session is already full.'], 422);
+        }
+
         $user = $request->user('sanctum');
 
         if ($user) {
@@ -158,6 +165,12 @@ class OpenPlayController extends Controller
         $isFree   = (float) $session->price_per_player === 0.0;
         $endTime  = $session->booking->end_time;
 
+        if ($session->reservedParticipantCount() >= $session->max_players) {
+            $session->recalculateStatus();
+
+            return response()->json(['message' => 'This session is already full.'], 422);
+        }
+
         $participant = $session->participants()->create([
             'user_id'              => $user?->id,
             'guest_name'           => $user ? null : $request->guest_name,
@@ -174,9 +187,7 @@ class OpenPlayController extends Controller
             Cache::forget($this->otpCacheKey($session, $request->guest_email));
         }
 
-        if ($isFree) {
-            $session->recalculateStatus();
-        }
+        $session->recalculateStatus();
 
         $session->loadMissing('booking.court.hub');
         $participant->setRelation('openPlaySession', $session);

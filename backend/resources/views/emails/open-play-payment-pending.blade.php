@@ -8,7 +8,9 @@
         $hub = $booking->court->hub;
         $courtName = $booking->court->name;
         $sport = $session->sport ?? 'Open Play';
-        $isGuest = $participant->user_id === null;
+        $trackingUrl = $participant->guest_tracking_token
+            ? "{$frontendUrl}/open-play/track/{$participant->guest_tracking_token}"
+            : "{$frontendUrl}/hubs/{$hub->id}/open-play";
     @endphp
 
     <div style="text-align:center; margin-bottom:28px;">
@@ -53,7 +55,7 @@
     </div>
 
     <div style="text-align:center; margin:28px 0 8px;">
-        <a href="{{ $frontendUrl }}/hubs/{{ $hub->id }}/open-play" style="display:inline-block; background:#004e89; color:#fff; text-decoration:none; padding:12px 28px; border-radius:6px; font-size:0.9375rem; font-weight:600;">Upload Receipt</a>
+        <a href="{{ $trackingUrl }}" style="display:inline-block; background:#004e89; color:#fff; text-decoration:none; padding:12px 28px; border-radius:6px; font-size:0.9375rem; font-weight:600;">Upload Receipt</a>
     </div>
 @endsection
 

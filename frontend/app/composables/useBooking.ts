@@ -1,4 +1,12 @@
-import type { Booking, BookingDetail, CalendarBooking, SessionType, UserBooking, VoucherPreview } from '~/types/booking';
+import type {
+  Booking,
+  BookingDetail,
+  CalendarBooking,
+  MyBookingItem,
+  SessionType,
+  UserBooking,
+  VoucherPreview
+} from '~/types/booking';
 import { useApi } from '~/utils/api';
 
 interface FetchBookingsParams {
@@ -215,25 +223,28 @@ export function useBooking() {
   async function fetchMyBookings(params?: {
     status?: string;
     page?: number;
-  }): Promise<{ data: UserBooking[]; meta: { current_page: number; last_page: number; total: number } }> {
+  }): Promise<{ data: MyBookingItem[]; meta: { current_page: number; last_page: number; total: number } }> {
     const query = new URLSearchParams();
     if (params?.status) query.set('status', params.status);
     if (params?.page) query.set('page', String(params.page));
 
     const qs = query.toString();
-    return apiFetch<{ data: UserBooking[]; meta: { current_page: number; last_page: number; total: number } }>(
+    return apiFetch<{ data: MyBookingItem[]; meta: { current_page: number; last_page: number; total: number } }>(
       `/user/bookings${qs ? `?${qs}` : ''}`
     );
   }
 
-  async function findBookingPage(bookingId: string): Promise<number> {
-    const res = await apiFetch<{ page: number }>(`/user/bookings/page-of?booking_id=${bookingId}`);
+  async function findBookingPage(itemId: string): Promise<number> {
+    const res = await apiFetch<{ page: number }>(`/user/bookings/page-of?item_id=${itemId}`);
     return res.page;
   }
 
-  async function cancelMyBooking(bookingId: string): Promise<UserBooking> {
-    const response = await apiFetch<{ data: UserBooking }>(
-      `/user/bookings/${bookingId}/cancel`,
+  async function cancelMyBooking(
+    entryType: MyBookingItem['entry_type'],
+    itemId: string
+  ): Promise<MyBookingItem> {
+    const response = await apiFetch<{ data: MyBookingItem }>(
+      `/user/bookings/${entryType}/${itemId}/cancel`,
       { method: 'POST' }
     );
     useUserBookingStore().refresh();

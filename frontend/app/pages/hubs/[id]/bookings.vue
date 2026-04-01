@@ -7,7 +7,7 @@ import { useOwnerBookings } from '~/composables/useOwnerBookings';
 import { useOwnerOpenPlay } from '~/composables/useOwnerOpenPlay';
 import OpenPlayOwnerModal from '~/components/openplay/OpenPlayOwnerModal.vue';
 
-definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
+definePageMeta({ middleware: 'owner-hub', layout: 'dashboard-hub' });
 
 const route = useRoute();
 const { fetchCourts, fetchHub } = useHubs();

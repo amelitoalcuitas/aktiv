@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { useHubs } from '~/composables/useHubs';
 import type { Court } from '~/types/hub';
 
-definePageMeta({ middleware: 'auth', layout: 'dashboard-hub' });
+definePageMeta({ middleware: 'owner-hub', layout: 'dashboard-hub' });
 
 const route = useRoute();
 const { fetchCourts, createCourt, updateCourt, deleteCourt } = useHubs();

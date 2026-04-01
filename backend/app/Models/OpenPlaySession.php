@@ -42,6 +42,21 @@ class OpenPlaySession extends Model
         return $this->hasMany(OpenPlayParticipant::class);
     }
 
+    public static function reservedParticipantStatuses(): array
+    {
+        return ['pending_payment', 'payment_sent', 'confirmed'];
+    }
+
+    public function reservedParticipants(): HasMany
+    {
+        return $this->participants()->whereIn('payment_status', self::reservedParticipantStatuses());
+    }
+
+    public function reservedParticipantCount(): int
+    {
+        return $this->reservedParticipants()->count();
+    }
+
     public function confirmedParticipantCount(): int
     {
         return $this->participants()->where('payment_status', 'confirmed')->count();
@@ -53,8 +68,8 @@ class OpenPlaySession extends Model
             return;
         }
 
-        $confirmed = $this->confirmedParticipantCount();
-        $newStatus = $confirmed >= $this->max_players ? 'full' : 'open';
+        $reserved = $this->reservedParticipantCount();
+        $newStatus = $reserved >= $this->max_players ? 'full' : 'open';
 
         if ($this->status !== $newStatus) {
             $this->update(['status' => $newStatus]);

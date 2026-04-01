@@ -276,7 +276,7 @@ it('owner cannot update a session into a closure event', function () {
         ->assertJsonPath('message', 'This court is unavailable: Maintenance');
 });
 
-it('owner cannot reduce max players below confirmed participants', function () {
+it('owner cannot reduce max players below active reserved participants', function () {
     $owner = makeOwner();
     $hub = makeOwnerHub($owner);
     $court = makeHubCourt($hub);
@@ -285,14 +285,14 @@ it('owner cannot reduce max players below confirmed participants', function () {
     OpenPlayParticipant::create([
         'open_play_session_id' => $session->id,
         'payment_method' => 'pay_on_site',
-        'payment_status' => 'confirmed',
+        'payment_status' => 'pending_payment',
         'joined_at' => now(),
     ]);
 
     OpenPlayParticipant::create([
         'open_play_session_id' => $session->id,
-        'payment_method' => 'pay_on_site',
-        'payment_status' => 'confirmed',
+        'payment_method' => 'digital_bank',
+        'payment_status' => 'payment_sent',
         'joined_at' => now(),
     ]);
 
@@ -461,6 +461,47 @@ it('includes viewer participant metadata for the authenticated user', function (
         ->assertOk()
         ->assertJsonPath('data.0.viewer_participant.user_id', $player->id)
         ->assertJsonPath('data.0.viewer_participant.payment_status', 'pending_payment');
+});
+
+it('lists active reserved participants separately from confirmed participants', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $session = makeOpenPlaySession($court);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'pending_payment',
+        'joined_at' => now(),
+    ]);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'digital_bank',
+        'payment_status' => 'payment_sent',
+        'joined_at' => now(),
+    ]);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'confirmed',
+        'joined_at' => now(),
+    ]);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'cancelled',
+        'joined_at' => now(),
+    ]);
+
+    $this->getJson("/api/hubs/{$hub->id}/open-play")
+        ->assertOk()
+        ->assertJsonPath('data.0.participants_count', 3)
+        ->assertJsonPath('data.0.confirmed_participants_count', 1)
+        ->assertJsonPath('data.0.status', 'open');
 });
 
 it('does not list cancelled sessions', function () {
@@ -662,20 +703,44 @@ it('user cannot join a full session', function () {
         ->assertUnprocessable();
 });
 
-it('session becomes full when confirmed participant count reaches max_players', function () {
+it('session becomes full when active reserved participant count reaches max_players', function () {
     $owner   = makeOwner();
     $hub     = makeOwnerHub($owner);
     $court   = makeHubCourt($hub);
-    $session = makeOpenPlaySession($court, ['session' => ['max_players' => 1, 'price_per_player' => 0]]);
+    $session = makeOpenPlaySession($court, ['session' => ['max_players' => 1]]);
     $player  = makePlayer();
 
     $this->actingAs($player)
         ->postJson("/api/hubs/{$hub->id}/open-play/{$session->id}/join", [
             'payment_method' => 'pay_on_site',
         ])
-        ->assertCreated();
+        ->assertCreated()
+        ->assertJsonPath('data.payment_status', 'pending_payment');
 
     expect($session->fresh()->status)->toBe('full');
+});
+
+it('user cannot join when all seats are already reserved by active participants', function () {
+    $owner   = makeOwner();
+    $hub     = makeOwnerHub($owner);
+    $court   = makeHubCourt($hub);
+    $session = makeOpenPlaySession($court, ['session' => ['max_players' => 1]]);
+    $firstPlayer = makePlayer();
+    $secondPlayer = makePlayer();
+
+    $this->actingAs($firstPlayer)
+        ->postJson("/api/hubs/{$hub->id}/open-play/{$session->id}/join", [
+            'payment_method' => 'digital_bank',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('data.payment_status', 'pending_payment');
+
+    $this->actingAs($secondPlayer)
+        ->postJson("/api/hubs/{$hub->id}/open-play/{$session->id}/join", [
+            'payment_method' => 'pay_on_site',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'This session is not available for joining.');
 });
 
 it('guest cannot join when guests_can_join is false', function () {
@@ -783,7 +848,7 @@ it('user can leave a session', function () {
         ->postJson("/api/hubs/{$hub->id}/open-play/{$session->id}/join", ['payment_method' => 'pay_on_site'])
         ->assertCreated();
 
-    expect($session->fresh()->status)->toBe('open');
+    expect($session->fresh()->status)->toBe('full');
 
     // Leave
     $this->actingAs($player)
@@ -861,7 +926,7 @@ it('owner can confirm a participant', function () {
     $owner       = makeOwner();
     $hub         = makeOwnerHub($owner);
     $court       = makeHubCourt($hub);
-    $session     = makeOpenPlaySession($court);
+    $session     = makeOpenPlaySession($court, ['session' => ['max_players' => 1]]);
     $player      = makePlayer();
 
     $participant = OpenPlayParticipant::create([
@@ -887,7 +952,7 @@ it('owner can reject a participant receipt', function () {
     $owner       = makeOwner();
     $hub         = makeOwnerHub($owner);
     $court       = makeHubCourt($hub);
-    $session     = makeOpenPlaySession($court);
+    $session     = makeOpenPlaySession($court, ['session' => ['max_players' => 1]]);
     $player      = makePlayer();
 
     $participant = OpenPlayParticipant::create([
@@ -920,7 +985,7 @@ it('owner can cancel a single participant', function () {
     $owner       = makeOwner();
     $hub         = makeOwnerHub($owner);
     $court       = makeHubCourt($hub);
-    $session     = makeOpenPlaySession($court);
+    $session     = makeOpenPlaySession($court, ['session' => ['max_players' => 1]]);
     $player      = makePlayer();
 
     $participant = OpenPlayParticipant::create([
@@ -948,7 +1013,7 @@ it('CancelExpiredBookings cancels expired open play participants', function () {
     $owner       = makeOwner();
     $hub         = makeOwnerHub($owner);
     $court       = makeHubCourt($hub);
-    $session     = makeOpenPlaySession($court);
+    $session     = makeOpenPlaySession($court, ['session' => ['max_players' => 1]]);
     $player      = makePlayer();
 
     $participant = OpenPlayParticipant::create([
@@ -960,10 +1025,14 @@ it('CancelExpiredBookings cancels expired open play participants', function () {
         'joined_at'            => now()->subHours(2),
     ]);
 
+    $session->recalculateStatus();
+    expect($session->fresh()->status)->toBe('full');
+
     Artisan::call('bookings:cancel-expired');
 
     expect($participant->fresh()->payment_status)->toBe('cancelled');
     expect($participant->fresh()->cancelled_by)->toBe('system');
+    expect($session->fresh()->status)->toBe('open');
 });
 
 it('CancelExpiredBookings does not cancel non-expired participants', function () {
@@ -997,7 +1066,7 @@ it('CancelExpiredBookings cancels payment_sent participants whose expires_at has
     $owner   = makeOwner();
     $hub     = makeOwnerHub($owner);
     $court   = makeHubCourt($hub);
-    $session = makeOpenPlaySession($court);
+    $session = makeOpenPlaySession($court, ['session' => ['max_players' => 1]]);
     $player  = makePlayer();
 
     $participant = OpenPlayParticipant::create([
@@ -1010,10 +1079,14 @@ it('CancelExpiredBookings cancels payment_sent participants whose expires_at has
         'joined_at'            => now()->subHours(3),
     ]);
 
+    $session->recalculateStatus();
+    expect($session->fresh()->status)->toBe('full');
+
     Artisan::call('bookings:cancel-expired');
 
     expect($participant->fresh()->payment_status)->toBe('cancelled');
     expect($participant->fresh()->cancelled_by)->toBe('system');
+    expect($session->fresh()->status)->toBe('open');
 });
 
 it('CancelExpiredBookings does not apply strikes for payment_sent expirations', function () {

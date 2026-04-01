@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { Hub } from '~/types/hub';
 import type { OpenPlaySession } from '~/types/openPlay';
-import OpenPlayJoinModal from '~/components/openplay/OpenPlayJoinModal.vue';
+import OpenPlayJoinModal from '~/components/openplay/OpenplayJoinModal.vue';
+import OpenPlaySessionCard from '~/components/openplay/OpenplaySessionCard.vue';
 
 definePageMeta({ layout: 'hub' });
 
@@ -89,7 +90,6 @@ function openSession(sessionId: string) {
             </p>
           </div>
         </div>
-
       </div>
     </UCard>
 

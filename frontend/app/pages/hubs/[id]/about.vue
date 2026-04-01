@@ -4,7 +4,7 @@ import type { Hub, Court } from '~/types/hub';
 import type { CalendarBooking, SelectedSlot } from '~/types/booking';
 import type { OpenPlaySession } from '~/types/openPlay';
 import { useAuthStore } from '~/stores/auth';
-import OpenPlayJoinModal from '~/components/openplay/OpenPlayJoinModal.vue';
+import OpenPlayJoinModal from '~/components/openplay/OpenplayJoinModal.vue';
 
 definePageMeta({ layout: 'hub' });
 
@@ -484,11 +484,6 @@ onUnmounted(() => {
             </p>
             <p v-else class="mt-1 text-sm italic text-[var(--aktiv-muted)]">
               No description yet.
-              <NuxtLink
-                :to="`/dashboard/hubs/${hubId}/edit`"
-                class="not-italic text-[var(--aktiv-primary)] hover:underline"
-                >Add one →</NuxtLink
-              >
             </p>
           </div>
 

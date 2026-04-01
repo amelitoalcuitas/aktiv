@@ -2,7 +2,7 @@
 import type { Hub } from '~/types/hub';
 import type { OpenPlayParticipant, OpenPlaySession } from '~/types/openPlay';
 import { useAuthStore } from '~/stores/auth';
-import OpenPlayReceiptUploadModal from '~/components/openplay/OpenPlayReceiptUploadModal.vue';
+import OpenPlayReceiptUploadModal from '~/components/openplay/OpenplayReceiptUploadModal.vue';
 import {
   getOpenPlayParticipantPresentation,
   getOpenPlaySessionPresentation
@@ -45,10 +45,8 @@ const canUploadReceipt = computed(
 const canLeaveSession = computed(
   () =>
     isAuthenticated.value &&
-    (
-      currentParticipant.value?.payment_status === 'pending_payment' ||
-      currentParticipant.value?.payment_status === 'payment_sent'
-    )
+    (currentParticipant.value?.payment_status === 'pending_payment' ||
+      currentParticipant.value?.payment_status === 'payment_sent')
 );
 
 const isReceiptModalOpen = ref(false);
@@ -67,7 +65,8 @@ const joinDisabled = computed(
 );
 const selectedPaymentLabel = computed(() => {
   if (isFree.value) return 'Free session';
-  if (selectedPaymentMethod.value === 'digital_bank') return 'Digital bank transfer';
+  if (selectedPaymentMethod.value === 'digital_bank')
+    return 'Digital bank transfer';
   if (selectedPaymentMethod.value === 'pay_on_site') return 'Pay on site';
   return 'Not selected';
 });
@@ -84,7 +83,9 @@ const participantIdentityLabel = computed(() => {
 });
 const participantIdentityDetail = computed(() => {
   if (isAuthenticated.value) return authStore.user?.email || null;
-  return [guestEmail.value, guestPhone.value].filter(Boolean).join(' · ') || null;
+  return (
+    [guestEmail.value, guestPhone.value].filter(Boolean).join(' · ') || null
+  );
 });
 const confirmStepDescription = computed(() => {
   if (isFree.value) return 'You will join immediately.';
@@ -257,7 +258,8 @@ async function handleConfirmJoin() {
       emit('updated');
       toast.add({
         title: 'Spot reserved',
-        description: 'Your status is now Awaiting Receipt. Upload your receipt next so the hub can review it.',
+        description:
+          'Your status is now Awaiting Receipt. Upload your receipt next so the hub can review it.',
         color: 'success'
       });
       closeJoinModal();
@@ -355,7 +357,8 @@ function goBack() {
             class="mt-3 flex flex-wrap gap-2 text-sm text-[var(--aktiv-muted)]"
           >
             <span class="rounded-md bg-[var(--aktiv-surface)] px-2.5 py-1">
-              {{ session.participants_count }} / {{ session.max_players }} players
+              {{ session.participants_count }} /
+              {{ session.max_players }} players
             </span>
             <span class="rounded-md bg-[var(--aktiv-surface)] px-2.5 py-1">
               {{
@@ -549,7 +552,9 @@ function goBack() {
 
             <div class="grid gap-3 text-sm sm:grid-cols-2">
               <div class="rounded-lg bg-[var(--aktiv-background)] p-3">
-                <p class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]">
+                <p
+                  class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]"
+                >
                   Court
                 </p>
                 <p class="mt-1 font-semibold text-[var(--aktiv-ink)]">
@@ -558,7 +563,9 @@ function goBack() {
               </div>
 
               <div class="rounded-lg bg-[var(--aktiv-background)] p-3">
-                <p class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]">
+                <p
+                  class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]"
+                >
                   Schedule
                 </p>
                 <p class="mt-1 font-semibold text-[var(--aktiv-ink)]">
@@ -567,7 +574,9 @@ function goBack() {
               </div>
 
               <div class="rounded-lg bg-[var(--aktiv-background)] p-3">
-                <p class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]">
+                <p
+                  class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]"
+                >
                   Price
                 </p>
                 <p class="mt-1 font-semibold text-[var(--aktiv-ink)]">
@@ -580,7 +589,9 @@ function goBack() {
               </div>
 
               <div class="rounded-lg bg-[var(--aktiv-background)] p-3">
-                <p class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]">
+                <p
+                  class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]"
+                >
                   Payment Method
                 </p>
                 <p class="mt-1 font-semibold text-[var(--aktiv-ink)]">
@@ -590,7 +601,9 @@ function goBack() {
             </div>
 
             <div class="rounded-lg bg-[var(--aktiv-background)] p-3 text-sm">
-              <p class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]">
+              <p
+                class="text-xs uppercase tracking-wide text-[var(--aktiv-muted)]"
+              >
                 Joining As
               </p>
               <p class="mt-1 font-semibold text-[var(--aktiv-ink)]">
@@ -663,7 +676,8 @@ function goBack() {
             color="primary"
             :loading="!isAuthenticated ? sendingCode : false"
             :disabled="
-              (!isAuthenticated && (!guestName || !guestEmail || !guestPhone)) ||
+              (!isAuthenticated &&
+                (!guestName || !guestEmail || !guestPhone)) ||
               (!isFree && !selectedPaymentMethod)
             "
             @click="handleContinueFromDetails"
@@ -686,10 +700,7 @@ function goBack() {
             v-else
             color="primary"
             :loading="joining"
-            :disabled="
-              joinDisabled ||
-              (!isFree && !selectedPaymentMethod)
-            "
+            :disabled="joinDisabled || (!isFree && !selectedPaymentMethod)"
             @click="handleConfirmJoin"
           >
             Confirm Join

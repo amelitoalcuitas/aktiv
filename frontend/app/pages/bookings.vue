@@ -6,6 +6,7 @@ import type {
 } from '~/types/booking';
 import type { OpenPlayParticipant, OpenPlaySession } from '~/types/openPlay';
 import { getOpenPlayBookingPresentation } from '~/utils/openPlayPresentation';
+import OpenPlayReceiptUploadModal from '~/components/openplay/OpenplayReceiptUploadModal.vue';
 
 definePageMeta({ middleware: ['auth'], layout: 'page' });
 
@@ -314,7 +315,10 @@ const receiptCalendarBooking = computed((): CalendarBooking | null => {
 });
 
 const receiptOpenPlaySession = computed((): OpenPlaySession | null => {
-  if (!receiptTarget.value || receiptTarget.value.entry_type !== 'open_play_participant')
+  if (
+    !receiptTarget.value ||
+    receiptTarget.value.entry_type !== 'open_play_participant'
+  )
     return null;
 
   return {
@@ -346,7 +350,10 @@ const receiptOpenPlaySession = computed((): OpenPlaySession | null => {
 });
 
 const receiptOpenPlayParticipant = computed((): OpenPlayParticipant | null => {
-  if (!receiptTarget.value || receiptTarget.value.entry_type !== 'open_play_participant')
+  if (
+    !receiptTarget.value ||
+    receiptTarget.value.entry_type !== 'open_play_participant'
+  )
     return null;
 
   return {
@@ -567,10 +574,7 @@ function displayActionLabel(booking: MyBookingItem): string {
 
           <!-- Right: status + price -->
           <div class="flex flex-col items-end gap-1.5 shrink-0">
-            <UBadge
-              :color="bookingBadge(booking).color"
-              variant="subtle"
-            >
+            <UBadge :color="bookingBadge(booking).color" variant="subtle">
               {{ bookingBadge(booking).label }}
             </UBadge>
             <template v-if="booking.entry_type === 'open_play_participant'">
@@ -716,7 +720,9 @@ function displayActionLabel(booking: MyBookingItem): string {
         class="mt-3 rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-background)] p-3 text-sm"
       >
         <p class="font-semibold">{{ cancelTarget.court?.hub?.name }}</p>
-        <p class="text-[var(--aktiv-muted)]">{{ displaySubtitle(cancelTarget) }}</p>
+        <p class="text-[var(--aktiv-muted)]">
+          {{ displaySubtitle(cancelTarget) }}
+        </p>
         <p class="mt-1">{{ formatDate(cancelTarget.start_time) }}</p>
         <p class="text-[var(--aktiv-muted)]">
           {{ formatTime(cancelTarget.start_time, cancelTarget.end_time) }}

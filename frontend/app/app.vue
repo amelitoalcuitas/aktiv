@@ -98,6 +98,7 @@ if (import.meta.client) {
 
 <template>
   <UApp :toaster="toaster">
+    <NuxtLoadingIndicator />
     <NuxtLayout>
       <NuxtPage />
     </NuxtLayout>

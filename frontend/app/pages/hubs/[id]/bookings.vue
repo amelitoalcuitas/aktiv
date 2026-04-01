@@ -5,7 +5,7 @@ import type { OpenPlaySession } from '~/types/openPlay';
 import { useHubs } from '~/composables/useHubs';
 import { useOwnerBookings } from '~/composables/useOwnerBookings';
 import { useOwnerOpenPlay } from '~/composables/useOwnerOpenPlay';
-import OpenPlayOwnerModal from '~/components/openplay/OpenPlayOwnerModal.vue';
+import OpenPlayOwnerModal from '~/components/openplay/OpenplayOwnerModal.vue';
 
 definePageMeta({ middleware: 'owner-hub', layout: 'dashboard-hub' });
 
@@ -414,7 +414,10 @@ async function openOpenPlayModal(booking: BookingDetail) {
   isOpenPlayModalOpen.value = true;
 
   try {
-    const session = await fetchSession(hubId.value, booking.open_play_session_id);
+    const session = await fetchSession(
+      hubId.value,
+      booking.open_play_session_id
+    );
     upsertOpenPlaySession(session);
   } catch {
     toast.add({ title: 'Failed to load open play session', color: 'error' });

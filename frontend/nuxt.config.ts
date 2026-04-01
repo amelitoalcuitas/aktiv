@@ -22,6 +22,7 @@ export default defineNuxtConfig({
             'Aktiv is a sports hub discovery and scheduling platform. Users explore local sports hubs, book courts, join open play sessions, compete in tournaments, and track rankings.'
         },
         { property: 'og:image', content: '/aktiv/aktiv_brand.png' },
+        { property: 'og:url', content: 'https://aktivhub.app' },
         { property: 'og:type', content: 'website' },
         { name: 'twitter:card', content: 'summary_large_image' },
         { name: 'twitter:title', content: 'Aktiv Hub' },
@@ -35,6 +36,9 @@ export default defineNuxtConfig({
     }
   },
   ssr: false,
+  routeRules: {
+    '/': { prerender: true }
+  },
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
   runtimeConfig: {

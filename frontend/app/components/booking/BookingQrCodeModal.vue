@@ -116,30 +116,36 @@ function formatDate(iso: string) {
             v-if="booking"
             class="mb-4 rounded-lg border border-[#dbe4ef] bg-[var(--aktiv-background)] px-4 py-3 text-sm"
           >
-            <div v-if="courtName" class="font-medium text-[#0f1728]">
-              {{ courtName }}
-            </div>
-            <div class="text-[#64748b]">
-              {{ formatDate(booking.start_time) }}
-            </div>
-            <div class="text-[#64748b]">
-              {{ formatTime(booking.start_time) }} –
-              {{ formatTime(booking.end_time) }}
-            </div>
-            <template v-if="booking.total_price">
-              <div v-if="booking.original_price" class="mt-1 text-sm line-through text-[#64748b]">
-                ₱{{ Number(booking.original_price).toLocaleString('en-PH') }}
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div v-if="courtName" class="font-medium text-[#0f1728]">
+                  {{ courtName }}
+                </div>
+                <div class="text-[#64748b]">
+                  {{ formatDate(booking.start_time) }}
+                </div>
+                <div class="text-[#64748b]">
+                  {{ formatTime(booking.start_time) }} –
+                  {{ formatTime(booking.end_time) }}
+                </div>
               </div>
-              <div class="font-semibold text-[#004e89]">
-                ₱{{ Number(booking.total_price).toLocaleString('en-PH') }}
-              </div>
-              <div
-                v-if="booking.discount_amount"
-                class="rounded-full bg-[#fde68a] px-2 py-0.5 text-xs font-semibold text-[#854d0e]"
-              >
-                Saved ₱{{ Number(booking.discount_amount).toLocaleString('en-PH') }}
-              </div>
-            </template>
+              <template v-if="booking.total_price">
+                <div class="flex flex-col items-end shrink-0">
+                  <div v-if="booking.original_price" class="text-xs line-through text-[#64748b]">
+                    ₱{{ Number(booking.original_price).toLocaleString('en-PH') }}
+                  </div>
+                  <div class="text-lg font-bold text-[#004e89]">
+                    ₱{{ Number(booking.total_price).toLocaleString('en-PH') }}
+                  </div>
+                  <div
+                    v-if="booking.discount_amount"
+                    class="rounded-full bg-[#fde68a] px-2 py-0.5 text-xs font-semibold text-[#854d0e]"
+                  >
+                    Saved ₱{{ Number(booking.discount_amount).toLocaleString('en-PH') }}
+                  </div>
+                </div>
+              </template>
+            </div>
           </div>
 
           <!-- QR code -->

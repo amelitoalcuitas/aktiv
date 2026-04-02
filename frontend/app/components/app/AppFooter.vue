@@ -1,6 +1,13 @@
 <script setup lang="ts">
 const authStore = useAuthStore();
 const { applyRoute, applyCtaLabel } = useHubOwnerRequest();
+const { data: versionInfo } = await useFetch<{
+  version: string;
+  date: string;
+} | null>('/version.json', {
+  default: () => null,
+  lazy: true
+});
 
 const footerLinks = computed(() => {
   const links = [
@@ -91,9 +98,16 @@ const footerLinks = computed(() => {
         class="mx-auto flex max-w-[1280px] flex-col gap-1 px-6 py-5 md:flex-row md:items-center md:justify-between md:px-10"
       >
         <p class="text-xs text-white/35">© 2026 Aktiv. All Rights Reserved.</p>
-        <p class="text-xs text-white/25">
-          Find courts. Join sessions. Play more.
-        </p>
+        <div
+          class="flex flex-col gap-1 text-left md:items-end md:text-right"
+        >
+          <p class="text-xs text-white/25">
+            Find courts. Join sessions. Play more.
+          </p>
+          <p v-if="versionInfo" class="text-xs text-white/20">
+            Version {{ versionInfo.version }}
+          </p>
+        </div>
       </div>
     </div>
   </footer>

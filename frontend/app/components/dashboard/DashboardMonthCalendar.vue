@@ -265,7 +265,7 @@ function nextMonth() {
 }
 
 function resetToCurrentMonth() {
-  visibleMonthKey.value = getManilaTodayKey().slice(0, 7);
+  visibleMonthKey.value = getTodayDateKeyInTimezone().slice(0, 7);
   selectedDateKey.value = todayKey;
   scrollToDate(todayKey);
 }

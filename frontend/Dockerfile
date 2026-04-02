@@ -11,7 +11,7 @@ RUN npm ci --production=false
 COPY . .
 
 # Build arg declarations — these get baked in at build time
-ARG NUXT_PUBLIC_API_BASE \
+ARG NUXT_PUBLIC_API_BASE=/api \
     NUXT_PUBLIC_REVERB_KEY \
     NUXT_PUBLIC_REVERB_HOST \
     NUXT_PUBLIC_REVERB_PORT \

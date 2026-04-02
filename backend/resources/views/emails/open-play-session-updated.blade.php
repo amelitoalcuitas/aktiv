@@ -30,9 +30,9 @@
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Previous schedule</td>
                 <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">
-                    {{ $originalStartTime->copy()->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}<br>
-                    {{ $originalStartTime->copy()->timezone('Asia/Manila')->format('g:i A') }} –
-                    {{ $originalEndTime->copy()->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ $originalStartTime->copy()->timezone($booking->court->hub->timezone_name)->isoFormat('ddd, MMM D, YYYY') }}<br>
+                    {{ $originalStartTime->copy()->timezone($booking->court->hub->timezone_name)->format('g:i A') }} –
+                    {{ $originalEndTime->copy()->timezone($booking->court->hub->timezone_name)->format('g:i A') }}
                 </td>
             </tr>
             <tr>
@@ -42,9 +42,9 @@
             <tr>
                 <td style="padding:4px 0; color:#64748b;">New schedule</td>
                 <td style="padding:4px 0; text-align:right; font-weight:700; color:#004e89;">
-                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}<br>
-                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }} –
-                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone($booking->court->hub->timezone_name)->isoFormat('ddd, MMM D, YYYY') }}<br>
+                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone($booking->court->hub->timezone_name)->format('g:i A') }} –
+                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone($booking->court->hub->timezone_name)->format('g:i A') }}
                 </td>
             </tr>
         </table>

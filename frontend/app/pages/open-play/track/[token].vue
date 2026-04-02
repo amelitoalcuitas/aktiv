@@ -168,22 +168,20 @@ async function confirmCancel() {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInHubTimezone(iso, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  });
+  }, 'en-PH', participant.value?.hub.timezone);
 }
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInHubTimezone(iso, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
+  }, 'en-PH', participant.value?.hub.timezone);
 }
 
 const statusConfig: Record<

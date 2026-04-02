@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\OwnerBookingResource;
 use App\Models\Booking;
 use App\Models\Hub;
+use App\Support\HubTimezone;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class DashboardOverviewController extends Controller
     {
         $hubs = Hub::query()
             ->where('owner_id', $request->user()->id)
-            ->select('id', 'name', 'is_active')
+            ->select('id', 'name', 'is_active', 'timezone')
             ->orderByDesc('created_at')
             ->get();
 
@@ -43,11 +44,14 @@ class DashboardOverviewController extends Controller
             ]);
         }
 
-        $todayStart = now('Asia/Manila')->startOfDay()->utc();
-        $todayEnd = now('Asia/Manila')->endOfDay()->utc();
+        $todayRangesByHub = HubTimezone::todayRangesByHub($hubs);
+        $encompassingRange = HubTimezone::encompassingTodayRange($hubs);
+        $todayStart = $encompassingRange['start'];
+        $todayEnd = $encompassingRange['end'];
 
         $hubIds = $hubs->pluck('id');
         $hubNames = $hubs->pluck('name', 'id');
+        $hubTimezones = $hubs->mapWithKeys(fn (Hub $hub): array => [$hub->id => $hub->timezone_name]);
 
         $bookings = Booking::query()
             ->whereHas('court', fn ($query) => $query->whereIn('hub_id', $hubIds))
@@ -71,7 +75,14 @@ class DashboardOverviewController extends Controller
             ->values();
 
         $todaySchedule = $bookings
-            ->filter(fn (Booking $booking): bool => $booking->end_time->gte($todayStart) && $booking->start_time->lte($todayEnd))
+            ->filter(function (Booking $booking) use ($todayRangesByHub): bool {
+                $hubId = (string) $booking->court?->hub_id;
+                $range = $todayRangesByHub[$hubId] ?? null;
+
+                return $range !== null
+                    && $booking->end_time->gte($range['start'])
+                    && $booking->start_time->lte($range['end']);
+            })
             ->sortBy(fn (Booking $booking): Carbon => $booking->start_time)
             ->values();
 
@@ -87,14 +98,15 @@ class DashboardOverviewController extends Controller
             ),
         ];
 
-        $hubBreakdown = $hubs->map(function (Hub $hub) use ($bookings, $todayStart, $todayEnd): array {
+        $hubBreakdown = $hubs->map(function (Hub $hub) use ($bookings, $todayRangesByHub): array {
             $hubBookings = $bookings->filter(fn (Booking $booking): bool => (string) $booking->court?->hub_id === (string) $hub->id)->values();
             $hubActionNeeded = $hubBookings->filter(
                 fn (Booking $booking): bool => in_array($booking->status, self::ACTIONABLE_STATUSES, true)
             );
+            $todayRange = $todayRangesByHub[(string) $hub->id];
             $hubToday = $hubBookings->filter(
-                fn (Booking $booking): bool => $booking->end_time->gte($todayStart)
-                    && $booking->start_time->lte($todayEnd)
+                fn (Booking $booking): bool => $booking->end_time->gte($todayRange['start'])
+                    && $booking->start_time->lte($todayRange['end'])
             );
 
             return [
@@ -118,19 +130,21 @@ class DashboardOverviewController extends Controller
                 'summary' => $summary,
                 'hubs' => $hubBreakdown,
                 'action_needed' => OwnerBookingResource::collection(
-                    $this->attachHubNames($actionNeeded->take(self::ACTION_NEEDED_LIMIT), $hubNames)
+                    $this->attachHubMetadata($actionNeeded->take(self::ACTION_NEEDED_LIMIT), $hubNames, $hubTimezones)
                 )->resolve(),
                 'today_schedule' => OwnerBookingResource::collection(
-                    $this->attachHubNames($todaySchedule->take(self::TODAY_SCHEDULE_LIMIT), $hubNames)
+                    $this->attachHubMetadata($todaySchedule->take(self::TODAY_SCHEDULE_LIMIT), $hubNames, $hubTimezones)
                 )->resolve(),
             ],
         ]);
     }
 
-    private function attachHubNames(Collection $bookings, Collection $hubNames): Collection
+    private function attachHubMetadata(Collection $bookings, Collection $hubNames, Collection $hubTimezones): Collection
     {
-        return $bookings->map(function (Booking $booking) use ($hubNames): Booking {
+        return $bookings->map(function (Booking $booking) use ($hubNames, $hubTimezones): Booking {
+            $hubId = $booking->court?->hub_id;
             $booking->setAttribute('hub_name', $hubNames->get($booking->court?->hub_id, ''));
+            $booking->setAttribute('hub_timezone', $hubTimezones->get($hubId, HubTimezone::DEFAULT_TIMEZONE));
 
             return $booking;
         });

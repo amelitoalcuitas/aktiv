@@ -8,6 +8,7 @@ const props = defineProps<{
   court: Court | null;
   clickedDate: Date | null;
   hubId: string;
+  hubTimezone?: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -50,8 +51,11 @@ const sessionType = ref<'private' | 'open_play'>('private');
 
 // ── Start time (locked — set from clicked calendar slot) ──────
 function timeStrFromDate(date: Date): string {
-  const h = date.getHours();
-  return `${String(h).padStart(2, '0')}:00`;
+  return formatInHubTimezone(date, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }, 'en-US', props.hubTimezone).slice(0, 5);
 }
 
 function formatTimeStr(value: string): string {
@@ -123,12 +127,12 @@ watch(isOpen, (val) => {
 // ── Computed labels ────────────────────────────────────────────
 const formattedDate = computed(() => {
   if (!props.clickedDate) return '—';
-  return props.clickedDate.toLocaleDateString('en-PH', {
+  return formatInHubTimezone(props.clickedDate, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric'
-  });
+  }, 'en-PH', props.hubTimezone);
 });
 
 const durationHours = computed(() => {
@@ -164,15 +168,6 @@ function formatPrice(p: number) {
 const isSubmitting = ref(false);
 const submitError = ref<string | null>(null);
 
-function buildISODateTime(date: Date, timeStr: string): string {
-  const parts = timeStr.split(':');
-  const h = parseInt(parts[0] || '0', 10);
-  const m = parseInt(parts[1] || '0', 10);
-  const dt = new Date(date);
-  dt.setHours(h, m, 0, 0);
-  return dt.toISOString();
-}
-
 function goToLogin() {
   isOpen.value = false;
   navigateTo(`/auth/login?redirect=${encodeURIComponent(route.fullPath)}`);
@@ -185,8 +180,8 @@ async function handleConfirm() {
   try {
     const booking = await createBooking(props.hubId, props.court.id, {
       sport: selectedSport.value,
-      start_time: buildISODateTime(props.clickedDate, startTimeStr.value),
-      end_time: buildISODateTime(props.clickedDate, endTimeStr.value),
+      start_time: buildHubIsoFromDateAndTime(props.clickedDate, startTimeStr.value, props.hubTimezone),
+      end_time: buildHubIsoFromDateAndTime(props.clickedDate, endTimeStr.value, props.hubTimezone),
       session_type: sessionType.value
     });
     toast.add({

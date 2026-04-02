@@ -79,12 +79,11 @@ const usernameChangeBlocked = computed(
 
 function formatDate(d: Date | null) {
   if (!d) return '';
-  return d.toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInViewerTimezone(d, {
     month: 'long',
     day: 'numeric',
     year: 'numeric'
-  });
+  }, 'en-PH');
 }
 
 // ── Password change ───────────────────────────────────────────────────────────

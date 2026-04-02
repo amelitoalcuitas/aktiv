@@ -13,6 +13,7 @@ export type CancelledBy = 'user' | 'owner' | 'system';
 export interface Booking {
   id: string;
   booking_code: string | null;
+  hub_timezone?: string | null;
   court_id: string;
   booked_by: string | null;
   sport: string;
@@ -75,6 +76,7 @@ export interface VoucherPreview {
 /** Full booking shape returned by owner dashboard endpoints (includes eager-loaded relations). */
 export interface BookingDetail extends Booking {
   hub_name?: string | null;
+  hub_timezone?: string | null;
   court: { id: string; name: string; hub_id: string } | null;
   open_play_session_id?: string | null;
   open_play_session?: import('./openPlay').OpenPlaySession | null;
@@ -93,6 +95,7 @@ export interface BookingDetail extends Booking {
 export interface SelectedSlot {
   courtId: string;
   slotStart: Date; // exact start of the 1-hour slot
+  hubTimezone?: string | null;
 }
 
 /** Booking shape returned by the user's own booking list endpoint (includes court + hub). */
@@ -100,7 +103,7 @@ export interface UserBooking extends Booking {
   court: {
     id: string;
     name: string;
-    hub: { id: string; username?: string | null; name: string; cover_image_url?: string | null } | null;
+    hub: { id: string; username?: string | null; name: string; timezone?: string | null; cover_image_url?: string | null } | null;
   } | null;
 }
 
@@ -137,7 +140,7 @@ export interface MyBookingItem {
   court: {
     id: string;
     name: string;
-    hub: { id: string; username?: string | null; name: string; cover_image_url?: string | null } | null;
+    hub: { id: string; username?: string | null; name: string; timezone?: string | null; cover_image_url?: string | null } | null;
   } | null;
 }
 

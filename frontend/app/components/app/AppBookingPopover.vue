@@ -40,23 +40,21 @@ function bookingBadge(booking: MyBookingItem): {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInHubTimezone(iso, {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
-  });
+    year: 'numeric'
+  }, 'en-PH');
 }
 
-function formatTime(start: string, end: string): string {
+function formatTime(start: string, end: string, timezone?: string | null): string {
   const opts: Intl.DateTimeFormatOptions = {
-    timeZone: 'Asia/Manila',
     hour: 'numeric',
     minute: '2-digit',
-    hour12: true,
+    hour12: true
   };
-  const s = new Date(start).toLocaleTimeString('en-PH', opts);
-  const e = new Date(end).toLocaleTimeString('en-PH', opts);
+  const s = formatInHubTimezone(start, opts, 'en-PH', timezone);
+  const e = formatInHubTimezone(end, opts, 'en-PH', timezone);
   return `${s} – ${e}`;
 }
 </script>
@@ -92,7 +90,7 @@ function formatTime(start: string, end: string): string {
               <span v-else>{{ booking.court?.name ?? '—' }}</span>
             </p>
             <p class="mt-0.5 text-xs text-[#64748b]">
-              {{ formatDate(booking.start_time) }} · {{ formatTime(booking.start_time, booking.end_time) }}
+              {{ formatDate(booking.start_time) }} · {{ formatTime(booking.start_time, booking.end_time, booking.court?.hub?.timezone) }}
             </p>
           </div>
           <UBadge

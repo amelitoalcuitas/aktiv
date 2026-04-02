@@ -7,6 +7,7 @@ use App\Http\Requests\Dashboard\IndexDashboardCalendarRequest;
 use App\Http\Resources\DashboardCalendarItemResource;
 use App\Models\HubEvent;
 use App\Models\OpenPlaySession;
+use App\Support\HubTimezone;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
@@ -18,26 +19,28 @@ class DashboardCalendarController extends Controller
     {
         $hubs = $request->user()
             ->hubs()
-            ->select('id', 'name')
+            ->select('id', 'name', 'timezone')
             ->get();
 
         $hubIds = $hubs->pluck('id');
         $hubNames = $hubs->pluck('name', 'id');
+        $hubTimezones = $hubs->mapWithKeys(fn ($hub): array => [$hub->id => $hub->timezone_name]);
 
         if ($hubIds->isEmpty()) {
             return response()->json(['data' => []]);
         }
 
-        $rangeStart = Carbon::createFromFormat('Y-m-d', $request->string('date_from')->toString(), 'Asia/Manila')
-            ->startOfDay();
-        $rangeEnd = Carbon::createFromFormat('Y-m-d', $request->string('date_to')->toString(), 'Asia/Manila')
-            ->endOfDay();
+        $dateFrom = $request->string('date_from')->toString();
+        $dateTo = $request->string('date_to')->toString();
+        $encompassingRange = HubTimezone::encompassingDateRange($hubs, $dateFrom, $dateTo);
+        $rangeStart = $encompassingRange['start'];
+        $rangeEnd = $encompassingRange['end'];
 
         $events = HubEvent::query()
             ->whereIn('hub_id', $hubIds)
             ->where('is_active', true)
-            ->where('date_to', '>=', $rangeStart->toDateString())
-            ->where('date_from', '<=', $rangeEnd->toDateString())
+            ->where('date_to', '>=', $dateFrom)
+            ->where('date_from', '<=', $dateTo)
             ->get();
 
         $sessions = OpenPlaySession::query()
@@ -51,8 +54,8 @@ class DashboardCalendarController extends Controller
             ->with(['booking.court.hub'])
             ->get();
 
-        $items = $this->normalizeEventItems($events, $hubNames, $rangeStart, $rangeEnd)
-            ->concat($this->normalizeOpenPlayItems($sessions))
+        $items = $this->normalizeEventItems($events, $hubNames, $hubTimezones, $dateFrom, $dateTo)
+            ->concat($this->normalizeOpenPlayItems($sessions, $hubTimezones, $dateFrom, $dateTo))
             ->sortBy([
                 ['date', 'asc'],
                 ['kind', 'asc'],
@@ -69,12 +72,21 @@ class DashboardCalendarController extends Controller
     private function normalizeEventItems(
         Collection $events,
         Collection $hubNames,
-        CarbonInterface $rangeStart,
-        CarbonInterface $rangeEnd,
+        Collection $hubTimezones,
+        string $dateFrom,
+        string $dateTo,
     ): Collection {
-        return $events->flatMap(function (HubEvent $event) use ($hubNames, $rangeStart, $rangeEnd): array {
-            $startDate = $event->date_from->copy()->max($rangeStart);
-            $endDate = $event->date_to->copy()->min($rangeEnd);
+        return $events->flatMap(function (HubEvent $event) use ($hubNames, $hubTimezones, $dateFrom, $dateTo): array {
+            $startDate = Carbon::createFromFormat(
+                'Y-m-d',
+                max($event->date_from->toDateString(), $dateFrom),
+                $hubTimezones->get($event->hub_id, HubTimezone::DEFAULT_TIMEZONE)
+            )->startOfDay();
+            $endDate = Carbon::createFromFormat(
+                'Y-m-d',
+                min($event->date_to->toDateString(), $dateTo),
+                $hubTimezones->get($event->hub_id, HubTimezone::DEFAULT_TIMEZONE)
+            )->startOfDay();
             $dates = [];
 
             for ($cursor = $startDate->copy(); $cursor->lte($endDate); $cursor->addDay()) {
@@ -83,9 +95,14 @@ class DashboardCalendarController extends Controller
                     'kind' => 'event',
                     'hub_id' => $event->hub_id,
                     'hub_name' => $hubNames->get($event->hub_id, ''),
+                    'hub_timezone' => $hubTimezones->get($event->hub_id, HubTimezone::DEFAULT_TIMEZONE),
                     'title' => $this->eventTitle($event),
                     'date' => $cursor->toDateString(),
-                    'time_label' => $this->formatEventTimeRange($event->time_from, $event->time_to),
+                    'time_label' => $this->formatEventTimeRange(
+                        $event->time_from,
+                        $event->time_to,
+                        $hubTimezones->get($event->hub_id, HubTimezone::DEFAULT_TIMEZONE)
+                    ),
                     'to' => "/dashboard/hubs/{$event->hub_id}/events",
                 ];
             }
@@ -94,23 +111,25 @@ class DashboardCalendarController extends Controller
         });
     }
 
-    private function normalizeOpenPlayItems(Collection $sessions): Collection
+    private function normalizeOpenPlayItems(Collection $sessions, Collection $hubTimezones, string $dateFrom, string $dateTo): Collection
     {
-        return $sessions->map(function (OpenPlaySession $session): array {
+        return $sessions->map(function (OpenPlaySession $session) use ($hubTimezones): array {
             $booking = $session->booking;
             $hub = $booking?->court?->hub;
+            $timezone = $hubTimezones->get($hub?->id, HubTimezone::DEFAULT_TIMEZONE);
 
             return [
                 'id' => "open-play:{$session->id}",
                 'kind' => 'open_play',
                 'hub_id' => $hub?->id,
                 'hub_name' => $hub?->name ?? '',
+                'hub_timezone' => $timezone,
                 'title' => $session->title,
-                'date' => $booking->start_time->clone()->timezone('Asia/Manila')->toDateString(),
-                'time_label' => $this->formatTimeRange($booking->start_time, $booking->end_time),
+                'date' => HubTimezone::localDate($booking->start_time, $timezone),
+                'time_label' => $this->formatTimeRange($booking->start_time, $booking->end_time, $timezone),
                 'to' => "/dashboard/hubs/{$hub?->id}/open-play",
             ];
-        });
+        })->filter(fn (array $item): bool => $item['date'] >= $dateFrom && $item['date'] <= $dateTo)->values();
     }
 
     private function eventTitle(HubEvent $event): string
@@ -126,22 +145,22 @@ class DashboardCalendarController extends Controller
         return 'Untitled event';
     }
 
-    private function formatEventTimeRange(?string $timeFrom, ?string $timeTo): ?string
+    private function formatEventTimeRange(?string $timeFrom, ?string $timeTo, string $timezone): ?string
     {
         if (! $timeFrom) {
             return null;
         }
 
-        $start = $this->formatClockTime($timeFrom);
-        $end = $timeTo ? $this->formatClockTime($timeTo) : null;
+        $start = $this->formatClockTime($timeFrom, $timezone);
+        $end = $timeTo ? $this->formatClockTime($timeTo, $timezone) : null;
 
         return $end ? "{$start}-{$end}" : $start;
     }
 
-    private function formatClockTime(string $value): string
+    private function formatClockTime(string $value, string $timezone): string
     {
         foreach (['H:i:s', 'H:i'] as $format) {
-            $time = Carbon::createFromFormat($format, $value, 'Asia/Manila');
+            $time = Carbon::createFromFormat($format, $value, $timezone);
 
             if ($time !== false) {
                 return $time->format('g:i A');
@@ -151,12 +170,12 @@ class DashboardCalendarController extends Controller
         return $value;
     }
 
-    private function formatTimeRange(CarbonInterface $start, CarbonInterface $end): string
+    private function formatTimeRange(CarbonInterface $start, CarbonInterface $end, string $timezone): string
     {
         return sprintf(
             '%s-%s',
-            $start->clone()->timezone('Asia/Manila')->format('g:i A'),
-            $end->clone()->timezone('Asia/Manila')->format('g:i A'),
+            $start->clone()->timezone($timezone)->format('g:i A'),
+            $end->clone()->timezone($timezone)->format('g:i A'),
         );
     }
 }

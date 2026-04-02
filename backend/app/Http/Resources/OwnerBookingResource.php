@@ -13,11 +13,13 @@ class OwnerBookingResource extends JsonResource
             'id' => $this->id,
             'booking_code' => $this->booking_code,
             'hub_name' => $this->getAttribute('hub_name'),
+            'hub_timezone' => $this->getAttribute('hub_timezone') ?? $this->court?->hub?->timezone_name,
             'court_id' => $this->court_id,
             'court' => $this->court ? [
                 'id' => $this->court->id,
                 'name' => $this->court->name,
                 'hub_id' => $this->court->hub_id,
+                'hub_timezone' => $this->court->hub?->timezone_name,
             ] : null,
             'booked_by' => $this->booked_by,
             'booked_by_user' => $this->bookedBy ? [

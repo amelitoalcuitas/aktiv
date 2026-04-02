@@ -12,6 +12,10 @@ export function useApi() {
 
   const baseURL = config.public.apiBase;
 
+  function normalizePath(path: string): string {
+    return path.startsWith('/') ? path.slice(1) : path;
+  }
+
   function apiFetch<T>(
     path: string,
     options: Parameters<typeof $fetch>[1] = {}
@@ -25,7 +29,7 @@ export function useApi() {
       headers['Authorization'] = `Bearer ${authStore.token}`;
     }
 
-    return $fetch<T>(path, {
+    return $fetch<T>(normalizePath(path), {
       baseURL,
       ...options,
       headers

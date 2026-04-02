@@ -227,3 +227,27 @@ it('only returns items from the authenticated owner hubs', function () {
         ->assertJsonMissing(['title' => 'Other Event'])
         ->assertJsonMissing(['title' => 'Other Session']);
 });
+
+it('formats open play items using the hub timezone instead of a hardcoded Manila date', function () {
+    $owner = makeDashboardOwner();
+    $hub = makeDashboardHub($owner, 'Tokyo Hub');
+    $hub->update(['timezone' => 'Asia/Tokyo']);
+    $court = makeDashboardCourt($hub);
+
+    $session = makeDashboardOpenPlaySession($court, [
+        'booking' => [
+            'start_time' => \Carbon\Carbon::create(2026, 5, 11, 0, 30, 0, 'Asia/Tokyo')->utc(),
+            'end_time' => \Carbon\Carbon::create(2026, 5, 11, 2, 0, 0, 'Asia/Tokyo')->utc(),
+        ],
+    ]);
+
+    $this->actingAs($owner)
+        ->getJson('/api/dashboard/calendar?date_from=2026-05-01&date_to=2026-05-31')
+        ->assertOk()
+        ->assertJsonFragment([
+            'id' => "open-play:{$session->id}",
+            'date' => '2026-05-11',
+            'time_label' => '12:30 AM-2:00 AM',
+            'hub_timezone' => 'Asia/Tokyo',
+        ]);
+});

@@ -47,6 +47,7 @@ class StoreHubRequest extends FormRequest
             'country'         => ['required', 'string', 'max:255'],
             'lat'             => ['nullable', 'numeric', 'between:-90,90'],
             'lng'             => ['nullable', 'numeric', 'between:-180,180'],
+            'timezone'        => ['sometimes', 'string', 'timezone'],
             'cover_image'     => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:10240'],
             'gallery_images'  => ['nullable', 'array', 'max:10'],
             'gallery_images.*' => ['image', 'mimes:jpg,jpeg,png,webp,gif', 'max:10240'],

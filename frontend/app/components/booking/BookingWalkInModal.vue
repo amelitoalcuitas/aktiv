@@ -10,6 +10,7 @@ import { useOwnerOpenPlay } from '~/composables/useOwnerOpenPlay';
 const props = defineProps<{
   open: boolean;
   hubId?: string;
+  hubTimezone?: string;
   courts: Court[];
   initialDate?: string;
   initialHour?: number;
@@ -274,8 +275,10 @@ const isPastSlot = computed(() => {
   const now = new Date();
   const [y, mo, d] = currentDate.value.split('-').map(Number);
   const form = bookingMode.value === 'openplay' ? openPlayForm : walkInForm;
-  const slotStart = new Date(y!, mo! - 1, d!);
-  slotStart.setHours(form.startHour, 0, 0, 0);
+  const slotStart = buildUtcDateFromHubLocalParts(
+    { year: y!, month: mo!, day: d!, hour: form.startHour, minute: 0, second: 0 },
+    props.hubTimezone
+  );
   return slotStart < now;
 });
 
@@ -290,8 +293,23 @@ function getOperatingRange(
 ): { openHour: number; closeHour: number } | null {
   const oh = props.operatingHours ?? [];
   if (!oh.length || !date) return null;
+  const weekdayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6
+  };
   const [y, mo, d] = date.split('-').map(Number);
-  const dow = new Date(y!, mo! - 1, d!).getDay();
+  const base = buildUtcDateFromHubLocalParts(
+    { year: y!, month: mo!, day: d! },
+    props.hubTimezone
+  );
+  const dow = weekdayMap[
+    formatInHubTimezone(base, { weekday: 'short' }, 'en-US', props.hubTimezone)
+  ] ?? 0;
   const entry = oh.find((e) => e.day_of_week === dow);
   if (!entry || entry.is_closed) return null;
   return {
@@ -301,22 +319,25 @@ function getOperatingRange(
 }
 
 function formatDateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  return getDateKeyInTimezone(date, props.hubTimezone);
 }
 
 function nextWholeHour(base = new Date()): Date {
-  const candidate = new Date(base);
+  const dateKey = getDateKeyInTimezone(base, props.hubTimezone);
+  const timeLabel = formatInHubTimezone(
+    base,
+    { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false },
+    'en-US',
+    props.hubTimezone
+  );
+  const [hour, minute, second] = timeLabel.split(':').map(Number);
+  const wholeHour = minute === 0 && second === 0 ? hour : hour + 1;
+  const [year, month, day] = dateKey.split('-').map(Number);
 
-  if (
-    candidate.getMinutes() === 0 &&
-    candidate.getSeconds() === 0 &&
-    candidate.getMilliseconds() === 0
-  ) {
-    return candidate;
-  }
-
-  candidate.setHours(candidate.getHours() + 1, 0, 0, 0);
-  return candidate;
+  return buildUtcDateFromHubLocalParts(
+    { year: year!, month: month!, day: day!, hour: wholeHour % 24, minute: 0, second: 0 },
+    props.hubTimezone
+  );
 }
 
 function getSuggestedInitialSlot(): { date: string; startHour: number } {
@@ -324,14 +345,18 @@ function getSuggestedInitialSlot(): { date: string; startHour: number } {
 
   for (let offset = 0; offset < 14; offset++) {
     const candidateDate = new Date(minimumStart);
-    candidateDate.setDate(minimumStart.getDate() + offset);
-    candidateDate.setHours(0, 0, 0, 0);
+    candidateDate.setUTCDate(candidateDate.getUTCDate() + offset);
 
     const date = formatDateKey(candidateDate);
     const range = getOperatingRange(date) ?? { openHour: 6, closeHour: 23 };
     const firstAvailableHour =
       offset === 0
-        ? Math.max(range.openHour, minimumStart.getHours())
+        ? Math.max(
+            range.openHour,
+            Number(
+              formatInHubTimezone(minimumStart, { hour: '2-digit', hour12: false }, 'en-US', props.hubTimezone)
+            )
+          )
         : range.openHour;
     const latestStartHour = range.closeHour - 1;
 
@@ -346,7 +371,9 @@ function getSuggestedInitialSlot(): { date: string; startHour: number } {
   const fallback = nextWholeHour();
   return {
     date: formatDateKey(fallback),
-    startHour: fallback.getHours()
+    startHour: Number(
+      formatInHubTimezone(fallback, { hour: '2-digit', hour12: false }, 'en-US', props.hubTimezone)
+    )
   };
 }
 
@@ -452,18 +479,12 @@ async function onSubmitWalkIn(event: FormSubmitEvent<WalkInSchema>) {
     guestEmail
   } = event.data;
 
-  const [y, mo, day] = date.split('-').map(Number);
-  const startDt = new Date(y!, mo! - 1, day!);
-  startDt.setHours(startHour, 0, 0, 0);
-  const endDt = new Date(y!, mo! - 1, day!);
-  endDt.setHours(endHour, 0, 0, 0);
-
   loading.value = true;
   try {
     const booking = await createWalkIn(props.hubId, courtId, {
       court_id: courtId,
-      start_time: startDt.toISOString(),
-      end_time: endDt.toISOString(),
+      start_time: buildHubIsoFromDateAndTime(new Date(`${date}T00:00:00`), `${String(startHour).padStart(2, '0')}:00`, props.hubTimezone),
+      end_time: buildHubIsoFromDateAndTime(new Date(`${date}T00:00:00`), `${String(endHour).padStart(2, '0')}:00`, props.hubTimezone),
       session_type: 'private',
       booked_by: customerMode === 'registered' ? bookedBy : null,
       guest_name: customerMode === 'guest' ? guestName?.trim() || null : null,
@@ -501,19 +522,13 @@ async function onSubmitOpenPlay(event: FormSubmitEvent<OpenPlaySchema>) {
     guestsCanJoin
   } = event.data;
 
-  const [y, mo, day] = date.split('-').map(Number);
-  const startDt = new Date(y!, mo! - 1, day!);
-  startDt.setHours(startHour, 0, 0, 0);
-  const endDt = new Date(y!, mo! - 1, day!);
-  endDt.setHours(endHour, 0, 0, 0);
-
   loading.value = true;
   try {
     const session = await createSession(props.hubId, {
       title: title.trim(),
       court_id: courtId,
-      start_time: startDt.toISOString(),
-      end_time: endDt.toISOString(),
+      start_time: buildHubIsoFromDateAndTime(new Date(`${date}T00:00:00`), `${String(startHour).padStart(2, '0')}:00`, props.hubTimezone),
+      end_time: buildHubIsoFromDateAndTime(new Date(`${date}T00:00:00`), `${String(endHour).padStart(2, '0')}:00`, props.hubTimezone),
       max_players: maxPlayers,
       price_per_player: pricePerPlayer,
       description: description?.trim() || null,

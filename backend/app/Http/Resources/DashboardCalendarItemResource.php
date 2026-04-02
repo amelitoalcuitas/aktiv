@@ -14,6 +14,7 @@ class DashboardCalendarItemResource extends JsonResource
             'kind' => $this['kind'],
             'hub_id' => $this['hub_id'],
             'hub_name' => $this['hub_name'],
+            'hub_timezone' => $this['hub_timezone'] ?? null,
             'title' => $this['title'],
             'date' => $this['date'],
             'time_label' => $this['time_label'],

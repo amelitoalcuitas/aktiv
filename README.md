@@ -116,6 +116,7 @@ hubs
   address         VARCHAR
   lat             DECIMAL
   lng             DECIMAL
+  timezone        VARCHAR     (IANA timezone, e.g. "Asia/Manila"; authoritative venue/business timezone)
   cover_image_url VARCHAR
   owner_id        UUID        FK → users.id
   is_approved     BOOLEAN     DEFAULT true   (auto-approved for now; manual review in future)
@@ -131,8 +132,8 @@ hub_operating_hours
   id              UUID        PK
   hub_id          UUID        FK → hubs.id
   day_of_week     INTEGER     (0 = Sunday … 6 = Saturday)
-  opens_at        TIME        (stored in venue local time, UTC+8 — e.g. 06:00)
-  closes_at       TIME        (stored in venue local time, UTC+8 — e.g. 22:00)
+  opens_at        TIME        (stored in venue local business time — e.g. 06:00)
+  closes_at       TIME        (stored in venue local business time — e.g. 22:00)
   is_closed       BOOLEAN     DEFAULT false   (entire day closed, e.g. public holidays)
 
 hub_contact_numbers
@@ -146,6 +147,14 @@ hub_websites
   hub_id          UUID        FK → hubs.id
   url             VARCHAR(2048)
 ```
+
+## Timezone Rules
+
+- Store timestamps in UTC and return ISO timestamps from the API.
+- Treat each hub's `timezone` as the source of truth for booking-domain logic.
+- Use the hub timezone for scheduler math, operating hours, availability, event windows, date filters, and "today" calculations.
+- Viewer-local timezone is only for optional convenience display and must never drive availability or conflict logic.
+- Do not hardcode `Asia/Manila` in shared frontend or backend logic unless that is the resolved hub timezone value for the record being processed.
 
 ### Courts
 

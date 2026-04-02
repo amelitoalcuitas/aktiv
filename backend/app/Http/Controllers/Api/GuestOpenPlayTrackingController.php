@@ -163,6 +163,7 @@ class GuestOpenPlayTrackingController extends Controller
                 'id'       => $hub->id,
                 'username' => $hub->username,
                 'name'     => $hub->name,
+                'timezone' => $hub->timezone_name,
                 'phones'   => $hub->contactNumbers->pluck('number')->values(),
                 'websites' => $hub->websites->map(fn (HubWebsite $website): array => [
                     'platform' => $website->platform,

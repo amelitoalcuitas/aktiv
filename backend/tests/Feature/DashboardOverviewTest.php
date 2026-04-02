@@ -183,3 +183,33 @@ it('filters today values using the Manila calendar date', function () {
         ->assertJsonPath('data.summary.revenue_today', 250)
         ->assertJsonCount(1, 'data.today_schedule');
 });
+
+it('uses each hub timezone when classifying today schedule items', function () {
+    $owner = makeOverviewOwner();
+    $tokyoHub = makeOverviewHub($owner, 'Tokyo Hub');
+    $tokyoHub->update(['timezone' => 'Asia/Tokyo']);
+    $court = makeOverviewCourt($tokyoHub);
+
+    Carbon::setTestNow(Carbon::create(2026, 4, 2, 16, 30, 0, 'UTC'));
+
+    makeOverviewBooking($court, [
+        'status' => 'confirmed',
+        'start_time' => Carbon::create(2026, 4, 3, 0, 30, 0, 'Asia/Tokyo')->utc(),
+        'end_time' => Carbon::create(2026, 4, 3, 1, 30, 0, 'Asia/Tokyo')->utc(),
+        'total_price' => 500,
+    ]);
+
+    makeOverviewBooking($court, [
+        'status' => 'confirmed',
+        'start_time' => Carbon::create(2026, 4, 2, 0, 30, 0, 'Asia/Tokyo')->utc(),
+        'end_time' => Carbon::create(2026, 4, 2, 1, 30, 0, 'Asia/Tokyo')->utc(),
+        'total_price' => 999,
+    ]);
+
+    $this->actingAs($owner)
+        ->getJson('/api/dashboard/overview')
+        ->assertOk()
+        ->assertJsonPath('data.summary.today_confirmed_count', 1)
+        ->assertJsonPath('data.summary.revenue_today', 500)
+        ->assertJsonPath('data.today_schedule.0.hub_timezone', 'Asia/Tokyo');
+});

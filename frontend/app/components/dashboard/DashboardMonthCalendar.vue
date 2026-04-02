@@ -4,6 +4,7 @@ interface DashboardMonthCalendarItem {
   kind: 'event' | 'open_play';
   hubId: string;
   hubName: string;
+  hubTimezone?: string;
   title: string;
   date: string;
   timeLabel?: string;
@@ -31,20 +32,14 @@ const emit = defineEmits<{
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MAX_VISIBLE_ITEMS = 3;
-const MANILA_TIME_ZONE = 'Asia/Manila';
 
-function getManilaTodayKey(): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: MANILA_TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(new Date());
+function getHubTodayKey(): string {
+  return getTodayDateKeyInTimezone();
 }
 
 function getInitialMonthKey(initialMonth?: string): string {
   if (initialMonth) return initialMonth.slice(0, 7);
-  return getManilaTodayKey().slice(0, 7);
+  return getHubTodayKey().slice(0, 7);
 }
 
 function parseDateKey(dateKey: string): Date {
@@ -82,7 +77,7 @@ function sortItems(items: DashboardMonthCalendarItem[]) {
   });
 }
 
-const todayKey = getManilaTodayKey();
+const todayKey = getHubTodayKey();
 const visibleMonthKey = ref(getInitialMonthKey(props.initialMonth));
 const currentMonthKey = todayKey.slice(0, 7);
 const selectedDateKey = ref('');

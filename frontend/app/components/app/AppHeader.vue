@@ -13,12 +13,11 @@ const pendingDeletion = computed(
 );
 
 function formatDeletionDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInViewerTimezone(iso, {
     month: 'long',
     day: 'numeric',
     year: 'numeric'
-  });
+  }, 'en-PH');
 }
 
 const cancellingDeletion = ref(false);

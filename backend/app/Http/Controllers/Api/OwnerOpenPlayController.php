@@ -15,6 +15,7 @@ use App\Models\Hub;
 use App\Models\HubEvent;
 use App\Models\OpenPlayParticipant;
 use App\Models\OpenPlaySession;
+use App\Support\HubTimezone;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,16 +43,18 @@ class OwnerOpenPlayController extends Controller
                     ->where('payment_status', 'confirmed'),
             ]);
 
+        $timezone = $hub->timezone_name;
+
         if ($request->filled('date_from')) {
             $query->whereHas('booking', fn ($bookingQuery) => $bookingQuery
                 ->whereIn('court_id', $courtIds)
-                ->where('end_time', '>=', Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay()->utc()));
+                ->where('end_time', '>=', HubTimezone::startOfDayUtc($request->date_from, $timezone)));
         }
 
         if ($request->filled('date_to')) {
             $query->whereHas('booking', fn ($bookingQuery) => $bookingQuery
                 ->whereIn('court_id', $courtIds)
-                ->where('start_time', '<=', Carbon::parse($request->date_to, 'Asia/Manila')->endOfDay()->utc()));
+                ->where('start_time', '<=', HubTimezone::endOfDayUtc($request->date_to, $timezone)));
         }
 
         $sessions = $query
@@ -419,7 +422,7 @@ class OwnerOpenPlayController extends Controller
 
     private function loadSessionForResponse(OpenPlaySession $session): OpenPlaySession
     {
-        return $session->load(['booking.court'])
+        return $session->load(['booking.court.hub'])
             ->loadCount([
                 'participants as participants_count' => fn ($query) => $query
                     ->whereIn('payment_status', OpenPlaySession::reservedParticipantStatuses()),
@@ -429,11 +432,12 @@ class OwnerOpenPlayController extends Controller
 
     private function findClosureEvent(Hub $hub, Court $court, Carbon $startTime, Carbon $endTime): ?HubEvent
     {
-        $bookingStart = $startTime->copy()->setTimezone('Asia/Manila')->startOfDay();
-        $bookingEnd   = $endTime->copy()->setTimezone('Asia/Manila')->endOfDay();
+        $timezone = $hub->timezone_name;
+        $bookingStart = $startTime->copy()->setTimezone($timezone)->startOfDay();
+        $bookingEnd   = $endTime->copy()->setTimezone($timezone)->endOfDay();
 
-        $slotStart = $startTime->copy()->setTimezone('Asia/Manila')->format('H:i');
-        $slotEnd   = $endTime->copy()->setTimezone('Asia/Manila')->format('H:i');
+        $slotStart = $startTime->copy()->setTimezone($timezone)->format('H:i');
+        $slotEnd   = $endTime->copy()->setTimezone($timezone)->format('H:i');
 
         return HubEvent::where('hub_id', $hub->id)
             ->where('event_type', 'closure')

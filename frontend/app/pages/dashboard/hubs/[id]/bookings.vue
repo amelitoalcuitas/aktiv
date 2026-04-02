@@ -127,20 +127,17 @@ const tableDate = ref(new Date());
 let bookingsLoadRequestId = 0;
 
 function formatDateString(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return getDateKeyInTimezone(date, hubData.value?.timezone);
 }
 
 const tableDateStr = computed(() => formatDateString(tableDate.value));
 
 const tableDateLabel = computed(() =>
-  tableDate.value.toLocaleDateString('en-PH', {
+  formatInHubTimezone(tableDate.value, {
     weekday: 'long',
     month: 'long',
     day: 'numeric'
-  })
+  }, 'en-PH', hubData.value?.timezone)
 );
 
 async function loadBookings() {
@@ -665,26 +662,22 @@ function participantLabel(participant: OpenPlayParticipant): string {
 }
 
 function formatDateRange(start: string, end: string): string {
-  const s = new Date(start);
-  const e = new Date(end);
-  const dateStr = s.toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  const timezone = hubData.value?.timezone;
+  const dateStr = formatInHubTimezone(start, {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  });
-  const timeStart = s.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone);
+  const timeStart = formatInHubTimezone(start, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
-  const timeEnd = e.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone);
+  const timeEnd = formatInHubTimezone(end, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
+  }, 'en-PH', timezone);
   return `${dateStr} · ${timeStart} – ${timeEnd}`;
 }
 
@@ -1181,6 +1174,7 @@ function participantDropdownItems(
           v-model:selected-date="selectedDate"
           :courts="filteredCourts"
           :bookings="filteredCalendarBookings"
+          :time-zone="hubData?.timezone"
           :min-time="gridMinTime"
           :max-time="gridMaxTime"
           :open-play-sessions-map="openPlaySessionsMap"
@@ -1277,6 +1271,7 @@ function participantDropdownItems(
     <BookingWalkInModal
       v-model:open="isWalkInOpen"
       :hub-id="hubId"
+      :hub-timezone="hubData?.timezone"
       :courts="hubCourts"
       :initial-date="calendarSlot?.date"
       :initial-hour="calendarSlot?.hour"
@@ -1290,6 +1285,7 @@ function participantDropdownItems(
       v-if="selectedOpenPlaySessionId"
       v-model:open="isOpenPlayModalOpen"
       :hub-id="hubId"
+      :hub-timezone="hubData?.timezone"
       :session-id="selectedOpenPlaySessionId"
       :courts="hubCourts"
       :operating-hours="hubData?.operating_hours ?? []"

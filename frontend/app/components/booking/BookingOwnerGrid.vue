@@ -12,12 +12,14 @@ const props = withDefaults(
     maxTime?: string;
     openPlaySessionsMap?: Record<string, OpenPlaySession>;
     operatingHours?: OperatingHoursEntry[];
+    timeZone?: string | null;
   }>(),
   {
     minTime: '06:00',
     maxTime: '23:00',
     openPlaySessionsMap: () => ({}),
-    operatingHours: () => []
+    operatingHours: () => [],
+    timeZone: null
   }
 );
 
@@ -31,6 +33,36 @@ const emit = defineEmits<{
   'view-open-play': [BookingDetail];
 }>();
 
+const weekdayMap: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6
+};
+
+function getSelectedDateKey(date: Date): string {
+  return getDateKeyInTimezone(date, props.timeZone);
+}
+
+function getSelectedWeekday(date: Date): number {
+  return weekdayMap[
+    formatInHubTimezone(date, { weekday: 'short' }, 'en-US', props.timeZone)
+  ] ?? 0;
+}
+
+function buildSlotDate(timeStr: string): Date {
+  const [year, month, day] = getSelectedDateKey(props.selectedDate).split('-').map(Number);
+  const [hour, minute] = timeStr.split(':').map(Number);
+
+  return buildUtcDateFromHubLocalParts(
+    { year, month, day, hour, minute, second: 0 },
+    props.timeZone
+  );
+}
+
 // ── Time slot generation ───────────────────────────────────────
 function parseMinutes(t: string): number {
   const parts = t.split(':');
@@ -40,7 +72,7 @@ function parseMinutes(t: string): number {
 const effectiveMinTime = computed(() => {
   if (!props.operatingHours.length) return props.minTime;
   const entry = props.operatingHours.find(
-    (e) => e.day_of_week === props.selectedDate.getDay()
+    (e) => e.day_of_week === getSelectedWeekday(props.selectedDate)
   );
   if (!entry || entry.is_closed) return props.minTime;
   return entry.opens_at;
@@ -49,7 +81,7 @@ const effectiveMinTime = computed(() => {
 const effectiveMaxTime = computed(() => {
   if (!props.operatingHours.length) return props.maxTime;
   const entry = props.operatingHours.find(
-    (e) => e.day_of_week === props.selectedDate.getDay()
+    (e) => e.day_of_week === getSelectedWeekday(props.selectedDate)
   );
   if (!entry || entry.is_closed) return props.maxTime;
   return entry.closes_at;
@@ -75,18 +107,13 @@ function formatTimeLabel(t: string): string {
 }
 
 function slotStartDate(timeStr: string): Date {
-  const parts = timeStr.split(':');
-  const h = Number(parts[0] ?? 0);
-  const m = Number(parts[1] ?? 0);
-  const d = new Date(props.selectedDate);
-  d.setHours(h, m, 0, 0);
-  return d;
+  return buildSlotDate(timeStr);
 }
 
 // ── Closed day detection ───────────────────────────────────────
 const isDayClosed = computed(() => {
   if (!props.operatingHours.length) return false;
-  const dow = props.selectedDate.getDay();
+  const dow = getSelectedWeekday(props.selectedDate);
   const entry = props.operatingHours.find((e) => e.day_of_week === dow);
   return entry?.is_closed ?? false;
 });
@@ -275,24 +302,34 @@ function getBookingActions(booking: BookingDetail) {
 
 // ── Date navigation ─────────────────────────────────────────────
 const headerLabel = computed(() =>
-  props.selectedDate.toLocaleDateString('en-PH', {
+  formatInHubTimezone(props.selectedDate, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric'
-  })
+  }, 'en-PH', props.timeZone)
 );
 
 function prevDay() {
-  const d = new Date(props.selectedDate);
-  d.setDate(d.getDate() - 1);
-  emit('update:selectedDate', d);
+  const [year, month, day] = getSelectedDateKey(props.selectedDate).split('-').map(Number);
+  const prev = new Date(Date.UTC(year, month - 1, day, 12));
+  prev.setUTCDate(prev.getUTCDate() - 1);
+  emit('update:selectedDate', buildUtcDateFromHubLocalParts({
+    year: prev.getUTCFullYear(),
+    month: prev.getUTCMonth() + 1,
+    day: prev.getUTCDate()
+  }, props.timeZone));
 }
 
 function nextDay() {
-  const d = new Date(props.selectedDate);
-  d.setDate(d.getDate() + 1);
-  emit('update:selectedDate', d);
+  const [year, month, day] = getSelectedDateKey(props.selectedDate).split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day, 12));
+  next.setUTCDate(next.getUTCDate() + 1);
+  emit('update:selectedDate', buildUtcDateFromHubLocalParts({
+    year: next.getUTCFullYear(),
+    month: next.getUTCMonth() + 1,
+    day: next.getUTCDate()
+  }, props.timeZone));
 }
 
 // ── Auto-scroll ───────────────────────────────────────────────
@@ -309,7 +346,10 @@ function handleGridScroll() {
 
 function scrollToCurrentTime() {
   if (!scrollWrapper.value) return;
-  const nowH = new Date().getHours();
+  const nowH = Number(formatInHubTimezone(new Date(), {
+    hour: '2-digit',
+    hour12: false
+  }, 'en-US', props.timeZone));
   const idx = timeSlots.value.findIndex((slot) => {
     const h = parseInt(slot.split(':')[0] ?? '0', 10);
     return h >= nowH;
@@ -354,7 +394,7 @@ watch(
     nextTick(() => {
       if (!scrollWrapper.value) return;
       const isToday =
-        new Date().toDateString() === props.selectedDate.toDateString();
+        getSelectedDateKey(props.selectedDate) === getTodayDateKeyInTimezone(props.timeZone);
       if (isToday) scrollToCurrentTime();
       else {
         scrollWrapper.value.scrollLeft = 0;

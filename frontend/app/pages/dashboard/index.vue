@@ -30,6 +30,7 @@ interface DashboardCalendarItem {
   kind: 'event' | 'open_play';
   hubId: string;
   hubName: string;
+  hubTimezone?: string;
   title: string;
   date: string;
   timeLabel?: string;
@@ -49,9 +50,7 @@ const todayScheduleBookings = ref<BookingDetail[]>([]);
 const calendarItems = ref<DashboardCalendarItem[]>([]);
 const calendarLoading = ref(false);
 const visibleCalendarMonth = ref(
-  new Date()
-    .toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
-    .slice(0, 7)
+  getTodayDateKeyInTimezone().slice(0, 7)
 );
 const calendarItemsByMonth = ref<Record<string, DashboardCalendarItem[]>>({});
 const calendarRequestsByMonth = new Map<string, Promise<void>>();
@@ -161,6 +160,7 @@ async function loadCalendarData(monthKey: string) {
         kind: item.kind,
         hubId: item.hub_id,
         hubName: item.hub_name,
+        hubTimezone: item.hub_timezone ?? undefined,
         title: item.title,
         date: item.date,
         timeLabel: item.time_label ?? undefined,
@@ -195,42 +195,22 @@ function openWalkInModal() {
   selectWalkInHub(String(hubStore.myHubs[0]!.id));
 }
 
-function getNextManilaHourSlot(): { date: string; hour: number } {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Manila',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false
-  });
-
-  const parts = formatter.formatToParts(new Date());
-  const partValue = (type: string) =>
-    Number(parts.find((part) => part.type === type)?.value ?? 0);
-
-  const nextSlot = new Date(
-    partValue('year'),
-    partValue('month') - 1,
-    partValue('day'),
-    partValue('hour'),
-    partValue('minute'),
-    partValue('second')
+function getNextHubHourSlot(timezone?: string | null): { date: string; hour: number } {
+  const dateKey = getTodayDateKeyInTimezone(timezone);
+  const nowLabel = formatInHubTimezone(
+    new Date(),
+    {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    },
+    'en-US',
+    timezone
   );
+  const [hourToken = '0'] = nowLabel.split(':');
+  const hour = (Number(hourToken) + 1) % 24;
 
-  nextSlot.setMinutes(0, 0, 0);
-  nextSlot.setHours(nextSlot.getHours() + 1);
-
-  const year = nextSlot.getFullYear();
-  const month = String(nextSlot.getMonth() + 1).padStart(2, '0');
-  const day = String(nextSlot.getDate()).padStart(2, '0');
-
-  return {
-    date: `${year}-${month}-${day}`,
-    hour: nextSlot.getHours()
-  };
+  return { date: dateKey, hour };
 }
 
 async function selectWalkInHub(hubId: string) {
@@ -238,7 +218,8 @@ async function selectWalkInHub(hubId: string) {
   walkInHubId.value = hubId;
   walkInLoading.value = true;
   try {
-    const nextSlot = getNextManilaHourSlot();
+    const hubTimezone = hubStore.myHubs.find((hub) => String(hub.id) === hubId)?.timezone;
+    const nextSlot = getNextHubHourSlot(hubTimezone);
     walkInInitialDate.value = nextSlot.date;
     walkInInitialHour.value = nextSlot.hour;
     walkInCourts.value = await fetchCourts(hubId);
@@ -315,62 +296,67 @@ async function goToCalendarItemPage() {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInHubTimezone(iso, {
     hour: 'numeric',
     minute: '2-digit'
-  });
+  }, 'en-PH');
 }
 
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('en-PH', {
-    timeZone: 'Asia/Manila',
+function formatDateTime(iso: string, timezone?: string | null) {
+  return formatInHubTimezone(iso, {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit'
-  });
+  }, 'en-PH', timezone);
 }
 
-function formatCalendarDate(date: string) {
+function formatCalendarDate(date: string, timezone?: string | null) {
   const [year, month, day] = date.split('-').map(Number);
 
-  return new Date(year, (month ?? 1) - 1, day ?? 1).toLocaleDateString(
-    'en-PH',
+  return formatInHubTimezone(
+    buildUtcDateFromHubLocalParts({ year, month: month ?? 1, day: day ?? 1 }, timezone),
     {
-      timeZone: 'Asia/Manila',
       month: 'short',
       day: 'numeric',
       year: 'numeric'
-    }
+    },
+    'en-PH',
+    timezone
   );
 }
 
-function formatCalendarDateRange(dateFrom: string, dateTo: string) {
+function formatCalendarDateRange(dateFrom: string, dateTo: string, timezone?: string | null) {
   if (dateFrom === dateTo) {
-    return formatCalendarDate(dateFrom);
+    return formatCalendarDate(dateFrom, timezone);
   }
 
-  return `${formatCalendarDate(dateFrom)} - ${formatCalendarDate(dateTo)}`;
+  return `${formatCalendarDate(dateFrom, timezone)} - ${formatCalendarDate(dateTo, timezone)}`;
 }
 
-function formatClockTime(value: string | null) {
+function formatClockTime(value: string | null, timezone?: string | null) {
   if (!value) return null;
 
   const [hours, minutes = '00'] = value.split(':');
-  const date = new Date(2026, 0, 1, Number(hours), Number(minutes), 0, 0);
+  const date = buildUtcDateFromHubLocalParts({
+    year: 2026,
+    month: 1,
+    day: 1,
+    hour: Number(hours),
+    minute: Number(minutes),
+    second: 0
+  }, timezone);
 
-  return date.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInHubTimezone(date, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
+  }, 'en-PH', timezone);
 }
 
-function formatEventTimeRange(event: HubEvent) {
-  const start = formatClockTime(event.time_from);
-  const end = formatClockTime(event.time_to);
+function formatEventTimeRange(event: HubEvent, timezone?: string | null) {
+  const start = formatClockTime(event.time_from, timezone);
+  const end = formatClockTime(event.time_to, timezone);
 
   if (!start) return 'All day';
   if (!end) return start;
@@ -441,26 +427,22 @@ function formatVoucherLimits(event: HubEvent): string | null {
 function formatOpenPlaySchedule(session: OpenPlaySession) {
   if (!session.booking) return 'Schedule unavailable';
 
-  const start = new Date(session.booking.start_time);
-  const end = new Date(session.booking.end_time);
+  const timezone = session.booking.hub_timezone ?? session.booking.court?.hub_timezone;
 
-  return `${start.toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return `${formatInHubTimezone(session.booking.start_time, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  })} · ${start.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone)} · ${formatInHubTimezone(session.booking.start_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  })} - ${end.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone)} - ${formatInHubTimezone(session.booking.end_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  })}`;
+  }, 'en-PH', timezone)}`;
 }
 
 function formatOpenPlayPrice(session: OpenPlaySession) {
@@ -789,7 +771,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
                   {{ hubNameForBooking(booking) }} · {{ booking.court?.name }}
                 </p>
                 <p class="mt-0.5 text-xs text-[#64748b]">
-                  {{ formatDateTime(booking.start_time) }}
+                  {{ formatDateTime(booking.start_time, booking.hub_timezone) }}
                 </p>
                 <span
                   v-if="
@@ -958,7 +940,8 @@ const statusConfig: Record<string, { label: string; color: string }> = {
                 {{
                   formatCalendarDateRange(
                     selectedCalendarEvent.date_from,
-                    selectedCalendarEvent.date_to
+                    selectedCalendarEvent.date_to,
+                    selectedCalendarItem?.hubTimezone
                   )
                 }}
               </p>
@@ -968,7 +951,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
                 Time
               </p>
               <p class="mt-1 font-medium">
-                {{ formatEventTimeRange(selectedCalendarEvent) }}
+                {{ formatEventTimeRange(selectedCalendarEvent, selectedCalendarItem?.hubTimezone) }}
               </p>
             </div>
           </div>
@@ -1101,7 +1084,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
                 Created
               </p>
               <p class="mt-1 font-medium">
-                {{ formatDateTime(selectedOpenPlaySession.created_at) }}
+                {{ formatDateTime(selectedOpenPlaySession.created_at, selectedOpenPlaySession.booking?.hub_timezone) }}
               </p>
             </div>
           </div>
@@ -1179,6 +1162,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
       v-if="walkInHubId"
       v-model:open="isWalkInModalOpen"
       :hub-id="walkInHubId"
+      :hub-timezone="hubStore.myHubs.find((hub) => String(hub.id) === walkInHubId)?.timezone"
       :courts="walkInCourts"
       :initial-date="walkInInitialDate"
       :initial-hour="walkInInitialHour"

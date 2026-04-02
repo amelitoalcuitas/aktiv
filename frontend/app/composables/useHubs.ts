@@ -15,18 +15,19 @@ import { useApi } from '~/utils/api';
 
 /**
  * Returns true if the hub is currently open based on its operating_hours.
- * Times in operating_hours are stored in Asia/Manila local time (HH:mm),
- * and compared against the current local clock — matching HubProfileHeader's pattern.
+ * Times in operating_hours are stored in the hub's local business timezone (HH:mm),
+ * and compared against that same timezone regardless of the viewer's device timezone.
  */
 export function isHubOpenNow(hub: Hub): boolean {
   const hours = hub.operating_hours;
   if (!hours?.length) return false;
-  const now = new Date();
-  const todayHours = hours.find((oh) => oh.day_of_week === now.getDay());
+  const todayHours = hours.find(
+    (oh) => oh.day_of_week === getCurrentWeekdayInTimezone(hub.timezone)
+  );
   if (!todayHours || todayHours.is_closed) return false;
   const [openH = 0, openM = 0] = todayHours.opens_at.split(':').map(Number);
   const [closeH = 0, closeM = 0] = todayHours.closes_at.split(':').map(Number);
-  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const nowMins = getCurrentMinutesInTimezone(hub.timezone);
   return nowMins >= openH * 60 + openM && nowMins < closeH * 60 + closeM;
 }
 

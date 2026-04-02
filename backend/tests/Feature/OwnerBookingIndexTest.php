@@ -6,6 +6,7 @@ use App\Models\Hub;
 use App\Models\OpenPlayParticipant;
 use App\Models\OpenPlaySession;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Str;
 
 function makeBookingOwner(): User
@@ -144,4 +145,33 @@ it('returns open play participants in the owner bookings index while keeping reg
         ->and($bookings[$privateBooking->id]['session_type'])->toBe('private')
         ->and($bookings[$privateBooking->id]['booked_by_user']['id'])->toBe($player->id)
         ->and($bookings[$privateBooking->id]['open_play_participants'])->toBe([]);
+});
+
+it('filters bookings using the hub timezone calendar day', function () {
+    $owner = makeBookingOwner();
+    $hub = makeBookingHub($owner);
+    $hub->update(['timezone' => 'America/Los_Angeles']);
+    $court = makeBookingCourt($hub);
+
+    Booking::factory()->create([
+        'court_id' => $court->id,
+        'start_time' => Carbon::create(2026, 4, 2, 23, 30, 0, 'America/Los_Angeles')->utc(),
+        'end_time' => Carbon::create(2026, 4, 3, 0, 30, 0, 'America/Los_Angeles')->utc(),
+        'session_type' => 'private',
+        'status' => 'confirmed',
+    ]);
+
+    Booking::factory()->create([
+        'court_id' => $court->id,
+        'start_time' => Carbon::create(2026, 4, 1, 21, 30, 0, 'America/Los_Angeles')->utc(),
+        'end_time' => Carbon::create(2026, 4, 1, 22, 30, 0, 'America/Los_Angeles')->utc(),
+        'session_type' => 'private',
+        'status' => 'confirmed',
+    ]);
+
+    $this->actingAs($owner)
+        ->getJson("/api/dashboard/hubs/{$hub->id}/bookings?date_from=2026-04-02&date_to=2026-04-02")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.court.hub_timezone', 'America/Los_Angeles');
 });

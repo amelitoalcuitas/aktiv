@@ -75,6 +75,7 @@ export interface VoucherPreview {
 /** Full booking shape returned by owner dashboard endpoints (includes eager-loaded relations). */
 export interface BookingDetail extends Booking {
   hub_name?: string | null;
+  hub_timezone?: string | null;
   court: { id: string; name: string; hub_id: string } | null;
   open_play_session_id?: string | null;
   open_play_session?: import('./openPlay').OpenPlaySession | null;
@@ -100,7 +101,7 @@ export interface UserBooking extends Booking {
   court: {
     id: string;
     name: string;
-    hub: { id: string; username?: string | null; name: string; cover_image_url?: string | null } | null;
+    hub: { id: string; username?: string | null; name: string; timezone?: string | null; cover_image_url?: string | null } | null;
   } | null;
 }
 
@@ -137,7 +138,7 @@ export interface MyBookingItem {
   court: {
     id: string;
     name: string;
-    hub: { id: string; username?: string | null; name: string; cover_image_url?: string | null } | null;
+    hub: { id: string; username?: string | null; name: string; timezone?: string | null; cover_image_url?: string | null } | null;
   } | null;
 }
 

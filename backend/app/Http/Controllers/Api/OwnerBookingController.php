@@ -13,6 +13,7 @@ use App\Models\Hub;
 use App\Models\HubEvent;
 use App\Models\User;
 use App\Services\BookingNotificationService;
+use App\Support\HubTimezone;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,6 +35,7 @@ class OwnerBookingController extends Controller
         $query = Booking::whereIn('court_id', $courtIds)
             ->with([
                 'court:id,name,hub_id',
+                'court.hub:id,timezone',
                 'bookedBy:id,first_name,last_name,email,contact_number,avatar_url',
                 'openPlaySession' => fn ($q) => $q->withCount([
                     'participants as participants_count' => fn ($q) => $q->where('payment_status', '!=', 'cancelled'),
@@ -47,6 +49,8 @@ class OwnerBookingController extends Controller
             ])
             ->orderByDesc('created_at');
 
+        $timezone = $hub->timezone_name;
+
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
@@ -57,11 +61,11 @@ class OwnerBookingController extends Controller
         }
 
         if ($request->filled('date_from')) {
-            $query->where('end_time', '>=', Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay()->utc());
+            $query->where('end_time', '>=', HubTimezone::startOfDayUtc($request->date_from, $timezone));
         }
 
         if ($request->filled('date_to')) {
-            $query->where('start_time', '<=', Carbon::parse($request->date_to, 'Asia/Manila')->endOfDay()->utc());
+            $query->where('start_time', '<=', HubTimezone::endOfDayUtc($request->date_to, $timezone));
         }
 
         $bookings = OwnerBookingResource::collection($query->get())->resolve();
@@ -78,7 +82,7 @@ class OwnerBookingController extends Controller
         $this->assertBelongsToHub($booking, $hub);
 
         return response()->json([
-            'data' => OwnerBookingResource::make($booking->load(['court', 'bookedBy']))->resolve(),
+            'data' => OwnerBookingResource::make($booking->load(['court.hub', 'bookedBy']))->resolve(),
         ]);
     }
 
@@ -177,7 +181,7 @@ class OwnerBookingController extends Controller
 
         return response()->json([
             'message' => 'Booking confirmed.',
-            'data' => OwnerBookingResource::make($booking->fresh(['court', 'bookedBy']))->resolve(),
+            'data' => OwnerBookingResource::make($booking->fresh(['court.hub', 'bookedBy']))->resolve(),
         ]);
     }
 
@@ -210,7 +214,7 @@ class OwnerBookingController extends Controller
 
         return response()->json([
             'message' => 'Booking rejected. User can re-upload their receipt.',
-            'data' => OwnerBookingResource::make($booking->fresh(['court', 'bookedBy']))->resolve(),
+            'data' => OwnerBookingResource::make($booking->fresh(['court.hub', 'bookedBy']))->resolve(),
         ]);
     }
 
@@ -238,7 +242,7 @@ class OwnerBookingController extends Controller
 
         return response()->json([
             'message' => 'Booking cancelled.',
-            'data' => OwnerBookingResource::make($booking->fresh(['court', 'bookedBy']))->resolve(),
+            'data' => OwnerBookingResource::make($booking->fresh(['court.hub', 'bookedBy']))->resolve(),
         ]);
     }
 
@@ -351,7 +355,7 @@ class OwnerBookingController extends Controller
         $booking = Booking::query()
             ->whereIn('court_id', $courtIds)
             ->where('booking_code', strtoupper(trim($code)))
-            ->with(['court:id,name,hub_id', 'bookedBy:id,first_name,last_name,email,contact_number,avatar_url'])
+            ->with(['court:id,name,hub_id', 'court.hub:id,timezone', 'bookedBy:id,first_name,last_name,email,contact_number,avatar_url'])
             ->first();
 
         if (! $booking) {
@@ -371,11 +375,12 @@ class OwnerBookingController extends Controller
 
     private function findClosureEvent(Hub $hub, Court $court, Carbon $startTime, Carbon $endTime): ?HubEvent
     {
-        $bookingStart = $startTime->copy()->setTimezone('Asia/Manila')->startOfDay();
-        $bookingEnd   = $endTime->copy()->setTimezone('Asia/Manila')->endOfDay();
+        $timezone = $hub->timezone_name;
+        $bookingStart = $startTime->copy()->setTimezone($timezone)->startOfDay();
+        $bookingEnd   = $endTime->copy()->setTimezone($timezone)->endOfDay();
 
-        $slotStart = $startTime->copy()->setTimezone('Asia/Manila')->format('H:i');
-        $slotEnd   = $endTime->copy()->setTimezone('Asia/Manila')->format('H:i');
+        $slotStart = $startTime->copy()->setTimezone($timezone)->format('H:i');
+        $slotEnd   = $endTime->copy()->setTimezone($timezone)->format('H:i');
 
         return HubEvent::where('hub_id', $hub->id)
             ->where('event_type', 'closure')

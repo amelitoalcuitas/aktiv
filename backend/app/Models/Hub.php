@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
+use App\Support\HubTimezone;
 
 class Hub extends Model
 {
@@ -35,6 +36,7 @@ class Hub extends Model
         'landmark',
         'lat',
         'lng',
+        'timezone',
         'cover_image_url',
         'cover_image_path',
         'is_approved',
@@ -120,7 +122,7 @@ class Hub extends Model
 
     public function activeEvents(): HasMany
     {
-        $today = now('Asia/Manila')->toDateString();
+        $today = now($this->timezone_name)->toDateString();
 
         return $this->hasMany(HubEvent::class)
             ->where('is_active', true)
@@ -172,5 +174,10 @@ class Hub extends Model
         }
 
         return $username;
+    }
+
+    public function getTimezoneNameAttribute(): string
+    {
+        return HubTimezone::resolve($this->timezone);
     }
 }

@@ -5,6 +5,7 @@ export interface DashboardCalendarItem {
   kind: 'event' | 'open_play';
   hub_id: string;
   hub_name: string;
+  hub_timezone?: string | null;
   title: string;
   date: string;
   time_label: string | null;

@@ -77,6 +77,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     echoInstance.connector.pusher.connection.connect();
 
     const toast = useToast();
+    const { resolveNotificationDestination } = useNotificationBooking();
 
     const channel = echoInstance.private(`App.Models.User.${userId}`);
     channel.listen('.notification.new', (payload: AppNotification) => {
@@ -94,10 +95,12 @@ export const useNotificationStore = defineStore('notifications', () => {
             onClick: () => {
               toast.remove(t.id);
               markRead(payload.id);
-              const userFacing = ['booking_confirmed', 'booking_rejected', 'booking_cancelled'];
-              const destination = userFacing.includes(payload.activity_type)
-                ? `/bookings?bookingId=${payload.data.booking_id}`
-                : `/hubs/${payload.data.hub_id}/bookings?bookingId=${payload.data.booking_id}`;
+              const destination = resolveNotificationDestination({
+                activityType: payload.activity_type,
+                hubId: payload.data.hub_id,
+                itemId: payload.data.item_id,
+                bookingId: payload.data.booking_id
+              });
               navigateTo(destination);
             }
           }

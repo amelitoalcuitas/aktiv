@@ -19,6 +19,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class HubController extends Controller
 {
@@ -106,6 +108,33 @@ class HubController extends Controller
                 'current_page' => $cities->currentPage(),
                 'last_page' => $cities->lastPage(),
                 'per_page' => $cities->perPage(),
+            ],
+        ]);
+    }
+
+    public function usernameAvailability(Request $request): JsonResponse
+    {
+        $normalized = Hub::normalizeUsername($request->string('username')->toString());
+
+        validator(
+            ['username' => $normalized],
+            [
+                'username' => [
+                    'required',
+                    'string',
+                    'min:3',
+                    'max:30',
+                    'regex:' . Hub::USERNAME_REGEX,
+                    Rule::unique('hubs', 'username'),
+                ],
+            ]
+        )->validate();
+
+        return response()->json([
+            'data' => [
+                'available' => true,
+                'username' => $normalized,
+                'message' => 'Username is available.',
             ],
         ]);
     }
@@ -332,6 +361,7 @@ class HubController extends Controller
             'is_active'   => isset($validated['is_active']) ? (bool) $validated['is_active'] : true,
             'is_approved' => true,
             'is_verified' => false,
+            'username_changed_at' => null,
         ]);
 
         HubSettings::query()->create(['hub_id' => $hub->id, ...$settingsData]);
@@ -355,6 +385,21 @@ class HubController extends Controller
         $this->authorize('update', $hub);
 
         $validated = $request->validated();
+        $changingUsername = array_key_exists('username', $validated) && $validated['username'] !== $hub->username;
+
+        if ($changingUsername && $hub->username_changed_at && $hub->username_changed_at->addMonth()->isFuture()) {
+            throw ValidationException::withMessages([
+                'username' => [
+                    'You can only change your hub username once a month. Next allowed: '
+                    . $hub->username_changed_at->addMonth()->toFormattedDateString() . '.',
+                ],
+            ]);
+        }
+
+        if ($changingUsername) {
+            $validated['username_changed_at'] = now();
+        }
+
         $sports = isset($validated['sports']) ? $validated['sports'] : null;
         $contactNumbers = array_key_exists('contact_numbers', $validated) ? $validated['contact_numbers'] : null;
         $websites = array_key_exists('websites', $validated) ? $validated['websites'] : null;
@@ -723,6 +768,8 @@ class HubController extends Controller
     {
         return [
             'id'                   => $hub->id,
+            'username'             => $hub->username,
+            'username_changed_at'  => $hub->username_changed_at?->toIso8601String(),
             'name'                 => $hub->name,
             'description'          => $hub->description,
             'city'                 => $hub->city,

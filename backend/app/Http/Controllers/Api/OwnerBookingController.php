@@ -34,6 +34,10 @@ class OwnerBookingController extends Controller
             ->with([
                 'court:id,name,hub_id',
                 'bookedBy:id,first_name,last_name,email,contact_number,avatar_url',
+                'openPlaySession' => fn ($q) => $q->withCount([
+                    'participants as participants_count' => fn ($q) => $q->where('payment_status', '!=', 'cancelled'),
+                    'participants as confirmed_participants_count' => fn ($q) => $q->where('payment_status', 'confirmed'),
+                ]),
             ])
             ->orderByDesc('created_at');
 
@@ -397,6 +401,20 @@ class OwnerBookingController extends Controller
             'payment_confirmed_at' => $booking->payment_confirmed_at?->toIso8601String(),
             'expires_at' => $booking->expires_at?->toIso8601String(),
             'cancelled_by' => $booking->cancelled_by,
+            'open_play_session_id' => $booking->openPlaySession?->id,
+            'open_play_session' => $booking->openPlaySession ? [
+                'id'                           => $booking->openPlaySession->id,
+                'booking_id'                   => $booking->openPlaySession->booking_id,
+                'max_players'                  => $booking->openPlaySession->max_players,
+                'price_per_player'             => $booking->openPlaySession->price_per_player,
+                'notes'                        => $booking->openPlaySession->notes,
+                'guests_can_join'              => $booking->openPlaySession->guests_can_join,
+                'status'                       => $booking->openPlaySession->status,
+                'participants_count'           => $booking->openPlaySession->participants_count ?? 0,
+                'confirmed_participants_count' => $booking->openPlaySession->confirmed_participants_count ?? 0,
+                'viewer_participant'           => null,
+                'created_at'                   => $booking->openPlaySession->created_at->toIso8601String(),
+            ] : null,
             'created_at' => $booking->created_at->toIso8601String(),
         ];
     }

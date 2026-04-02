@@ -34,6 +34,7 @@ class UserBookingResource extends JsonResource
                 'name' => $this->court->name,
                 'hub'  => $this->court->relationLoaded('hub') ? [
                     'id'              => $this->court->hub->id,
+                    'username'        => $this->court->hub->username,
                     'name'            => $this->court->hub->name,
                     'cover_image_url' => $this->court->hub->cover_image_url,
                 ] : null,

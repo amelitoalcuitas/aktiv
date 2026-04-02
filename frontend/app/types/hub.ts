@@ -43,6 +43,8 @@ export interface HubMember {
 /** Matches the Hub object returned by the API */
 export interface Hub {
   id: string;
+  username: string | null;
+  username_changed_at: string | null;
   name: string;
   description: string | null;
   city: string;

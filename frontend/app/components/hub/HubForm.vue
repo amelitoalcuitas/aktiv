@@ -13,6 +13,7 @@ import { LINK_PLATFORMS } from '~/types/links';
 
 export interface HubFormPayload {
   name: string;
+  username: string;
   description?: string;
   address: string;
   address_line2?: string | null;
@@ -40,6 +41,7 @@ interface GalleryImage {
 
 interface InitialData {
   name: string;
+  username?: string | null;
   description: string | null;
   address: string;
   address_line2: string | null;
@@ -76,9 +78,11 @@ const emit = defineEmits<{
 }>();
 
 const toast = useToast();
+const { checkHubUsernameAvailability } = useHubs();
 
 const form = reactive({
   name: '',
+  username: '',
   description: '',
   address: '',
   address_line2: '',
@@ -93,6 +97,11 @@ const form = reactive({
   websites: [] as HubWebsite[],
   is_active: true
 });
+
+const usernameStatus = ref<'idle' | 'checking' | 'verified' | 'taken' | 'invalid'>('idle');
+const usernameMessage = ref('');
+const verifiedUsername = ref('');
+const usernameTouched = ref(false);
 
 const DAY_NAMES = [
   'Sunday',
@@ -165,6 +174,7 @@ watch(
   (data) => {
     if (!data) return;
     form.name = data.name;
+    form.username = data.username ?? '';
     form.description = data.description ?? '';
     form.address = data.address;
     form.address_line2 = data.address_line2 ?? '';
@@ -181,6 +191,10 @@ watch(
       url: w.url
     }));
     form.is_active = data.is_active ?? true;
+    verifiedUsername.value = data.username ?? '';
+    usernameTouched.value = !!data.username;
+    usernameStatus.value = data.username ? 'verified' : 'idle';
+    usernameMessage.value = data.username ? 'Username verified.' : '';
     if (data.operating_hours && data.operating_hours.length > 0) {
       const base = defaultOperatingHours();
       for (const oh of data.operating_hours) {
@@ -212,6 +226,15 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
 
 const hubFormSchema = z.object({
   name: z.string().trim().min(1, 'Hub name is required.'),
+  username: z
+    .string()
+    .trim()
+    .min(3, 'Hub username must be at least 3 characters.')
+    .max(30, 'Hub username must be 30 characters or fewer.')
+    .regex(
+      /^(?![0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$)[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      'Use lowercase letters, numbers, and hyphens only.'
+    ),
   description: optionalTrimmedStringSchema,
   address: z.string().trim().min(1, 'Address 1 is required.'),
   address_line2: optionalTrimmedStringSchema,
@@ -294,6 +317,30 @@ function fieldError(field: string) {
   return fieldErrors.value[field]?.[0];
 }
 
+watch(
+  () => form.name,
+  (value) => {
+    if (!usernameTouched.value) {
+      form.username = normalizeHubUsernameDraft(value);
+    }
+  }
+);
+
+watch(
+  () => form.username,
+  (value) => {
+    if (value !== verifiedUsername.value) {
+      if (usernameStatus.value === 'verified') {
+        usernameStatus.value = 'idle';
+        usernameMessage.value = 'Please verify this username before saving.';
+      } else if (usernameStatus.value !== 'checking') {
+        usernameStatus.value = 'idle';
+        usernameMessage.value = '';
+      }
+    }
+  }
+);
+
 function setErrors(errors: Record<string, string[]>) {
   fieldErrors.value = errors;
 }
@@ -375,12 +422,60 @@ function onGalleryFilesUpdate(value: File | File[] | null) {
   newGalleryImages.value = Array.isArray(value) ? value : value ? [value] : [];
 }
 
+function onUsernameInput(value: string | number) {
+  usernameTouched.value = true;
+  form.username = String(value);
+}
+
+async function verifyUsername() {
+  const normalized = normalizeHubUsernameDraft(form.username);
+  form.username = normalized;
+
+  if (!normalized) {
+    usernameStatus.value = 'invalid';
+    usernameMessage.value = 'Enter at least 3 lowercase letters or numbers.';
+    verifiedUsername.value = '';
+    return;
+  }
+
+  usernameStatus.value = 'checking';
+  usernameMessage.value = 'Checking availability...';
+
+  try {
+    const result = await checkHubUsernameAvailability(normalized);
+    form.username = result.username;
+    verifiedUsername.value = result.username;
+    usernameStatus.value = 'verified';
+    usernameMessage.value = result.message ?? 'Username verified.';
+  } catch (e: unknown) {
+    const err = e as {
+      data?: { errors?: Record<string, string[]>; message?: string };
+    };
+    const message =
+      err.data?.errors?.username?.[0] ??
+      err.data?.message ??
+      'Unable to verify username right now.';
+
+    usernameStatus.value = message.toLowerCase().includes('taken')
+      ? 'taken'
+      : 'invalid';
+    usernameMessage.value = message;
+    verifiedUsername.value = '';
+  }
+}
+
+const usernameHint = computed(() => {
+  if (fieldError('username')) return fieldError('username');
+  return usernameMessage.value;
+});
+
 
 function handleSubmit() {
   fieldErrors.value = {};
 
   const parsed = hubFormSchema.safeParse({
     name: form.name,
+    username: form.username,
     description: form.description,
     address: form.address,
     address_line2: form.address_line2,
@@ -405,8 +500,19 @@ function handleSubmit() {
     return;
   }
 
+  if (verifiedUsername.value !== parsed.data.username) {
+    usernameStatus.value = 'invalid';
+    usernameMessage.value = 'Verify the hub username before saving.';
+    toast.add({
+      title: 'Hub username verification required.',
+      color: 'error'
+    });
+    return;
+  }
+
   emit('submit', {
     name: parsed.data.name,
+    username: parsed.data.username,
     description: parsed.data.description,
     address: parsed.data.address,
     address_line2: parsed.data.address_line2 ?? null,
@@ -467,6 +573,46 @@ onUnmounted(() => {
             required
             class="w-full"
           />
+        </UFormField>
+
+        <UFormField label="Username" required :error="fieldError('username')">
+          <div class="flex items-start gap-3">
+            <div class="min-w-0 flex-1">
+              <UInput
+                :model-value="form.username"
+                placeholder="e.g. sunnyvale-tennis"
+                class="w-full"
+                @update:model-value="onUsernameInput"
+              />
+              <p
+                v-if="usernameHint"
+                class="mt-1 text-xs"
+                :class="{
+                  'text-[var(--aktiv-danger-fg)]':
+                    usernameStatus === 'invalid' || usernameStatus === 'taken' || !!fieldError('username'),
+                  'text-emerald-600': usernameStatus === 'verified',
+                  'text-[var(--aktiv-muted)]':
+                    usernameStatus === 'idle' || usernameStatus === 'checking'
+                }"
+              >
+                {{ usernameHint }}
+              </p>
+              <p class="mt-1 text-xs text-[var(--aktiv-muted)]">
+                Public link: {{ form.username ? `/hubs/${form.username}` : '/hubs/your-hub' }}
+              </p>
+            </div>
+
+            <UButton
+              type="button"
+              color="neutral"
+              variant="soft"
+              :loading="usernameStatus === 'checking'"
+              :disabled="!form.username.trim()"
+              @click="verifyUsername"
+            >
+              Verify
+            </UButton>
+          </div>
         </UFormField>
 
         <UFormField label="Description" :error="fieldError('description')">

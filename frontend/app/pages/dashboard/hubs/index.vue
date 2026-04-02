@@ -56,7 +56,7 @@ async function toggleActive(
         </p>
       </div>
       <UButton
-        to="/hubs/create"
+        to="/dashboard/hubs/create"
         icon="i-heroicons-plus"
         class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
       >
@@ -87,7 +87,7 @@ async function toggleActive(
         Create your first hub to start managing courts and bookings.
       </p>
       <UButton
-        to="/hubs/create"
+        to="/dashboard/hubs/create"
         icon="i-heroicons-plus"
         class="mt-5 bg-[#004e89] font-semibold hover:bg-[#003d6b]"
       >
@@ -101,7 +101,7 @@ async function toggleActive(
         v-for="hub in hubStore.myHubs"
         :key="hub.id"
         class="flex flex-col overflow-hidden rounded-2xl border border-[#dbe4ef] bg-white cursor-pointer transition duration-150 ease-out hover:shadow-md"
-        @click="navigateTo(`/hubs/${hub.id}/edit`)"
+        @click="navigateTo(`/dashboard/hubs/${hub.id}/edit`)"
       >
         <!-- Cover image -->
         <div class="relative h-36 bg-[#e8f0f8]">
@@ -181,9 +181,7 @@ async function toggleActive(
           <!-- View courts link -->
           <div class="mt-auto pt-3 w-full justify-end flex gap-4">
             <NuxtLink
-              :to="{
-                path: '/hubs/' + hub.id
-              }"
+              :to="hubPublicPath(hub)"
               class="text-xs font-medium text-[#004e89] hover:underline"
               @click.stop
             >
@@ -191,7 +189,7 @@ async function toggleActive(
             </NuxtLink>
 
             <NuxtLink
-              :to="`/hubs/${hub.id}/courts`"
+              :to="`/dashboard/hubs/${hub.id}/courts`"
               class="text-xs font-medium text-[#004e89] hover:underline"
               @click.stop
             >

@@ -29,7 +29,7 @@ const formattedPrice = computed(() => {
 </script>
 
 <template>
-  <NuxtLink :to="`/hubs/${hub.id}`" class="block h-full w-full min-w-0">
+  <NuxtLink :to="hubPublicPath(hub)" class="block h-full w-full min-w-0">
     <div
       class="flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-sm transition duration-150 ease-out hover:-translate-y-1 hover:scale-[1.02] hover:cursor-pointer hover:shadow-xl"
     >

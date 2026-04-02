@@ -15,6 +15,8 @@ const { data: activeHub, error: hubError } = await useAsyncData<Hub>(
     default: () =>
       ({
         id: '',
+        username: null,
+        username_changed_at: null,
         name: '',
         description: null,
         city: '',
@@ -76,28 +78,44 @@ const isInactiveOwnerView = computed(
     currentUserId.value === activeHub.value.owner_id
 );
 
+const canonicalBasePath = computed(() => hubPublicPath(activeHub.value));
+const canonicalPath = computed(() =>
+  `${canonicalBasePath.value}${route.path.replace(/^\/hubs\/[^/]+/, '') || ''}`
+);
+
+if (activeHub.value?.username && route.path !== canonicalPath.value) {
+  await navigateTo(
+    {
+      path: canonicalPath.value,
+      query: route.query,
+      hash: route.hash
+    },
+    { replace: true }
+  );
+}
+
 const tabs = computed(() => {
-  const id = hubId.value || String(activeHub.value?.id ?? '');
+  const hub = activeHub.value;
   return [
     {
       label: 'Overview',
       icon: 'i-heroicons-information-circle',
-      to: `/hubs/${id}/about`
+      to: hubPublicPath(hub, '/about')
     },
     {
       label: 'Open Play',
       icon: 'i-heroicons-user-group',
-      to: `/hubs/${id}/open-play`
+      to: hubPublicPath(hub, '/open-play')
     },
     {
       label: 'Tournaments',
       icon: 'i-heroicons-trophy',
-      to: `/hubs/${id}/tournaments`
+      to: hubPublicPath(hub, '/tournaments')
     },
     {
       label: 'Leaderboard',
       icon: 'i-heroicons-chart-bar-square',
-      to: `/hubs/${id}/leaderboard`
+      to: hubPublicPath(hub, '/leaderboard')
     }
   ];
 });

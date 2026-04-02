@@ -98,7 +98,7 @@ const visibleHubs = computed(() =>
 
         <!-- Clickable hub info -->
         <NuxtLink
-          :to="`/hubs/${hub.id}/about`"
+          :to="hubPublicPath(hub, '/about')"
           class="flex min-w-0 flex-1 items-center gap-3 rounded-md hover:opacity-80"
         >
           <!-- Cover image -->

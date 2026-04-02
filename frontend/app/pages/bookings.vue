@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import type {
-  UserBooking,
   BookingStatus,
-  CalendarBooking
+  CalendarBooking,
+  MyBookingItem
 } from '~/types/booking';
+import type { OpenPlayParticipant, OpenPlaySession } from '~/types/openPlay';
+import { getOpenPlayBookingPresentation } from '~/utils/openPlayPresentation';
+import OpenPlayReceiptUploadModal from '~/components/openPlay/OpenplayReceiptUploadModal.vue';
 
 definePageMeta({ middleware: ['auth'], layout: 'page' });
 
@@ -17,7 +20,7 @@ const route = useRoute();
 const router = useRouter();
 
 // ── State ─────────────────────────────────────────────────────
-const bookings = ref<UserBooking[]>([]);
+const bookings = ref<MyBookingItem[]>([]);
 const paginationMeta = ref({ current_page: 1, last_page: 1, total: 0 });
 const loading = ref(false);
 
@@ -26,12 +29,13 @@ const currentPage = ref(Number(route.query.page) || 1);
 
 const highlightedId = ref<string | null>(null);
 
-const cancelTarget = ref<UserBooking | null>(null);
+const cancelTarget = ref<MyBookingItem | null>(null);
 const cancelConfirmOpen = ref(false);
 const cancelling = ref(false);
 
-const receiptTarget = ref<UserBooking | null>(null);
-const receiptOpen = ref(false);
+const receiptTarget = ref<MyBookingItem | null>(null);
+const bookingReceiptOpen = ref(false);
+const openPlayReceiptOpen = ref(false);
 
 // ── Status filter options ─────────────────────────────────────
 const statusOptions = [
@@ -58,10 +62,26 @@ const statusConfig: Record<
   expired: { label: 'Expired', color: 'neutral' }
 };
 
-function effectiveStatus(booking: UserBooking): DisplayStatus {
+function effectiveStatus(booking: MyBookingItem): DisplayStatus {
   if (booking.status === 'cancelled' && booking.cancelled_by === 'system')
     return 'expired';
   return booking.status;
+}
+
+function bookingBadge(booking: MyBookingItem): {
+  label: string;
+  color: 'warning' | 'info' | 'success' | 'error' | 'neutral';
+} {
+  if (booking.entry_type === 'open_play_participant') {
+    const presentation = getOpenPlayBookingPresentation(booking);
+
+    return {
+      label: presentation.label,
+      color: presentation.color === 'primary' ? 'neutral' : presentation.color
+    };
+  }
+
+  return statusConfig[effectiveStatus(booking)] ?? statusConfig.completed;
 }
 
 // ── Load bookings ─────────────────────────────────────────────
@@ -87,6 +107,7 @@ watch([selectedStatus, currentPage], ([status, page]) => {
     query: {
       ...(status ? { status } : {}),
       ...(page > 1 ? { page: String(page) } : {}),
+      ...(route.query.itemId ? { itemId: route.query.itemId } : {}),
       ...(route.query.bookingId ? { bookingId: route.query.bookingId } : {})
     }
   });
@@ -100,7 +121,7 @@ watch(selectedStatus, () => {
 
 await load();
 
-// ── Scroll-to + highlight from ?bookingId query param ────────────
+// ── Scroll-to + highlight from ?itemId / ?bookingId query params ────────────
 async function scrollToBooking(id: string) {
   await nextTick();
   await new Promise((r) => setTimeout(r, 80));
@@ -139,14 +160,17 @@ async function resolveAndScrollToBooking(id: string) {
 }
 
 onMounted(() => {
-  const id = route.query.bookingId as string | undefined;
+  const id =
+    (route.query.itemId as string | undefined) ??
+    (route.query.bookingId as string | undefined);
   if (id) resolveAndScrollToBooking(id);
 });
 
 watch(
-  () => route.query.bookingId,
-  (val) => {
-    const id = val as string | undefined;
+  () => [route.query.itemId, route.query.bookingId],
+  ([itemId, bookingId]) => {
+    const id =
+      (itemId as string | undefined) ?? (bookingId as string | undefined);
     if (id) resolveAndScrollToBooking(id);
   }
 );
@@ -212,7 +236,7 @@ function formatTime(start: string, end: string): string {
 }
 
 // ── Cancellation ──────────────────────────────────────────────
-function openCancel(booking: UserBooking) {
+function openCancel(booking: MyBookingItem) {
   cancelTarget.value = booking;
   cancelConfirmOpen.value = true;
 }
@@ -221,11 +245,20 @@ async function submitCancel() {
   if (!cancelTarget.value) return;
   cancelling.value = true;
   try {
-    const updated = await cancelMyBooking(cancelTarget.value.id);
+    const updated = await cancelMyBooking(
+      cancelTarget.value.entry_type,
+      cancelTarget.value.id
+    );
     const idx = bookings.value.findIndex((b) => b.id === updated.id);
     if (idx !== -1)
       bookings.value[idx] = { ...bookings.value[idx], ...updated };
-    toast.add({ title: 'Booking cancelled', color: 'success' });
+    toast.add({
+      title:
+        cancelTarget.value.entry_type === 'open_play_participant'
+          ? 'Open play join cancelled'
+          : 'Booking cancelled',
+      color: 'success'
+    });
     cancelConfirmOpen.value = false;
   } catch (err: unknown) {
     toast.add({
@@ -242,18 +275,24 @@ async function submitCancel() {
 }
 
 // ── Receipt upload ────────────────────────────────────────────
-function openUploadReceipt(booking: UserBooking) {
+function openUploadReceipt(booking: MyBookingItem) {
   receiptTarget.value = booking;
-  receiptOpen.value = true;
+  if (booking.entry_type === 'open_play_participant') {
+    openPlayReceiptOpen.value = true;
+    return;
+  }
+
+  bookingReceiptOpen.value = true;
 }
 
 function onReceiptUploaded() {
-  receiptOpen.value = false;
+  bookingReceiptOpen.value = false;
+  openPlayReceiptOpen.value = false;
   load();
 }
 
 // ── Cancellable check ─────────────────────────────────────────
-function isCancellable(booking: UserBooking): boolean {
+function isCancellable(booking: MyBookingItem): boolean {
   return (
     booking.status === 'pending_payment' || booking.status === 'payment_sent'
   );
@@ -261,7 +300,8 @@ function isCancellable(booking: UserBooking): boolean {
 
 // ── Receipt modal adapter ─────────────────────────────────────
 const receiptCalendarBooking = computed((): CalendarBooking | null => {
-  if (!receiptTarget.value) return null;
+  if (!receiptTarget.value || receiptTarget.value.entry_type !== 'booking')
+    return null;
   return {
     id: receiptTarget.value.id,
     start_time: receiptTarget.value.start_time,
@@ -274,11 +314,108 @@ const receiptCalendarBooking = computed((): CalendarBooking | null => {
   };
 });
 
-function canUploadReceipt(booking: UserBooking): boolean {
+const receiptOpenPlaySession = computed((): OpenPlaySession | null => {
+  if (
+    !receiptTarget.value ||
+    receiptTarget.value.entry_type !== 'open_play_participant'
+  )
+    return null;
+
+  return {
+    id: receiptTarget.value.session_id ?? '',
+    booking_id: receiptTarget.value.booking_id ?? '',
+    max_players: receiptTarget.value.max_players ?? 0,
+    price_per_player: receiptTarget.value.price_per_player ?? '0',
+    notes: null,
+    guests_can_join: false,
+    status: 'open',
+    booking: {
+      id: receiptTarget.value.booking_id ?? '',
+      court_id: receiptTarget.value.court?.id ?? '',
+      court: receiptTarget.value.court
+        ? {
+            id: receiptTarget.value.court.id,
+            name: receiptTarget.value.court.name
+          }
+        : null,
+      start_time: receiptTarget.value.start_time,
+      end_time: receiptTarget.value.end_time,
+      status: 'confirmed'
+    },
+    participants_count: receiptTarget.value.participants_count ?? 0,
+    confirmed_participants_count: receiptTarget.value.participants_count ?? 0,
+    viewer_participant: null,
+    created_at: receiptTarget.value.created_at
+  };
+});
+
+const receiptOpenPlayParticipant = computed((): OpenPlayParticipant | null => {
+  if (
+    !receiptTarget.value ||
+    receiptTarget.value.entry_type !== 'open_play_participant'
+  )
+    return null;
+
+  return {
+    id: receiptTarget.value.participant_id ?? receiptTarget.value.id,
+    open_play_session_id: receiptTarget.value.session_id ?? '',
+    user_id: authStore.user?.id ?? null,
+    user: authStore.user
+      ? {
+          id: authStore.user.id,
+          first_name: authStore.user.first_name,
+          last_name: authStore.user.last_name,
+          email: authStore.user.email,
+          contact_number: authStore.user.contact_number,
+          avatar_url: authStore.user.avatar_url
+        }
+      : null,
+    guest_name: null,
+    guest_phone: null,
+    guest_email: null,
+    guest_tracking_token: null,
+    payment_method:
+      receiptTarget.value.payment_method === 'pay_on_site'
+        ? 'pay_on_site'
+        : 'digital_bank',
+    payment_status: receiptTarget.value.status,
+    receipt_image_url: receiptTarget.value.receipt_image_url,
+    receipt_uploaded_at: receiptTarget.value.receipt_uploaded_at,
+    payment_note: receiptTarget.value.payment_note,
+    payment_confirmed_by: null,
+    payment_confirmed_at: null,
+    expires_at: receiptTarget.value.expires_at,
+    cancelled_by: receiptTarget.value.cancelled_by,
+    joined_at: receiptTarget.value.created_at,
+    created_at: receiptTarget.value.created_at
+  };
+});
+
+function canUploadReceipt(booking: MyBookingItem): boolean {
   if (booking.status !== 'pending_payment') return false;
   if (booking.payment_method === 'pay_on_site') return false;
   if (!booking.expires_at) return true;
   return new Date(booking.expires_at).getTime() > Date.now();
+}
+
+function isOpenPlayJoin(booking: MyBookingItem): boolean {
+  return booking.entry_type === 'open_play_participant';
+}
+
+function displayTitle(booking: MyBookingItem): string {
+  return booking.court?.hub?.name ?? '—';
+}
+
+function displaySubtitle(booking: MyBookingItem): string {
+  if (booking.entry_type === 'open_play_participant') {
+    return `Open Play${booking.court?.name ? ` · ${booking.court.name}` : ''}`;
+  }
+
+  return booking.court?.name ?? '—';
+}
+
+function displayActionLabel(booking: MyBookingItem): string {
+  return booking.entry_type === 'open_play_participant' ? 'Leave' : 'Cancel';
 }
 </script>
 
@@ -396,12 +533,12 @@ function canUploadReceipt(booking: UserBooking): boolean {
           <div class="min-w-0 flex-1">
             <NuxtLink
               v-if="booking.court?.hub?.id"
-              :to="`/hubs/${booking.court.hub.id}/about`"
+              :to="hubPublicPath(booking.court.hub, '/about')"
               target="_blank"
               class="truncate font-semibold text-[var(--aktiv-ink)] hover:text-[#004e89] hover:underline transition-colors md:text-lg"
             >
               <div class="flex gap-2 items-center">
-                <span>{{ booking.court.hub.name }}</span>
+                <span>{{ displayTitle(booking) }}</span>
 
                 <UIcon
                   name="i-lucide-square-arrow-out-up-right"
@@ -419,7 +556,7 @@ function canUploadReceipt(booking: UserBooking): boolean {
               class="mt-0.5 truncate text-sm md:text-base text-[var(--aktiv-muted)]"
               :title="booking.court?.name"
             >
-              {{ booking.court?.name ?? '—' }}
+              {{ displaySubtitle(booking) }}
             </p>
             <p class="mt-1 text-sm md:text-base text-[var(--aktiv-ink)]">
               {{ formatDate(booking.start_time) }}
@@ -437,17 +574,24 @@ function canUploadReceipt(booking: UserBooking): boolean {
 
           <!-- Right: status + price -->
           <div class="flex flex-col items-end gap-1.5 shrink-0">
-            <UBadge
-              :color="
-                statusConfig[effectiveStatus(booking)]?.color ?? 'neutral'
-              "
-              variant="subtle"
-            >
-              {{
-                statusConfig[effectiveStatus(booking)]?.label ?? booking.status
-              }}
+            <UBadge :color="bookingBadge(booking).color" variant="subtle">
+              {{ bookingBadge(booking).label }}
             </UBadge>
-            <template v-if="booking.total_price">
+            <template v-if="booking.entry_type === 'open_play_participant'">
+              <span class="text-3xl font-semibold text-[var(--aktiv-primary)]">
+                {{
+                  booking.price_per_player
+                    ? `₱${Number(booking.price_per_player).toLocaleString('en-PH')}`
+                    : 'Free'
+                }}
+              </span>
+              <span
+                class="inline-flex rounded-full bg-teal-100 px-3 py-1 text-sm font-semibold uppercase tracking-wide text-teal-800"
+              >
+                Open Play
+              </span>
+            </template>
+            <template v-else-if="booking.total_price">
               <!-- Promo label -->
               <span
                 v-if="booking.applied_promo_title"
@@ -481,7 +625,7 @@ function canUploadReceipt(booking: UserBooking): boolean {
 
         <!-- Booking code + QR -->
         <div
-          v-if="booking.booking_code"
+          v-if="booking.entry_type === 'booking' && booking.booking_code"
           class="mt-3 flex items-center gap-3 border-t border-[var(--aktiv-border)] pt-3"
         >
           <AppImageViewer
@@ -528,7 +672,7 @@ function canUploadReceipt(booking: UserBooking): boolean {
             icon="i-heroicons-x-mark"
             @click="openCancel(booking)"
           >
-            Cancel
+            {{ displayActionLabel(booking) }}
           </UButton>
         </div>
       </div>
@@ -547,24 +691,38 @@ function canUploadReceipt(booking: UserBooking): boolean {
   <!-- Cancel confirm modal -->
   <AppModal
     v-model:open="cancelConfirmOpen"
-    title="Cancel Booking"
+    :title="
+      cancelTarget?.entry_type === 'open_play_participant'
+        ? 'Leave Open Play'
+        : 'Cancel Booking'
+    "
     cancel="Keep Booking"
     cancel-variant="outline"
-    confirm="Cancel Booking"
+    :confirm="
+      cancelTarget?.entry_type === 'open_play_participant'
+        ? 'Leave Session'
+        : 'Cancel Booking'
+    "
     confirm-color="error"
     :confirm-loading="cancelling"
     @confirm="submitCancel"
   >
     <template #body>
       <p class="text-sm text-[var(--aktiv-ink)]">
-        Are you sure you want to cancel this booking?
+        {{
+          cancelTarget?.entry_type === 'open_play_participant'
+            ? 'Are you sure you want to leave this open play session?'
+            : 'Are you sure you want to cancel this booking?'
+        }}
       </p>
       <div
         v-if="cancelTarget"
         class="mt-3 rounded-lg border border-[var(--aktiv-border)] bg-[var(--aktiv-background)] p-3 text-sm"
       >
         <p class="font-semibold">{{ cancelTarget.court?.hub?.name }}</p>
-        <p class="text-[var(--aktiv-muted)]">{{ cancelTarget.court?.name }}</p>
+        <p class="text-[var(--aktiv-muted)]">
+          {{ displaySubtitle(cancelTarget) }}
+        </p>
         <p class="mt-1">{{ formatDate(cancelTarget.start_time) }}</p>
         <p class="text-[var(--aktiv-muted)]">
           {{ formatTime(cancelTarget.start_time, cancelTarget.end_time) }}
@@ -578,13 +736,23 @@ function canUploadReceipt(booking: UserBooking): boolean {
 
   <!-- Receipt upload modal (reused scheduler component) -->
   <SchedulerReceiptUploadModal
-    v-if="receiptTarget"
-    :open="receiptOpen"
+    v-if="receiptTarget?.entry_type === 'booking'"
+    :open="bookingReceiptOpen"
     :booking="receiptCalendarBooking"
     :hub-id="receiptTarget.court?.hub?.id ?? ''"
     :court-id="receiptTarget.court?.id ?? ''"
     :court-name="receiptTarget.court?.name"
-    @update:open="receiptOpen = $event"
+    @update:open="bookingReceiptOpen = $event"
     @receipt-uploaded="onReceiptUploaded"
+  />
+
+  <OpenPlayReceiptUploadModal
+    v-if="receiptTarget?.entry_type === 'open_play_participant'"
+    :open="openPlayReceiptOpen"
+    :hub-id="receiptTarget.court?.hub?.id ?? ''"
+    :session="receiptOpenPlaySession"
+    :participant="receiptOpenPlayParticipant"
+    @update:open="openPlayReceiptOpen = $event"
+    @uploaded="onReceiptUploaded"
   />
 </template>

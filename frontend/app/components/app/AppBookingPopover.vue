@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { BookingStatus, UserBooking } from '~/types/booking';
+import type { BookingStatus, MyBookingItem } from '~/types/booking';
 import { useUserBookingStore } from '~/stores/booking';
+import { getOpenPlayBookingPresentation } from '~/utils/openPlayPresentation';
 
 defineEmits<{ close: [] }>();
 
@@ -17,9 +18,25 @@ const statusConfig: Record<DisplayStatus, { label: string; color: 'warning' | 'i
   expired:         { label: 'Expired',         color: 'neutral' },
 };
 
-function effectiveStatus(booking: UserBooking): DisplayStatus {
+function effectiveStatus(booking: MyBookingItem): DisplayStatus {
   if (booking.status === 'cancelled' && booking.cancelled_by === 'system') return 'expired';
   return booking.status;
+}
+
+function bookingBadge(booking: MyBookingItem): {
+  label: string;
+  color: 'warning' | 'info' | 'success' | 'error' | 'neutral';
+} {
+  if (booking.entry_type === 'open_play_participant') {
+    const presentation = getOpenPlayBookingPresentation(booking);
+
+    return {
+      label: presentation.label,
+      color: presentation.color === 'primary' ? 'neutral' : presentation.color
+    };
+  }
+
+  return statusConfig[effectiveStatus(booking)] ?? statusConfig.completed;
 }
 
 function formatDate(iso: string): string {
@@ -71,19 +88,20 @@ function formatTime(start: string, end: string): string {
               {{ booking.court?.hub?.name ?? '—' }}
             </p>
             <p class="truncate text-xs text-[#64748b]">
-              {{ booking.court?.name ?? '—' }}
+              <span v-if="booking.entry_type === 'open_play_participant'">Open Play</span>
+              <span v-else>{{ booking.court?.name ?? '—' }}</span>
             </p>
             <p class="mt-0.5 text-xs text-[#64748b]">
               {{ formatDate(booking.start_time) }} · {{ formatTime(booking.start_time, booking.end_time) }}
             </p>
           </div>
           <UBadge
-            :color="statusConfig[effectiveStatus(booking)]?.color ?? 'neutral'"
+            :color="bookingBadge(booking).color"
             variant="subtle"
             size="xs"
             class="mt-0.5 shrink-0"
           >
-            {{ statusConfig[effectiveStatus(booking)]?.label ?? booking.status }}
+            {{ bookingBadge(booking).label }}
           </UBadge>
         </NuxtLink>
       </template>

@@ -1,9 +1,9 @@
 import type { AppNotification } from '~/types/notification';
-import type { UserBooking } from '~/types/booking';
+import type { MyBookingItem } from '~/types/booking';
 
 export const useUserBookingStore = defineStore('userBooking', () => {
   const pendingCount = ref(0);
-  const recentBookings = ref<UserBooking[]>([]);
+  const recentBookings = ref<MyBookingItem[]>([]);
   const lastBookingEvent = ref(0);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const echoChannel = ref<any>(null);
@@ -33,7 +33,19 @@ export const useUserBookingStore = defineStore('userBooking', () => {
     const channel = echoInstance.private(`App.Models.User.${userId}`);
 
     channel.listen('.notification.new', (payload: AppNotification) => {
-      const bookingTypes = ['booking_confirmed', 'booking_rejected', 'booking_cancelled', 'booking_cancelled_by_guest', 'booking_created', 'receipt_uploaded'];
+      const bookingTypes = [
+        'booking_confirmed',
+        'booking_rejected',
+        'booking_cancelled',
+        'booking_cancelled_by_guest',
+        'booking_created',
+        'receipt_uploaded',
+        'open_play_participant_confirmed',
+        'open_play_participant_rejected',
+        'open_play_participant_cancelled',
+        'open_play_session_cancelled',
+        'open_play_session_started'
+      ];
       if (bookingTypes.includes(payload.activity_type)) {
         refresh();
         lastBookingEvent.value++;

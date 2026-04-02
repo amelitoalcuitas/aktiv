@@ -2,10 +2,21 @@
 
 namespace App\Http\Requests\Hub;
 
+use App\Models\Hub;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateHubRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('username')) {
+            $this->merge([
+                'username' => Hub::normalizeUsername($this->input('username')),
+            ]);
+        }
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -18,6 +29,14 @@ class UpdateHubRequest extends FormRequest
     {
         return [
             'name'            => ['sometimes', 'string', 'max:255'],
+            'username'        => [
+                'sometimes',
+                'string',
+                'min:3',
+                'max:30',
+                'regex:' . Hub::USERNAME_REGEX,
+                Rule::unique('hubs', 'username')->ignore($this->route('hub')?->id),
+            ],
             'description'     => ['sometimes', 'nullable', 'string'],
             'city'            => ['sometimes', 'string', 'max:255'],
             'address'         => ['sometimes', 'string', 'max:500'],

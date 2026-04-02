@@ -19,6 +19,7 @@ class HubSettingsTest extends TestCase
 
         $response = $this->actingAs($owner)->postJson('/api/hubs', [
             'name'     => 'Test Hub',
+            'username' => 'test-hub',
             'city'     => 'Manila',
             'address'  => '123 Main St',
             'zip_code' => '1000',

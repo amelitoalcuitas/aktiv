@@ -201,7 +201,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $hubs = $this->hubs()
             ->where('is_active', true)
-            ->select('id', 'name', 'description', 'city', 'cover_image_url', 'show_on_profile')
+            ->select('id', 'username', 'name', 'description', 'city', 'cover_image_url', 'show_on_profile')
             ->withAvg('ratings', 'rating')
             ->withCount('ratings as reviews_count')
             ->get();

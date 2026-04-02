@@ -31,6 +31,7 @@ export interface ProfilePrivacy {
 
 export interface JoinedHub {
   id: string;
+  username: string | null;
   name: string;
   city: string;
   cover_image_url: string | null;
@@ -38,6 +39,7 @@ export interface JoinedHub {
 
 export interface OwnedHub {
   id: string;
+  username: string | null;
   name: string;
   description: string | null;
   city: string;

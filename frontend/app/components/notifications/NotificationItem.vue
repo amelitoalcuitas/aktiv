@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AppNotification } from '~/types/notification';
+import type { AppNotification, NotificationActivityType } from '~/types/notification';
 
 const props = defineProps<{
   notification: AppNotification;
@@ -8,7 +8,12 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'toggle-read': [id: string];
-  'open-booking': [bookingId: string, hubId: string, activityType: string];
+  'open-booking': [
+    itemId: string | undefined,
+    bookingId: string | undefined,
+    hubId: string | undefined,
+    activityType: NotificationActivityType
+  ];
 }>();
 
 const iconMap: Record<string, string> = {
@@ -54,6 +59,7 @@ function handleClick() {
   if (isUnread.value) emit('toggle-read', props.notification.id);
   emit(
     'open-booking',
+    props.notification.data.item_id,
     props.notification.data.booking_id,
     props.notification.data.hub_id,
     props.notification.activity_type

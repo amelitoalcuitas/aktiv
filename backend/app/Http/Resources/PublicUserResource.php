@@ -51,6 +51,7 @@ class PublicUserResource extends JsonResource
                     ->values()
                     ->map(fn ($h) => [
                         'id'              => $h->id,
+                        'username'        => $h->username,
                         'name'            => $h->name,
                         'description'     => $h->description,
                         'city'            => $h->city,
@@ -61,8 +62,9 @@ class PublicUserResource extends JsonResource
                     ])
                 : [],
             'joined_hubs'    => $privacy['show_joined_hubs']
-                ? $this->joinedHubs()->select(['hubs.id', 'hubs.name', 'hubs.city', 'hubs.cover_image_url'])->get()->map(fn ($h) => [
+                ? $this->joinedHubs()->select(['hubs.id', 'hubs.username', 'hubs.name', 'hubs.city', 'hubs.cover_image_url'])->get()->map(fn ($h) => [
                     'id'              => $h->id,
+                    'username'        => $h->username,
                     'name'            => $h->name,
                     'city'            => $h->city,
                     'cover_image_url' => $h->cover_image_url,

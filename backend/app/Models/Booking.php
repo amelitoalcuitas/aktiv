@@ -98,4 +98,9 @@ class Booking extends Model
     {
         return $this->belongsTo(User::class, 'payment_confirmed_by');
     }
+
+    public function openPlaySession(): HasOne
+    {
+        return $this->hasOne(OpenPlaySession::class);
+    }
 }

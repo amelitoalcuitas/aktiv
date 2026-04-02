@@ -35,11 +35,18 @@ function formatDate(session: OpenPlaySession): string {
 }
 
 const presentation = computed(() => getOpenPlaySessionPresentation(props.session));
+const isCancelled = computed(() => presentation.value.status === 'cancelled');
+const isUnavailable = computed(
+  () => isCancelled.value || (props.session.status === 'full' && !props.session.viewer_participant)
+);
 </script>
 
 <template>
   <UCard
-    class="rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]"
+    :class="[
+      'rounded-2xl border border-[var(--aktiv-border)] bg-[var(--aktiv-surface)]',
+      isCancelled ? 'opacity-80' : ''
+    ]"
     :ui="{ root: 'ring-0', body: 'p-5' }"
   >
     <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -51,7 +58,7 @@ const presentation = computed(() => getOpenPlaySessionPresentation(props.session
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-base font-bold text-[var(--aktiv-ink)]">
-                Open Play
+                {{ session.title }}
               </h3>
               <UBadge :color="presentation.color" variant="soft">
                 {{ presentation.label }}
@@ -79,10 +86,10 @@ const presentation = computed(() => getOpenPlaySessionPresentation(props.session
         </div>
 
         <p
-          v-if="session.notes"
+          v-if="session.description ?? session.notes"
           class="mt-3 text-sm text-[var(--aktiv-muted)]"
         >
-          "{{ session.notes }}"
+          "{{ session.description ?? session.notes }}"
         </p>
         <p class="mt-3 text-sm text-[var(--aktiv-muted)]">
           {{ presentation.helperText }}
@@ -91,8 +98,8 @@ const presentation = computed(() => getOpenPlaySessionPresentation(props.session
 
       <div class="md:pl-4">
         <UButton
-          color="primary"
-          :variant="session.status === 'full' && !session.viewer_participant ? 'soft' : 'solid'"
+          :color="isCancelled ? 'neutral' : 'primary'"
+          :variant="isUnavailable ? 'soft' : 'solid'"
           @click="emit('open', session.id)"
         >
           {{ presentation.actionLabel }}

@@ -7,8 +7,10 @@ use App\Mail\OpenPlayParticipantConfirmed;
 use App\Mail\OpenPlayParticipantRejected;
 use App\Mail\OpenPlaySessionCancelled;
 use App\Mail\OpenPlaySessionStarted;
+use App\Mail\OpenPlaySessionUpdated;
 use App\Models\OpenPlayParticipant;
 use Illuminate\Bus\Queueable;
+use Carbon\CarbonInterface;
 use Illuminate\Mail\Mailable;
 use Illuminate\Notifications\Notification;
 
@@ -19,6 +21,7 @@ class OpenPlayActivityNotification extends Notification
     public function __construct(
         private readonly OpenPlayParticipant $participant,
         private readonly string $activityType,
+        private readonly array $context = [],
     ) {}
 
     /**
@@ -38,6 +41,7 @@ class OpenPlayActivityNotification extends Notification
             'open_play_participant_cancelled',
             'open_play_session_cancelled',
             'open_play_session_started',
+            'open_play_session_updated',
         ];
 
         if (in_array($this->activityType, $emailable) && ($notifiable->email_notifications_enabled ?? true)) {
@@ -62,6 +66,13 @@ class OpenPlayActivityNotification extends Notification
             'open_play_participant_cancelled'  => new OpenPlayParticipantCancelled($participant, $session),
             'open_play_session_cancelled'      => new OpenPlaySessionCancelled($participant, $session),
             'open_play_session_started'        => new OpenPlaySessionStarted($participant, $session),
+            'open_play_session_updated'        => new OpenPlaySessionUpdated(
+                $participant,
+                $session,
+                $this->context['original_court_name'] ?? $session->booking->court->name,
+                $this->context['original_start_time'] ?? $session->booking->start_time,
+                $this->context['original_end_time'] ?? $session->booking->end_time,
+            ),
             default                            => new OpenPlayParticipantConfirmed($participant, $session),
         };
 
@@ -87,6 +98,7 @@ class OpenPlayActivityNotification extends Notification
             'open_play_participant_cancelled'  => "Your spot in the {$sport} session at {$hub->name} has been cancelled.",
             'open_play_session_cancelled'      => "{$hub->name} has cancelled the {$sport} open play session.",
             'open_play_session_started'        => "Your {$sport} session at {$hub->name} has started! Head to {$courtName}.",
+            'open_play_session_updated'        => "{$hub->name} updated the court or schedule for your {$sport} session.",
             default                            => "Your open play status at {$hub->name} has been updated.",
         };
 
@@ -99,6 +111,18 @@ class OpenPlayActivityNotification extends Notification
             'court_name'    => $courtName,
             'start_time'    => $booking->start_time->toIso8601String(),
             'message'       => $message,
+            'original_court_name' => $this->context['original_court_name'] ?? null,
+            'original_start_time' => $this->formatContextTime($this->context['original_start_time'] ?? null),
+            'original_end_time'   => $this->formatContextTime($this->context['original_end_time'] ?? null),
         ];
+    }
+
+    private function formatContextTime(mixed $value): ?string
+    {
+        if ($value instanceof CarbonInterface) {
+            return $value->toIso8601String();
+        }
+
+        return is_string($value) ? $value : null;
     }
 }

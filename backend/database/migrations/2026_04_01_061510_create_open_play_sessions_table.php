@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('open_play_sessions', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->foreignUuid('booking_id')->unique()->constrained('bookings')->cascadeOnDelete();
+            $table->string('title')->default('Open Play');
             $table->string('sport')->nullable();
             $table->integer('max_players');
             $table->decimal('price_per_player', 10, 2)->default(0);

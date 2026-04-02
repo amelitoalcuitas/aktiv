@@ -27,6 +27,11 @@ const manageTabs = computed(() => [
     to: `/dashboard/hubs/${hubId.value}/bookings`
   },
   {
+    label: 'Open Play',
+    icon: 'i-heroicons-user-group',
+    to: `/dashboard/hubs/${hubId.value}/open-play`
+  },
+  {
     label: 'Events',
     icon: 'i-heroicons-megaphone',
     to: `/dashboard/hubs/${hubId.value}/events`
@@ -321,52 +326,51 @@ async function saveSettings() {
               </p>
             </div>
 
-            <div class="flex items-start gap-3">
-              <div class="min-w-0 flex-1">
-                <UFormField label="Username">
+            <div class="min-w-0 flex-1">
+              <UFormField label="Username">
+                <div class="flex items-center gap-2">
                   <UInput
                     v-model="usernameDraft"
                     :disabled="!canEditUsername"
                     placeholder="e.g. sunnyvale-tennis"
-                    class="w-full"
+                    class="flex-1"
                   />
-                </UFormField>
-                <p
-                  v-if="usernameMessage"
-                  class="mt-1 text-xs"
-                  :class="{
-                    'text-emerald-600': usernameStatus === 'verified',
-                    'text-[#64748b]': usernameStatus === 'idle' || usernameStatus === 'checking',
-                    'text-[var(--aktiv-danger-fg)]':
-                      usernameStatus === 'invalid' || usernameStatus === 'taken'
-                  }"
-                >
-                  {{ usernameMessage }}
-                </p>
-                <p v-if="!canEditUsername && usernameLockedUntil" class="mt-1 text-xs text-[#64748b]">
-                  You can change this username again on {{ usernameLockedUntil }}.
-                </p>
-                <p v-else class="mt-1 text-xs text-[#64748b]">
-                  Changing your hub username locks it for 1 month.
-                </p>
-              </div>
-
-              <UButton
-                type="button"
-                color="neutral"
-                variant="soft"
-                :disabled="!canEditUsername || !usernameDraft.trim()"
-                :loading="usernameStatus === 'checking'"
-                @click="verifyUsername"
+                  <UButton
+                    type="button"
+                    color="neutral"
+                    variant="soft"
+                    :disabled="!canEditUsername || !usernameDraft.trim() || usernameDraft === hubData?.username"
+                    :loading="usernameStatus === 'checking'"
+                    @click="verifyUsername"
+                  >
+                    Verify
+                  </UButton>
+                </div>
+              </UFormField>
+              <p
+                v-if="usernameMessage"
+                class="mt-1 text-xs"
+                :class="{
+                  'text-emerald-600': usernameStatus === 'verified',
+                  'text-[#64748b]': usernameStatus === 'idle' || usernameStatus === 'checking',
+                  'text-[var(--aktiv-danger-fg)]':
+                    usernameStatus === 'invalid' || usernameStatus === 'taken'
+                }"
               >
-                Verify
-              </UButton>
+                {{ usernameMessage }}
+              </p>
+              <p v-if="!canEditUsername && usernameLockedUntil" class="mt-1 text-xs text-[#64748b]">
+                You can change this username again on {{ usernameLockedUntil }}.
+              </p>
+              <p v-else class="mt-1 text-xs text-[#64748b]">
+                Changing your hub username locks it for 1 month.
+              </p>
             </div>
 
             <div class="flex justify-end">
               <UButton
                 :loading="savingUsername"
-                :disabled="!canEditUsername"
+                :disabled="!canEditUsername || usernameDraft === hubData?.username || usernameStatus !== 'verified'"
                 class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
                 @click="saveUsername"
               >

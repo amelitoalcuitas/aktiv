@@ -102,6 +102,11 @@ interface CellBlock extends CellState {
   span: number;
 }
 
+const SLOT_WIDTH_PX = 88;
+const BLOCK_INNER_GUTTER_PX = 12;
+const BOOKING_CONTENT_PADDING_PX = 8;
+const MIN_BOOKING_CONTENT_WIDTH_PX = 72;
+
 const now = ref(new Date());
 let nowTimer: ReturnType<typeof setInterval>;
 onMounted(() => {
@@ -292,6 +297,16 @@ function nextDay() {
 
 // ── Auto-scroll ───────────────────────────────────────────────
 const scrollWrapper = useTemplateRef<HTMLDivElement>('scrollWrapper');
+const horizontalScroll = ref(0);
+
+function syncHorizontalScroll() {
+  horizontalScroll.value = scrollWrapper.value?.scrollLeft ?? 0;
+}
+
+function handleGridScroll() {
+  syncHorizontalScroll();
+}
+
 function scrollToCurrentTime() {
   if (!scrollWrapper.value) return;
   const nowH = new Date().getHours();
@@ -299,9 +314,39 @@ function scrollToCurrentTime() {
     const h = parseInt(slot.split(':')[0] ?? '0', 10);
     return h >= nowH;
   });
-  scrollWrapper.value.scrollLeft = Math.max(0, (idx - 1) * 88);
+  scrollWrapper.value.scrollLeft = Math.max(0, (idx - 1) * SLOT_WIDTH_PX);
+  syncHorizontalScroll();
 }
-onMounted(() => nextTick(scrollToCurrentTime));
+
+function bookingBlockWidth(span: number): number {
+  return span * SLOT_WIDTH_PX - BLOCK_INNER_GUTTER_PX;
+}
+
+function bookingContentStyle(block: CellBlock): { left: string; right: string } {
+  const blockWidth = bookingBlockWidth(block.span);
+  const hiddenWidth = Math.max(
+    0,
+    horizontalScroll.value - block.slotIdx * SLOT_WIDTH_PX
+  );
+  const maxOffset = Math.max(
+    BOOKING_CONTENT_PADDING_PX,
+    blockWidth - BOOKING_CONTENT_PADDING_PX - MIN_BOOKING_CONTENT_WIDTH_PX
+  );
+  const left = Math.min(
+    Math.max(BOOKING_CONTENT_PADDING_PX, hiddenWidth + BOOKING_CONTENT_PADDING_PX),
+    maxOffset
+  );
+
+  return {
+    left: `${left}px`,
+    right: `${BOOKING_CONTENT_PADDING_PX}px`
+  };
+}
+
+onMounted(() => nextTick(() => {
+  scrollToCurrentTime();
+  syncHorizontalScroll();
+}));
 
 watch(
   () => props.selectedDate,
@@ -311,7 +356,10 @@ watch(
       const isToday =
         new Date().toDateString() === props.selectedDate.toDateString();
       if (isToday) scrollToCurrentTime();
-      else scrollWrapper.value.scrollLeft = 0;
+      else {
+        scrollWrapper.value.scrollLeft = 0;
+        syncHorizontalScroll();
+      }
     })
 );
 
@@ -377,6 +425,7 @@ function handleBookedCellClick(booking: BookingDetail) {
       ref="scrollWrapper"
       class="w-full overflow-auto"
       style="max-height: 560px"
+      @scroll="handleGridScroll"
     >
       <table class="border-collapse" style="min-width: max-content">
         <thead>
@@ -420,14 +469,14 @@ function handleBookedCellClick(booking: BookingDetail) {
               class="group relative border-r border-[#dbe4ef] p-1.5 last:border-r-0"
             >
               <div
-                :style="{ minWidth: `${block.span * 88 - 12}px` }"
+                :style="{ minWidth: `${bookingBlockWidth(block.span)}px` }"
                 class="w-full"
               >
                 <!-- Closed slot -->
                 <div
                   v-if="block.type === 'closed'"
                   class="h-12 rounded-lg bg-[#fee2e2] flex items-center justify-center"
-                  :style="{ minWidth: `${block.span * 88 - 12}px` }"
+                  :style="{ minWidth: `${bookingBlockWidth(block.span)}px` }"
                 >
                   <span
                     class="text-xs font-bold tracking-widest text-[#991b1b] uppercase"
@@ -438,7 +487,7 @@ function handleBookedCellClick(booking: BookingDetail) {
                 <!-- Booked slot -->
                 <div
                   v-else-if="block.type === 'booked'"
-                  class="group relative flex h-12 cursor-pointer flex-col justify-center rounded-lg px-2 transition-opacity hover:opacity-90"
+                  class="group relative h-12 cursor-pointer overflow-hidden rounded-lg transition-opacity hover:opacity-90"
                   :class="
                     block.booking!.session_type === 'open_play'
                       ? 'border border-[#7c3aed] bg-[#8b5cf6] text-white'
@@ -453,7 +502,10 @@ function handleBookedCellClick(booking: BookingDetail) {
                   "
                   @click="handleBookedCellClick(block.booking!)"
                 >
-                  <div class="pr-5">
+                  <div
+                    class="absolute inset-y-0 flex min-w-0 flex-col justify-center pr-5"
+                    :style="bookingContentStyle(block)"
+                  >
                     <p
                       class="truncate text-[11px] font-bold"
                       :style="
@@ -485,21 +537,20 @@ function handleBookedCellClick(booking: BookingDetail) {
                       }}
                     </p>
                   </div>
-
                 </div>
 
                 <!-- Past slot -->
                 <div
                   v-else-if="block.type === 'past'"
                   class="h-12 rounded-lg bg-[#f1f5f9] opacity-50"
-                  :style="{ minWidth: `${block.span * 88 - 12}px` }"
+                  :style="{ minWidth: `${bookingBlockWidth(block.span)}px` }"
                 />
 
                 <!-- Available slot -->
                 <div
                   v-else
                   class="relative h-12 rounded-lg border border-dashed border-[#93c5fd] bg-[#dbeafe] transition-all duration-75 group-hover:border-none group-hover:bg-[#bfdbfe]"
-                  :style="{ minWidth: `${block.span * 88 - 12}px` }"
+                  :style="{ minWidth: `${bookingBlockWidth(block.span)}px` }"
                 >
                   <button
                     type="button"

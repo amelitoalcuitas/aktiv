@@ -12,9 +12,11 @@ use App\Mail\OpenPlayParticipantConfirmed;
 use App\Mail\OpenPlayParticipantRejected;
 use App\Mail\OpenPlayPaymentPending;
 use App\Mail\OpenPlaySessionCancelled;
+use App\Mail\OpenPlaySessionUpdated;
 use App\Models\OpenPlayParticipant;
 use App\Models\OpenPlaySession;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use App\Notifications\OpenPlayActivityNotification;
 use Illuminate\Support\Facades\Mail;
 
@@ -134,16 +136,65 @@ class OpenPlayNotificationService
     }
 
     /**
+     * Session schedule or court changed.
+     * Notifies all active participants.
+     * The session must have booking.court.hub eager-loaded before calling.
+     */
+    public function notifySessionUpdated(
+        OpenPlaySession $session,
+        string $originalCourtName,
+        CarbonInterface $originalStartTime,
+        CarbonInterface $originalEndTime,
+    ): void {
+        $participants = $session->relationLoaded('participants')
+            ? collect($session->participants)
+            : $session->participants()
+                ->whereIn('payment_status', OpenPlaySession::reservedParticipantStatuses())
+                ->with('user')
+                ->get();
+
+        foreach ($participants as $participant) {
+            $participant->setRelation('openPlaySession', $session);
+
+            if ($participant->user_id && $participant->user) {
+                $this->sendActivityNotification(
+                    $participant->user,
+                    $participant,
+                    $session,
+                    'open_play_session_updated',
+                    [
+                        'original_court_name' => $originalCourtName,
+                        'original_start_time' => $originalStartTime,
+                        'original_end_time'   => $originalEndTime,
+                    ],
+                );
+            } elseif ($participant->guest_email) {
+                Mail::to($participant->guest_email)->queue(
+                    new OpenPlaySessionUpdated(
+                        $participant,
+                        $session,
+                        $originalCourtName,
+                        $originalStartTime,
+                        $originalEndTime,
+                    )
+                );
+            }
+        }
+    }
+
+    /**
      * Owner cancelled the entire session.
      * Notifies all non-cancelled participants.
      * The session must have booking.court.hub eager-loaded and participants.user eager-loaded before calling.
      */
     public function notifySessionCancelled(OpenPlaySession $session): void
     {
-        $participants = $session->participants()
-            ->whereNotIn('payment_status', ['cancelled'])
-            ->with('user')
-            ->get();
+        $participants = $session->relationLoaded('participants')
+            ? collect($session->participants)
+            : $session->participants()
+                ->whereNotIn('payment_status', ['cancelled'])
+                ->with('user')
+                ->get();
 
         foreach ($participants as $participant) {
             if ($participant->user_id && $participant->user) {
@@ -165,8 +216,10 @@ class OpenPlayNotificationService
         OpenPlayParticipant $participant,
         OpenPlaySession $session,
         string $activityType
+        ,
+        array $context = [],
     ): void {
-        $notification = new OpenPlayActivityNotification($participant, $activityType);
+        $notification = new OpenPlayActivityNotification($participant, $activityType, $context);
         $recipient->notifyNow($notification);
 
         $dbNotification = $recipient->notifications()->latest()->first();

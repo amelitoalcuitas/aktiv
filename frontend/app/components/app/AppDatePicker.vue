@@ -7,12 +7,15 @@ const props = withDefaults(
     /** "input" = UInputDate with trailing popover (table filter)
      *  "nav"   = icon + label button with popover (grid header) */
     variant?: 'input' | 'nav';
+    /** Visual treatment for nav variant */
+    display?: 'compact' | 'field';
     /** Label text shown in nav variant */
     label?: string;
     /** Allow selecting past dates (default true) */
     allowPast?: boolean;
+    disabled?: boolean;
   }>(),
-  { variant: 'input', allowPast: true }
+  { variant: 'input', display: 'compact', allowPast: true, disabled: false }
 );
 
 const emit = defineEmits<{ 'update:modelValue': [Date] }>();
@@ -37,11 +40,21 @@ const calendarDate = computed({
 });
 
 const minValue = computed(() => (props.allowPast ? undefined : today));
+const navButtonClass = computed(() =>
+  props.display === 'field'
+    ? 'flex h-8 w-full items-center gap-2 rounded-md border border-[var(--aktiv-border)] bg-white px-3 text-left transition-colors hover:border-[var(--aktiv-primary,#004e89)]'
+    : 'flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-[var(--aktiv-border,#f1f5f9)] ring ring-1.5 ring-[var(--aktiv-border)]'
+);
 </script>
 
 <template>
   <!-- ── Input variant ─────────────────────────────────────── -->
-  <UInputDate v-if="variant === 'input'" ref="inputDate" v-model="calendarDate">
+  <UInputDate
+    v-if="variant === 'input'"
+    ref="inputDate"
+    v-model="calendarDate"
+    :disabled="props.disabled"
+  >
     <template #trailing>
       <UPopover v-model:open="open" :reference="inputRef?.inputsRef[3]?.$el">
         <UButton
@@ -51,6 +64,7 @@ const minValue = computed(() => (props.allowPast ? undefined : today));
           icon="i-lucide-calendar"
           aria-label="Select a date"
           class="px-0"
+          :disabled="props.disabled"
         />
         <template #content>
           <UCalendar
@@ -68,13 +82,20 @@ const minValue = computed(() => (props.allowPast ? undefined : today));
   <UPopover v-else v-model:open="open">
     <button
       type="button"
-      class="cursor-pointer flex items-center gap-1.5 rounded-md px-2 py-1 transition-colors hover:bg-[var(--aktiv-border,#f1f5f9)] ring ring-1.5 ring-[var(--aktiv-border)]"
+      :disabled="props.disabled"
+      :class="[
+        navButtonClass,
+        props.disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+      ]"
     >
-      <UIcon
-        name="i-heroicons-calendar-days"
-        class="h-4 w-4 text-[var(--aktiv-muted,#64748b)]"
-      />
-      <span class="text-sm font-semibold text-[var(--aktiv-ink,#0f1728)]">
+      <span
+        class="min-w-0 truncate text-[var(--aktiv-ink,#0f1728)]"
+        :class="
+          props.display === 'field'
+            ? 'text-sm font-normal'
+            : 'text-sm font-semibold'
+        "
+      >
         {{ label }}
       </span>
     </button>

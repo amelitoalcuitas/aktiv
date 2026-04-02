@@ -26,6 +26,44 @@ class OwnerOpenPlayController extends Controller
         private OpenPlayNotificationService $openPlayNotifications,
     ) {}
 
+    public function index(Hub $hub, Request $request): JsonResponse
+    {
+        abort_if($hub->owner_id !== $request->user()->id, 403);
+
+        $courtIds = $hub->courts()->pluck('id');
+
+        $query = OpenPlaySession::query()
+            ->whereHas('booking', fn ($query) => $query->whereIn('court_id', $courtIds))
+            ->with(['booking.court'])
+            ->withCount([
+                'participants as participants_count' => fn ($query) => $query
+                    ->whereIn('payment_status', OpenPlaySession::reservedParticipantStatuses()),
+                'participants as confirmed_participants_count' => fn ($query) => $query
+                    ->where('payment_status', 'confirmed'),
+            ]);
+
+        if ($request->filled('date_from')) {
+            $query->whereHas('booking', fn ($bookingQuery) => $bookingQuery
+                ->whereIn('court_id', $courtIds)
+                ->where('end_time', '>=', Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay()->utc()));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->whereHas('booking', fn ($bookingQuery) => $bookingQuery
+                ->whereIn('court_id', $courtIds)
+                ->where('start_time', '<=', Carbon::parse($request->date_to, 'Asia/Manila')->endOfDay()->utc()));
+        }
+
+        $sessions = $query
+            ->get()
+            ->sortByDesc(fn (OpenPlaySession $session) => $session->booking?->start_time?->getTimestamp() ?? 0)
+            ->values();
+
+        return response()->json([
+            'data' => OpenPlaySessionResource::collection($sessions),
+        ]);
+    }
+
     public function store(Hub $hub, StoreOpenPlaySessionRequest $request): JsonResponse
     {
         abort_if($hub->owner_id !== $request->user()->id, 403);
@@ -71,10 +109,11 @@ class OwnerOpenPlayController extends Controller
             ]);
 
             return OpenPlaySession::create([
+                'title'            => $request->title,
                 'booking_id'       => $booking->id,
                 'max_players'      => $request->max_players,
                 'price_per_player' => $request->price_per_player,
-                'notes'            => $request->notes,
+                'notes'            => $request->description,
                 'guests_can_join'  => $request->boolean('guests_can_join', false),
                 'status'           => 'open',
             ]);
@@ -113,8 +152,12 @@ class OwnerOpenPlayController extends Controller
         abort_if($court->hub_id !== $hub->id, 422);
 
         $booking = $session->booking;
+        $booking->loadMissing('court.hub');
         $startTime = Carbon::parse($request->start_time);
         $endTime   = Carbon::parse($request->end_time);
+        $originalCourtName = $booking->court->name;
+        $originalStartTime = $booking->start_time->copy();
+        $originalEndTime = $booking->end_time->copy();
 
         $closureEvent = $this->findClosureEvent($hub, $court, $startTime, $endTime);
         if ($closureEvent) {
@@ -151,6 +194,9 @@ class OwnerOpenPlayController extends Controller
         }
 
         $originalCourtId = $booking->court_id;
+        $shouldNotifyParticipants = $originalCourtId !== $court->id
+            || ! $originalStartTime->equalTo($startTime)
+            || ! $originalEndTime->equalTo($endTime);
 
         DB::transaction(function () use ($session, $booking, $court, $request, $startTime, $endTime): void {
             $booking->update([
@@ -160,16 +206,17 @@ class OwnerOpenPlayController extends Controller
             ]);
 
             $session->update([
+                'title'            => $request->title,
                 'max_players'      => $request->max_players,
                 'price_per_player' => $request->price_per_player,
-                'notes'            => $request->notes,
+                'notes'            => $request->description,
                 'guests_can_join'  => $request->boolean('guests_can_join', false),
             ]);
 
             $session->recalculateStatus();
         });
 
-        $session = $this->loadSessionForResponse($session->fresh());
+        $session = $this->loadSessionForResponse($session->fresh()->load('booking.court.hub'));
 
         broadcast(new BookingSlotUpdated(
             hubId: $hub->id,
@@ -183,6 +230,15 @@ class OwnerOpenPlayController extends Controller
                 courtId: $court->id,
                 status: $booking->status,
             ));
+        }
+
+        if ($shouldNotifyParticipants) {
+            $this->openPlayNotifications->notifySessionUpdated(
+                $session,
+                $originalCourtName,
+                $originalStartTime,
+                $originalEndTime,
+            );
         }
 
         return response()->json([
@@ -202,7 +258,12 @@ class OwnerOpenPlayController extends Controller
 
         $courtId = $session->booking->court_id;
 
-        $session->loadMissing('booking.court.hub');
+        $session->loadMissing([
+            'booking.court.hub',
+            'participants' => fn ($query) => $query
+                ->whereNotIn('payment_status', ['cancelled'])
+                ->with('user'),
+        ]);
 
         DB::transaction(function () use ($session): void {
             // Cancel all active participants

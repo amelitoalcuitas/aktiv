@@ -149,6 +149,8 @@ class GuestOpenPlayTrackingController extends Controller
             'expires_at'           => $participant->expires_at?->toIso8601String(),
             'cancelled_by'         => $participant->cancelled_by,
             'joined_at'            => $participant->joined_at?->toIso8601String(),
+            'title'                => $session->title,
+            'description'          => $session->notes,
             'notes'                => $session->notes,
             'sport'                => $session->sport ?? $booking->sport ?? 'Open Play',
             'start_time'           => $booking->start_time->toIso8601String(),

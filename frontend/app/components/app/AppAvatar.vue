@@ -1,5 +1,5 @@
 <script setup lang="ts">
-type AvatarSize = 'sm' | 'md' | 'xl' | '3xl' | 'full';
+type AvatarSize = 'xs' | 'sm' | 'md' | 'xl' | '3xl' | 'full';
 
 const props = withDefaults(
   defineProps<{
@@ -17,6 +17,8 @@ const imageFailed = ref(false);
 
 const compactSizeClasses = computed(() => {
   switch (props.size) {
+    case 'xs':
+      return 'h-7 w-7';
     case 'sm':
       return 'h-8 w-8';
     case 'xl':

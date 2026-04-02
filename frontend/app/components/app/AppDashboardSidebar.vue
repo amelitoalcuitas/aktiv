@@ -40,7 +40,7 @@ const isActive = (to: string, exact = false) => {
 };
 
 const isHubSubActive = computed(() =>
-  hubStore.myHubs.some(h => activePath.value.startsWith(`/hubs/${h.id}`))
+  hubStore.myHubs.some(h => activePath.value.startsWith(`/dashboard/hubs/${h.id}`))
 );
 
 const close = () => emit('update:open', false);
@@ -128,10 +128,10 @@ watch(() => route.path, close);
               <ul class="flex-1 space-y-0.5">
                 <li v-for="hub in hubStore.myHubs" :key="hub.id">
                   <NuxtLink
-                    :to="`/hubs/${hub.id}/edit`"
+                    :to="`/dashboard/hubs/${hub.id}/edit`"
                     :class="[
                       'flex items-center rounded-xl px-3 py-2 text-sm transition',
-                      isActive(`/hubs/${hub.id}`)
+                      isActive(`/dashboard/hubs/${hub.id}`)
                         ? 'font-medium text-[#004e89] bg-[#e8f0f8]'
                         : 'text-[#64748b] hover:bg-[#f0f4f8] hover:text-[#004e89]'
                     ]"

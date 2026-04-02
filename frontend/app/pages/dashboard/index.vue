@@ -232,7 +232,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
               class="flex cursor-pointer items-start justify-between gap-3 px-5 py-3.5 hover:bg-[#f8fafc]"
               @click="
                 navigateTo({
-                  path: `/hubs/${booking.court?.hub_id}/bookings`,
+                  path: `/dashboard/hubs/${booking.court?.hub_id}/bookings`,
                   query: { bookingId: booking.id }
                 })
               "
@@ -293,7 +293,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
               class="flex cursor-pointer items-start justify-between gap-3 px-5 py-3.5 hover:bg-[#f8fafc]"
               @click="
                 navigateTo({
-                  path: `/hubs/${booking.court?.hub_id}/bookings`,
+                  path: `/dashboard/hubs/${booking.court?.hub_id}/bookings`,
                   query: { bookingId: booking.id }
                 })
               "

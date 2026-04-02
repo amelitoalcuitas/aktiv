@@ -98,7 +98,7 @@ const menuItems = computed(() => {
           :src="avatarSrc"
           :name="fullName"
           :alt="fullName"
-          size="sm"
+          size="xs"
           :premium="user?.is_premium ?? false"
           class="flex-shrink-0"
         />
@@ -121,6 +121,7 @@ const menuItems = computed(() => {
           :src="avatarSrc"
           :name="fullName"
           :alt="fullName"
+          size="xs"
           :premium="user?.is_premium ?? false"
         />
       </UButton>

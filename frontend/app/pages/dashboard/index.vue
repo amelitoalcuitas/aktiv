@@ -92,8 +92,12 @@ function formatDateTime(iso: string) {
 }
 
 function bookerName(booking: BookingDetail) {
-  const name =
-    `${booking.booked_by_user?.first_name} ${booking.booked_by_user?.last_name}`.trim();
+  const name = [
+    booking.booked_by_user?.first_name,
+    booking.booked_by_user?.last_name,
+  ]
+    .filter((part): part is string => Boolean(part?.trim()))
+    .join(' ');
 
   return name || booking.guest_name || 'Guest';
 }

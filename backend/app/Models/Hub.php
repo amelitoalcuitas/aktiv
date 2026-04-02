@@ -5,13 +5,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Str;
 
 class Hub extends Model
 {
     use HasFactory, HasUuids;
+
+    public const USERNAME_REGEX = '/^(?![0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$)[a-z0-9]+(?:-[a-z0-9]+)*$/';
 
     /**
      * @var list<string>
@@ -19,6 +23,8 @@ class Hub extends Model
     protected $fillable = [
         'owner_id',
         'name',
+        'username',
+        'username_changed_at',
         'description',
         'city',
         'zip_code',
@@ -47,6 +53,7 @@ class Hub extends Model
         return [
             'lat' => 'decimal:7',
             'lng' => 'decimal:7',
+            'username_changed_at' => 'datetime',
             'is_approved'      => 'boolean',
             'is_verified'      => 'boolean',
             'is_active'        => 'boolean',
@@ -119,5 +126,51 @@ class Hub extends Model
             ->where('is_active', true)
             ->where('date_from', '<=', $today)
             ->where('date_to', '>=', $today);
+    }
+
+    public function resolveRouteBinding($value, $field = null): ?EloquentModel
+    {
+        $field ??= $this->getRouteKeyName();
+
+        if ($field !== $this->getRouteKeyName()) {
+            return $this->newQuery()->where($field, $value)->first();
+        }
+
+        return $this->newQuery()
+            ->when(
+                Str::isUuid($value),
+                fn ($query) => $query->whereKey($value),
+                fn ($query) => $query->where('username', $value)
+            )
+            ->first();
+    }
+
+    public static function normalizeUsername(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = Str::of($value)
+            ->trim()
+            ->lower()
+            ->slug('-')
+            ->value();
+
+        return $value !== '' ? $value : null;
+    }
+
+    public static function generateUsername(string $name): string
+    {
+        $base = static::normalizeUsername($name) ?? 'hub';
+        $username = Str::limit($base, 30, '');
+        $counter = 1;
+
+        while (static::query()->where('username', $username)->exists()) {
+            $suffix = (string) $counter++;
+            $username = Str::limit($base, 30 - strlen($suffix), '') . $suffix;
+        }
+
+        return $username;
     }
 }

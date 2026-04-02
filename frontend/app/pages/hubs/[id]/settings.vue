@@ -5,7 +5,7 @@ import { useHubs } from '~/composables/useHubs';
 definePageMeta({ middleware: 'owner-hub', layout: 'dashboard-hub' });
 
 const route = useRoute();
-const { fetchHub, updateHub } = useHubs();
+const { fetchHub, updateHub, checkHubUsernameAvailability } = useHubs();
 const toast = useToast();
 
 const hubId = computed(() => String(route.params.id));
@@ -46,6 +46,25 @@ const manageTabs = computed(() => [
 const hubData = ref<Hub | null>(null);
 const loadingHub = ref(true);
 
+const usernameDraft = ref('');
+const verifiedUsername = ref('');
+const usernameStatus = ref<'idle' | 'checking' | 'verified' | 'taken' | 'invalid'>('idle');
+const usernameMessage = ref('');
+
+const canEditUsername = computed(() => canChangeHubUsername(hubData.value));
+const nextUsernameChange = computed(() => nextHubUsernameChangeDate(hubData.value));
+const usernameLockedUntil = computed(() =>
+  nextUsernameChange.value?.toLocaleDateString('en-PH', {
+    timeZone: 'Asia/Manila',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  }) ?? null
+);
+const publicHubUrl = computed(() =>
+  usernameDraft.value ? hubPublicPath({ id: hubData.value?.id, username: usernameDraft.value }) : ''
+);
+
 // ── Booking settings ──────────────────────────────────────────
 const requireAccount = ref(true);
 const guestBookingLimit = ref(1);
@@ -61,6 +80,10 @@ const digitalBankName = ref('');
 const digitalBankAccount = ref('');
 
 function applyHubToForm(hub: Hub) {
+  usernameDraft.value = hub.username ?? '';
+  verifiedUsername.value = hub.username ?? '';
+  usernameStatus.value = hub.username ? 'verified' : 'idle';
+  usernameMessage.value = hub.username ? 'Username verified.' : '';
   requireAccount.value = hub.require_account_to_book;
   guestBookingLimit.value = hub.guest_booking_limit ?? 1;
   guestMaxHours.value = hub.guest_max_hours ?? 2;
@@ -87,6 +110,18 @@ onMounted(async () => {
   }
 });
 
+watch(usernameDraft, (value) => {
+  if (value !== verifiedUsername.value) {
+    if (usernameStatus.value === 'verified') {
+      usernameStatus.value = 'idle';
+      usernameMessage.value = 'Please verify this username before saving.';
+    } else if (usernameStatus.value !== 'checking') {
+      usernameStatus.value = 'idle';
+      usernameMessage.value = '';
+    }
+  }
+});
+
 function onPaymentQrPicked(file: File | null) {
   if (!file) return;
   paymentQrFile.value = file;
@@ -97,6 +132,100 @@ function clearPaymentQr() {
   paymentQrFile.value = null;
   paymentQrPreview.value = null;
   removePaymentQr.value = true;
+}
+
+async function verifyUsername() {
+  const normalized = normalizeHubUsernameDraft(usernameDraft.value);
+  usernameDraft.value = normalized;
+
+  if (!normalized) {
+    usernameStatus.value = 'invalid';
+    usernameMessage.value = 'Enter at least 3 lowercase letters or numbers.';
+    verifiedUsername.value = '';
+    return;
+  }
+
+  usernameStatus.value = 'checking';
+  usernameMessage.value = 'Checking availability...';
+
+  try {
+    const result = await checkHubUsernameAvailability(normalized);
+    usernameDraft.value = result.username;
+    verifiedUsername.value = result.username;
+    usernameStatus.value = 'verified';
+    usernameMessage.value = result.message ?? 'Username verified.';
+  } catch (e: unknown) {
+    const err = e as {
+      data?: { errors?: Record<string, string[]>; message?: string };
+    };
+    const message =
+      err.data?.errors?.username?.[0] ??
+      err.data?.message ??
+      'Unable to verify username right now.';
+
+    usernameStatus.value = message.toLowerCase().includes('taken')
+      ? 'taken'
+      : 'invalid';
+    usernameMessage.value = message;
+    verifiedUsername.value = '';
+  }
+}
+
+const savingUsername = ref(false);
+
+async function saveUsername() {
+  if (!hubData.value) return;
+  if (!canEditUsername.value) {
+    toast.add({
+      title: 'Hub username is locked',
+      description: usernameLockedUntil.value
+        ? `You can change it again on ${usernameLockedUntil.value}.`
+        : 'Please try again later.',
+      color: 'error'
+    });
+    return;
+  }
+
+  const normalized = normalizeHubUsernameDraft(usernameDraft.value);
+  usernameDraft.value = normalized;
+
+  if (verifiedUsername.value !== normalized) {
+    usernameStatus.value = 'invalid';
+    usernameMessage.value = 'Verify the hub username before saving.';
+    toast.add({
+      title: 'Hub username verification required',
+      color: 'error'
+    });
+    return;
+  }
+
+  savingUsername.value = true;
+  try {
+    const updated = await updateHub(hubData.value.id, { username: normalized });
+    hubData.value = updated;
+    applyHubToForm(updated);
+    toast.add({
+      title: 'Hub username updated',
+      description: 'Your public hub link has been updated.',
+      color: 'success'
+    });
+  } catch (e: unknown) {
+    const err = e as { data?: { errors?: Record<string, string[]>; message?: string } };
+    usernameMessage.value =
+      err.data?.errors?.username?.[0] ??
+      err.data?.message ??
+      'Failed to update hub username.';
+    usernameStatus.value = usernameMessage.value.toLowerCase().includes('taken')
+      ? 'taken'
+      : 'invalid';
+    toast.add({
+      title: 'Failed to update hub username',
+      description: usernameMessage.value,
+      color: 'error'
+    });
+  } finally {
+    savingUsername.value = false;
+  }
 }
 
 // ── Save ─────────────────────────────────────────────────────
@@ -176,6 +305,77 @@ async function saveSettings() {
       </div>
 
       <div v-else class="space-y-6">
+        <div class="rounded-xl border border-[#dbe4ef] bg-white p-6">
+          <h2 class="mb-1 text-base font-semibold text-[#0f1728]">Hub Username</h2>
+          <p class="mb-4 text-sm text-[#64748b]">
+            This is the public link owners can share for their hub page.
+          </p>
+
+          <div class="space-y-4">
+            <div class="rounded-lg border border-[#dbe4ef] bg-[#f8fbff] p-4">
+              <p class="text-xs font-medium uppercase tracking-wide text-[#64748b]">
+                Public URL
+              </p>
+              <p class="mt-1 text-sm font-semibold text-[#0f1728]">
+                {{ publicHubUrl || '/hubs/your-hub' }}
+              </p>
+            </div>
+
+            <div class="flex items-start gap-3">
+              <div class="min-w-0 flex-1">
+                <UFormField label="Username">
+                  <UInput
+                    v-model="usernameDraft"
+                    :disabled="!canEditUsername"
+                    placeholder="e.g. sunnyvale-tennis"
+                    class="w-full"
+                  />
+                </UFormField>
+                <p
+                  v-if="usernameMessage"
+                  class="mt-1 text-xs"
+                  :class="{
+                    'text-emerald-600': usernameStatus === 'verified',
+                    'text-[#64748b]': usernameStatus === 'idle' || usernameStatus === 'checking',
+                    'text-[var(--aktiv-danger-fg)]':
+                      usernameStatus === 'invalid' || usernameStatus === 'taken'
+                  }"
+                >
+                  {{ usernameMessage }}
+                </p>
+                <p v-if="!canEditUsername && usernameLockedUntil" class="mt-1 text-xs text-[#64748b]">
+                  You can change this username again on {{ usernameLockedUntil }}.
+                </p>
+                <p v-else class="mt-1 text-xs text-[#64748b]">
+                  Changing your hub username locks it for 1 month.
+                </p>
+              </div>
+
+              <UButton
+                type="button"
+                color="neutral"
+                variant="soft"
+                :disabled="!canEditUsername || !usernameDraft.trim()"
+                :loading="usernameStatus === 'checking'"
+                @click="verifyUsername"
+              >
+                Verify
+              </UButton>
+            </div>
+
+            <div class="flex justify-end">
+              <UButton
+                :loading="savingUsername"
+                :disabled="!canEditUsername"
+                class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
+                @click="saveUsername"
+              >
+                Save Username
+              </UButton>
+            </div>
+          </div>
+        </div>
+
         <!-- Booking section -->
         <div class="rounded-xl border border-[#dbe4ef] bg-white p-6">
           <h2 class="mb-4 text-base font-semibold text-[#0f1728]">Booking</h2>

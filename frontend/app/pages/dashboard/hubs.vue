@@ -181,9 +181,7 @@ async function toggleActive(
           <!-- View courts link -->
           <div class="mt-auto pt-3 w-full justify-end flex gap-4">
             <NuxtLink
-              :to="{
-                path: '/hubs/' + hub.id
-              }"
+              :to="hubPublicPath(hub)"
               class="text-xs font-medium text-[#004e89] hover:underline"
               @click.stop
             >

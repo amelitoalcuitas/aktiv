@@ -31,6 +31,7 @@ async function handleSubmit(payload: HubFormPayload) {
   try {
     await createHub({
       name: payload.name,
+      username: payload.username,
       description: payload.description,
       address: payload.address,
       address_line2: payload.address_line2,

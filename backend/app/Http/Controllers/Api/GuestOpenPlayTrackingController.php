@@ -159,8 +159,8 @@ class GuestOpenPlayTrackingController extends Controller
             ],
             'hub' => [
                 'id'       => $hub->id,
+                'username' => $hub->username,
                 'name'     => $hub->name,
-                'slug'     => $hub->slug,
                 'phones'   => $hub->contactNumbers->pluck('number')->values(),
                 'websites' => $hub->websites->map(fn (HubWebsite $website): array => [
                     'platform' => $website->platform,

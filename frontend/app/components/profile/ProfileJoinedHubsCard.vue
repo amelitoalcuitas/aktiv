@@ -46,7 +46,7 @@ const emit = defineEmits<{
         class="py-2.5 first:pt-0 last:pb-0"
       >
         <NuxtLink
-          :to="`/hubs/${hub.id}/about`"
+          :to="hubPublicPath(hub, '/about')"
           class="flex items-center gap-3 rounded-md hover:opacity-80"
         >
           <div class="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[var(--aktiv-border)]">

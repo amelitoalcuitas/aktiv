@@ -53,6 +53,7 @@ export function useHubs() {
     formData: FormData,
     payload: Partial<{
       name: string;
+      username: string;
       description: string;
       city: string;
       zip_code: string;
@@ -91,6 +92,7 @@ export function useHubs() {
     };
 
     appendIfDefined('name', payload.name);
+    appendIfDefined('username', payload.username);
     appendIfDefined('description', payload.description);
     appendIfDefined('city', payload.city);
     appendIfDefined('zip_code', payload.zip_code);
@@ -248,6 +250,7 @@ export function useHubs() {
 
   async function createHub(payload: {
     name: string;
+    username: string;
     description?: string;
     city: string;
     zip_code: string;
@@ -281,6 +284,7 @@ export function useHubs() {
     id: number | string,
     payload: Partial<{
       name: string;
+      username: string;
       description: string;
       city: string;
       zip_code: string;
@@ -321,6 +325,18 @@ export function useHubs() {
 
   async function deleteHub(id: number | string): Promise<void> {
     await apiFetch(`/hubs/${id}`, { method: 'DELETE' });
+  }
+
+  async function checkHubUsernameAvailability(username: string): Promise<{
+    available: boolean;
+    username: string;
+    message?: string;
+  }> {
+    const query = new URLSearchParams({ username });
+    const res = await apiFetch<{ data: { available: boolean; username: string; message?: string } }>(
+      `/hubs/username-availability?${query.toString()}`
+    );
+    return res.data;
   }
 
   // ── Courts ─────────────────────────────────────────────────────────────────
@@ -535,6 +551,7 @@ export function useHubs() {
     createHub,
     updateHub,
     deleteHub,
+    checkHubUsernameAvailability,
     fetchCourts,
     createCourt,
     updateCourt,

@@ -2,10 +2,21 @@
 
 namespace App\Http\Requests\Hub;
 
+use App\Models\Hub;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreHubRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('username')) {
+            $this->merge([
+                'username' => Hub::normalizeUsername($this->input('username')),
+            ]);
+        }
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -18,6 +29,14 @@ class StoreHubRequest extends FormRequest
     {
         return [
             'name'            => ['required', 'string', 'max:255'],
+            'username'        => [
+                'required',
+                'string',
+                'min:3',
+                'max:30',
+                'regex:' . Hub::USERNAME_REGEX,
+                Rule::unique('hubs', 'username'),
+            ],
             'description'     => ['nullable', 'string'],
             'city'            => ['required', 'string', 'max:255'],
             'address'         => ['required', 'string', 'max:500'],

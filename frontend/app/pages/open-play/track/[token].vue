@@ -405,7 +405,7 @@ const statusLabel = computed(() => {
           <template #footer>
             <div class="flex items-center justify-between gap-2">
               <NuxtLink
-                :to="`/hubs/${participant.hub.id}/open-play`"
+                :to="hubPublicPath(participant.hub, '/open-play')"
                 class="text-sm font-medium text-[#004e89] underline underline-offset-2"
               >
                 View hub sessions

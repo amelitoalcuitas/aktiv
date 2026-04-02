@@ -18,6 +18,7 @@ class HubLinksTest extends TestCase
         $this->actingAs($owner)
             ->postJson('/api/hubs', [
                 'name' => 'Center Court Hub',
+                'username' => 'center-court-hub',
                 'description' => 'A great place to play.',
                 'city' => 'Quezon City',
                 'address' => '123 Katipunan Ave',
@@ -99,6 +100,7 @@ class HubLinksTest extends TestCase
         $this->actingAs($owner)
             ->postJson('/api/hubs', [
                 'name' => 'Center Court Hub',
+                'username' => 'center-court-hub',
                 'city' => 'Quezon City',
                 'address' => '123 Katipunan Ave',
                 'zip_code' => '1108',

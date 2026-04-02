@@ -533,7 +533,7 @@ function displayActionLabel(booking: MyBookingItem): string {
           <div class="min-w-0 flex-1">
             <NuxtLink
               v-if="booking.court?.hub?.id"
-              :to="`/hubs/${booking.court.hub.id}/about`"
+              :to="hubPublicPath(booking.court.hub, '/about')"
               target="_blank"
               class="truncate font-semibold text-[var(--aktiv-ink)] hover:text-[#004e89] hover:underline transition-colors md:text-lg"
             >

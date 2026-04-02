@@ -98,7 +98,7 @@ export interface UserBooking extends Booking {
   court: {
     id: string;
     name: string;
-    hub: { id: string; name: string; cover_image_url?: string | null } | null;
+    hub: { id: string; username?: string | null; name: string; cover_image_url?: string | null } | null;
   } | null;
 }
 
@@ -135,7 +135,7 @@ export interface MyBookingItem {
   court: {
     id: string;
     name: string;
-    hub: { id: string; name: string; cover_image_url?: string | null } | null;
+    hub: { id: string; username?: string | null; name: string; cover_image_url?: string | null } | null;
   } | null;
 }
 

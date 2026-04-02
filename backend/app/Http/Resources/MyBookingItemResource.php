@@ -50,6 +50,7 @@ class MyBookingItemResource extends JsonResource
                     'name' => $court->name,
                     'hub'  => $hub ? [
                         'id'              => $hub->id,
+                        'username'        => $hub->username,
                         'name'            => $hub->name,
                         'cover_image_url' => $hub->cover_image_url,
                     ] : null,
@@ -95,6 +96,7 @@ class MyBookingItemResource extends JsonResource
                 'name' => $court->name,
                 'hub'  => $hub ? [
                     'id'              => $hub->id,
+                    'username'        => $hub->username,
                     'name'            => $hub->name,
                     'cover_image_url' => $hub->cover_image_url,
                 ] : null,

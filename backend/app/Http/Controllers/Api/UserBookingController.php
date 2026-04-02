@@ -74,7 +74,7 @@ class UserBookingController extends Controller
                 ->whereIn('status', ['confirmed', 'completed'])
                 ->whereDoesntHave('court.hub.ratings', fn ($q) => $q->where('user_id', $userId))
                 ->whereDoesntHave('reviewSkip', fn ($q) => $q->where('user_id', $userId))
-                ->with(['court:id,name,hub_id', 'court.hub:id,name,cover_image_url'])
+                ->with(['court:id,name,hub_id', 'court.hub:id,name,username,cover_image_url'])
                 ->first();
 
             return response()->json(['bookings' => $booking ? UserBookingResource::collection(collect([$booking])) : []]);
@@ -86,7 +86,7 @@ class UserBookingController extends Controller
             ->where('end_time', '<', now())
             ->whereDoesntHave('court.hub.ratings', fn ($q) => $q->where('user_id', $userId))
             ->whereDoesntHave('reviewSkip', fn ($q) => $q->where('user_id', $userId))
-            ->with(['court:id,name,hub_id', 'court.hub:id,name,cover_image_url'])
+            ->with(['court:id,name,hub_id', 'court.hub:id,name,username,cover_image_url'])
             ->orderByDesc('end_time')
             ->get()
             ->unique(fn ($b) => $b->court->hub_id)
@@ -154,7 +154,7 @@ class UserBookingController extends Controller
             'cancelled_by' => 'user',
         ]);
 
-        return $booking->load(['court:id,name,hub_id', 'court.hub:id,name,cover_image_url']);
+        return $booking->load(['court:id,name,hub_id', 'court.hub:id,name,username,cover_image_url']);
     }
 
     private function cancelOpenPlayParticipantModel(string $entryId, string $userId): OpenPlayParticipant
@@ -163,7 +163,7 @@ class UserBookingController extends Controller
             ->whereKey($entryId)
             ->where('user_id', $userId)
             ->with([
-                'openPlaySession.booking.court.hub:id,name,cover_image_url',
+                'openPlaySession.booking.court.hub:id,name,username,cover_image_url',
             ])
             ->firstOrFail();
 
@@ -180,7 +180,7 @@ class UserBookingController extends Controller
 
         $participant->load([
             'openPlaySession' => fn ($query) => $query
-                ->with(['booking.court.hub:id,name,cover_image_url'])
+                ->with(['booking.court.hub:id,name,username,cover_image_url'])
                 ->withCount([
                     'participants as participants_count' => fn ($participantQuery) => $participantQuery
                         ->where('payment_status', '!=', 'cancelled'),
@@ -191,7 +191,7 @@ class UserBookingController extends Controller
 
         return $participant->fresh([
             'openPlaySession' => fn ($query) => $query
-                ->with(['booking.court.hub:id,name,cover_image_url'])
+                ->with(['booking.court.hub:id,name,username,cover_image_url'])
                 ->withCount([
                     'participants as participants_count' => fn ($participantQuery) => $participantQuery
                         ->where('payment_status', '!=', 'cancelled'),
@@ -207,7 +207,7 @@ class UserBookingController extends Controller
         $bookings = Booking::query()
             ->where('booked_by', $userId)
             ->when($status !== '', fn ($query) => $query->where('status', $status))
-            ->with(['court:id,name,hub_id', 'court.hub:id,name,cover_image_url'])
+            ->with(['court:id,name,hub_id', 'court.hub:id,name,username,cover_image_url'])
             ->get();
 
         $participants = OpenPlayParticipant::query()
@@ -215,7 +215,7 @@ class UserBookingController extends Controller
             ->when($status !== '', fn ($query) => $query->where('payment_status', $status))
             ->with([
                 'openPlaySession' => fn ($query) => $query
-                    ->with(['booking.court.hub:id,name,cover_image_url'])
+                    ->with(['booking.court.hub:id,name,username,cover_image_url'])
                     ->withCount([
                         'participants as participants_count' => fn ($participantQuery) => $participantQuery
                             ->where('payment_status', '!=', 'cancelled'),

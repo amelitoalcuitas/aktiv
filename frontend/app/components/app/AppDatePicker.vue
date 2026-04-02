@@ -13,8 +13,9 @@ const props = withDefaults(
     label?: string;
     /** Allow selecting past dates (default true) */
     allowPast?: boolean;
+    disabled?: boolean;
   }>(),
-  { variant: 'input', display: 'compact', allowPast: true }
+  { variant: 'input', display: 'compact', allowPast: true, disabled: false }
 );
 
 const emit = defineEmits<{ 'update:modelValue': [Date] }>();
@@ -48,7 +49,12 @@ const navButtonClass = computed(() =>
 
 <template>
   <!-- ── Input variant ─────────────────────────────────────── -->
-  <UInputDate v-if="variant === 'input'" ref="inputDate" v-model="calendarDate">
+  <UInputDate
+    v-if="variant === 'input'"
+    ref="inputDate"
+    v-model="calendarDate"
+    :disabled="props.disabled"
+  >
     <template #trailing>
       <UPopover v-model:open="open" :reference="inputRef?.inputsRef[3]?.$el">
         <UButton
@@ -58,6 +64,7 @@ const navButtonClass = computed(() =>
           icon="i-lucide-calendar"
           aria-label="Select a date"
           class="px-0"
+          :disabled="props.disabled"
         />
         <template #content>
           <UCalendar
@@ -75,16 +82,19 @@ const navButtonClass = computed(() =>
   <UPopover v-else v-model:open="open">
     <button
       type="button"
-      class="cursor-pointer"
-      :class="navButtonClass"
+      :disabled="props.disabled"
+      :class="[
+        navButtonClass,
+        props.disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+      ]"
     >
-      <UIcon
-        name="i-heroicons-calendar-days"
-        class="h-4 w-4 shrink-0 text-[var(--aktiv-muted,#64748b)]"
-      />
       <span
         class="min-w-0 truncate text-[var(--aktiv-ink,#0f1728)]"
-        :class="props.display === 'field' ? 'text-sm font-normal' : 'text-sm font-semibold'"
+        :class="
+          props.display === 'field'
+            ? 'text-sm font-normal'
+            : 'text-sm font-semibold'
+        "
       >
         {{ label }}
       </span>

@@ -4,6 +4,8 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\HubMemberController;
 use App\Http\Controllers\Api\OpenPlayController;
 use App\Http\Controllers\Api\OwnerOpenPlayController;
+use App\Http\Controllers\Api\DashboardCalendarController;
+use App\Http\Controllers\Api\DashboardOverviewController;
 use App\Http\Controllers\Api\HubOwnerRequestController;
 use App\Http\Controllers\Api\SuperAdminController;
 use App\Http\Controllers\Api\SuperAdminHubOwnerRequestController;
@@ -140,6 +142,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
 // Owner-only routes (owner + super_admin, email verified)
 Route::middleware(['auth:sanctum', 'owner'])->group(function (): void {
     Route::get('/dashboard/hubs', [HubController::class, 'myHubs'])->name('api.dashboard.hubs');
+    Route::get('/dashboard/overview', [DashboardOverviewController::class, 'index'])->name('api.dashboard.overview');
+    Route::get('/dashboard/calendar', [DashboardCalendarController::class, 'index'])->name('api.dashboard.calendar');
     Route::post('/hubs', [HubController::class, 'store'])->name('api.hubs.store');
     Route::match(['put', 'post'], '/hubs/{hub}', [HubController::class, 'update'])->name('api.hubs.update');
     Route::delete('/hubs/{hub}', [HubController::class, 'destroy'])->name('api.hubs.destroy');
@@ -172,6 +176,7 @@ Route::middleware(['auth:sanctum', 'owner'])->group(function (): void {
 
     // Hub events (owner)
     Route::get('/dashboard/hubs/{hub}/events', [HubEventController::class, 'index'])->name('api.dashboard.hubs.events.index');
+    Route::get('/dashboard/hubs/{hub}/events/{event}', [HubEventController::class, 'show'])->name('api.dashboard.hubs.events.show');
     Route::post('/dashboard/hubs/{hub}/events', [HubEventController::class, 'store'])->name('api.dashboard.hubs.events.store');
     Route::put('/dashboard/hubs/{hub}/events/{event}', [HubEventController::class, 'update'])->name('api.dashboard.hubs.events.update');
     Route::delete('/dashboard/hubs/{hub}/events/{event}', [HubEventController::class, 'destroy'])->name('api.dashboard.hubs.events.destroy');

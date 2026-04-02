@@ -15,9 +15,13 @@ interface CreateSessionPayload {
 export function useOwnerOpenPlay() {
   const { apiFetch } = useApi();
 
-  async function fetchSessions(hubId: string): Promise<OpenPlaySession[]> {
+  async function fetchSessions(
+    hubId: string,
+    params?: { date_from?: string; date_to?: string }
+  ): Promise<OpenPlaySession[]> {
     const res = await apiFetch<{ data: OpenPlaySession[] }>(
-      `/dashboard/hubs/${hubId}/open-play`
+      `/dashboard/hubs/${hubId}/open-play`,
+      { query: params }
     );
     return res.data;
   }

@@ -6,6 +6,7 @@ use App\Events\BookingSlotUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Booking\RejectBookingRequest;
 use App\Http\Requests\Booking\WalkInBookingRequest;
+use App\Http\Resources\OwnerBookingResource;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
@@ -37,6 +38,11 @@ class OwnerBookingController extends Controller
                 'openPlaySession' => fn ($q) => $q->withCount([
                     'participants as participants_count' => fn ($q) => $q->where('payment_status', '!=', 'cancelled'),
                     'participants as confirmed_participants_count' => fn ($q) => $q->where('payment_status', 'confirmed'),
+                ])->with([
+                    'participants' => fn ($q) => $q
+                        ->with('user:id,first_name,last_name,email,contact_number,avatar_url')
+                        ->orderBy('joined_at')
+                        ->orderBy('created_at'),
                 ]),
             ])
             ->orderByDesc('created_at');
@@ -58,7 +64,7 @@ class OwnerBookingController extends Controller
             $query->where('start_time', '<=', Carbon::parse($request->date_to, 'Asia/Manila')->endOfDay()->utc());
         }
 
-        $bookings = $query->get()->map(fn (Booking $b) => $this->formatBooking($b));
+        $bookings = OwnerBookingResource::collection($query->get())->resolve();
 
         return response()->json(['data' => $bookings]);
     }
@@ -72,7 +78,7 @@ class OwnerBookingController extends Controller
         $this->assertBelongsToHub($booking, $hub);
 
         return response()->json([
-            'data' => $this->formatBooking($booking->load(['court', 'bookedBy'])),
+            'data' => OwnerBookingResource::make($booking->load(['court', 'bookedBy']))->resolve(),
         ]);
     }
 
@@ -141,7 +147,7 @@ class OwnerBookingController extends Controller
 
         return response()->json([
             'message' => 'Booking updated successfully.',
-            'data' => $this->formatBooking($fresh),
+            'data' => OwnerBookingResource::make($fresh)->resolve(),
         ]);
     }
 
@@ -171,7 +177,7 @@ class OwnerBookingController extends Controller
 
         return response()->json([
             'message' => 'Booking confirmed.',
-            'data' => $this->formatBooking($booking->fresh(['court', 'bookedBy'])),
+            'data' => OwnerBookingResource::make($booking->fresh(['court', 'bookedBy']))->resolve(),
         ]);
     }
 
@@ -204,7 +210,7 @@ class OwnerBookingController extends Controller
 
         return response()->json([
             'message' => 'Booking rejected. User can re-upload their receipt.',
-            'data' => $this->formatBooking($booking->fresh(['court', 'bookedBy'])),
+            'data' => OwnerBookingResource::make($booking->fresh(['court', 'bookedBy']))->resolve(),
         ]);
     }
 
@@ -232,7 +238,7 @@ class OwnerBookingController extends Controller
 
         return response()->json([
             'message' => 'Booking cancelled.',
-            'data' => $this->formatBooking($booking->fresh(['court', 'bookedBy'])),
+            'data' => OwnerBookingResource::make($booking->fresh(['court', 'bookedBy']))->resolve(),
         ]);
     }
 
@@ -307,7 +313,7 @@ class OwnerBookingController extends Controller
 
         return response()->json([
             'message' => 'Walk-in booking created.',
-            'data' => $this->formatBooking($booking->load(['court', 'bookedBy'])),
+            'data' => OwnerBookingResource::make($booking->load(['court', 'bookedBy']))->resolve(),
         ], 201);
     }
 
@@ -352,7 +358,7 @@ class OwnerBookingController extends Controller
             return response()->json(['message' => 'No booking found with that code.'], 404);
         }
 
-        return response()->json(['data' => $this->formatBooking($booking)]);
+        return response()->json(['data' => OwnerBookingResource::make($booking)->resolve()]);
     }
 
     // ── Private helpers ──────────────────────────────────────────
@@ -361,62 +367,6 @@ class OwnerBookingController extends Controller
     {
         $courtIds = $hub->courts()->pluck('id');
         abort_if(! $courtIds->contains($booking->court_id), 404);
-    }
-
-    private function formatBooking(Booking $booking): array
-    {
-        return [
-            'id' => $booking->id,
-            'booking_code' => $booking->booking_code,
-            'court_id' => $booking->court_id,
-            'court' => $booking->court ? [
-                'id' => $booking->court->id,
-                'name' => $booking->court->name,
-                'hub_id' => $booking->court->hub_id,
-            ] : null,
-            'booked_by' => $booking->booked_by,
-            'booked_by_user' => $booking->bookedBy ? [
-                'id' => $booking->bookedBy->id,
-                'first_name' => $booking->bookedBy->first_name,
-                'last_name' => $booking->bookedBy->last_name,
-                'email' => $booking->bookedBy->email,
-                'contact_number' => $booking->bookedBy->contact_number,
-                'avatar_url' => $booking->bookedBy->avatar_url,
-            ] : null,
-            'guest_name' => $booking->guest_name,
-            'guest_email' => $booking->guest_email,
-            'guest_phone' => $booking->guest_phone,
-            'sport' => $booking->sport,
-            'start_time' => $booking->start_time->toIso8601String(),
-            'end_time' => $booking->end_time->toIso8601String(),
-            'session_type' => $booking->session_type,
-            'status' => $booking->status,
-            'booking_source' => $booking->booking_source,
-            'total_price' => $booking->total_price,
-            'receipt_image_url' => $booking->receipt_image_url,
-            'receipt_uploaded_at' => $booking->receipt_uploaded_at?->toIso8601String(),
-            'payment_method' => $booking->payment_method,
-            'payment_note' => $booking->payment_note,
-            'payment_confirmed_by' => $booking->payment_confirmed_by,
-            'payment_confirmed_at' => $booking->payment_confirmed_at?->toIso8601String(),
-            'expires_at' => $booking->expires_at?->toIso8601String(),
-            'cancelled_by' => $booking->cancelled_by,
-            'open_play_session_id' => $booking->openPlaySession?->id,
-            'open_play_session' => $booking->openPlaySession ? [
-                'id'                           => $booking->openPlaySession->id,
-                'booking_id'                   => $booking->openPlaySession->booking_id,
-                'max_players'                  => $booking->openPlaySession->max_players,
-                'price_per_player'             => $booking->openPlaySession->price_per_player,
-                'notes'                        => $booking->openPlaySession->notes,
-                'guests_can_join'              => $booking->openPlaySession->guests_can_join,
-                'status'                       => $booking->openPlaySession->status,
-                'participants_count'           => $booking->openPlaySession->participants_count ?? 0,
-                'confirmed_participants_count' => $booking->openPlaySession->confirmed_participants_count ?? 0,
-                'viewer_participant'           => null,
-                'created_at'                   => $booking->openPlaySession->created_at->toIso8601String(),
-            ] : null,
-            'created_at' => $booking->created_at->toIso8601String(),
-        ];
     }
 
     private function findClosureEvent(Hub $hub, Court $court, Carbon $startTime, Carbon $endTime): ?HubEvent

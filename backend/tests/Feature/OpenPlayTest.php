@@ -11,6 +11,8 @@ use App\Models\HubEvent;
 use App\Models\OpenPlayParticipant;
 use App\Models\OpenPlaySession;
 use App\Models\User;
+use App\Mail\OpenPlaySessionCancelled;
+use App\Mail\OpenPlaySessionUpdated;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
@@ -151,6 +153,32 @@ it('owner can fetch hub open play sessions for dashboard management', function (
         ->assertJsonMissingPath('data.0.sport');
 });
 
+it('owner can filter hub open play sessions by overlapping date range', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+
+    $aprilSession = makeOpenPlaySession($court, [
+        'booking' => [
+            'start_time' => now('Asia/Manila')->setDate(2026, 4, 2)->setTime(20, 0)->utc(),
+            'end_time' => now('Asia/Manila')->setDate(2026, 4, 2)->setTime(21, 0)->utc(),
+        ],
+    ]);
+
+    makeOpenPlaySession($court, [
+        'booking' => [
+            'start_time' => now('Asia/Manila')->setDate(2026, 5, 3)->setTime(20, 0)->utc(),
+            'end_time' => now('Asia/Manila')->setDate(2026, 5, 3)->setTime(21, 0)->utc(),
+        ],
+    ]);
+
+    $this->actingAs($owner)
+        ->getJson("/api/dashboard/hubs/{$hub->id}/open-play?date_from=2026-04-01&date_to=2026-04-30")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $aprilSession->id);
+});
+
 it('owner cannot fetch another owner\'s open play sessions', function () {
     $owner = makeOwner();
     $otherOwner = makeOwner();
@@ -260,6 +288,110 @@ it('owner can move an open play session to another available slot and court', fu
         ->assertJsonPath('data.booking.start_time', $start->toIso8601String());
 
     expect($session->booking->fresh()->court_id)->toBe($targetCourt->id);
+});
+
+it('owner update notifies active participants when court or schedule changes', function () {
+    Mail::fake();
+    Event::fake([NotificationBroadcast::class, BookingSlotUpdated::class]);
+
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $targetCourt = Court::factory()->create([
+        'hub_id' => $hub->id,
+        'name' => 'Court Z',
+    ]);
+    $player = makePlayer();
+    $session = makeOpenPlaySession($court);
+
+    $participant = OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'user_id' => $player->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'confirmed',
+        'joined_at' => now(),
+    ]);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'confirmed',
+        'guest_name' => 'Guest',
+        'guest_email' => 'guest@example.com',
+        'guest_tracking_token' => (string) \Illuminate\Support\Str::uuid(),
+        'joined_at' => now(),
+    ]);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'cancelled',
+        'guest_name' => 'Cancelled Guest',
+        'guest_email' => 'cancelled@example.com',
+        'guest_tracking_token' => (string) \Illuminate\Support\Str::uuid(),
+        'cancelled_by' => 'user',
+        'joined_at' => now(),
+    ]);
+
+    $start = now()->addDays(3)->setHour(16)->setMinute(0)->setSecond(0);
+    $end = $start->copy()->addHours(2);
+
+    $this->actingAs($owner)
+        ->putJson("/api/dashboard/hubs/{$hub->id}/open-play/{$session->id}", [
+            'title' => 'Moved Session',
+            'court_id' => $targetCourt->id,
+            'start_time' => $start->toIso8601String(),
+            'end_time' => $end->toIso8601String(),
+            'max_players' => 8,
+            'price_per_player' => 150,
+            'description' => null,
+            'guests_can_join' => false,
+        ])
+        ->assertOk();
+
+    expect($player->notifications()->count())->toBe(1)
+        ->and($player->notifications()->first()->data['activity_type'])->toBe('open_play_session_updated')
+        ->and($player->notifications()->first()->data['original_court_name'])->toBe($court->name)
+        ->and($player->notifications()->first()->data['session_id'])->toBe($session->id)
+        ->and($player->notifications()->first()->data['item_id'])->toBe($participant->id);
+
+    Mail::assertQueued(OpenPlaySessionUpdated::class, 1);
+    Mail::assertNotQueued(OpenPlaySessionUpdated::class, fn ($mail) => $mail->hasTo('cancelled@example.com'));
+});
+
+it('owner update does not notify participants for metadata-only changes', function () {
+    Mail::fake();
+    Event::fake([NotificationBroadcast::class, BookingSlotUpdated::class]);
+
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $player = makePlayer();
+    $session = makeOpenPlaySession($court);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'user_id' => $player->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'confirmed',
+        'joined_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->putJson("/api/dashboard/hubs/{$hub->id}/open-play/{$session->id}", [
+            'title' => 'New Title',
+            'court_id' => $court->id,
+            'start_time' => $session->booking->start_time->toIso8601String(),
+            'end_time' => $session->booking->end_time->toIso8601String(),
+            'max_players' => 12,
+            'price_per_player' => 250,
+            'description' => 'Updated description',
+            'guests_can_join' => true,
+        ])
+        ->assertOk();
+
+    expect($player->notifications()->count())->toBe(0);
+    Mail::assertNothingQueued();
 });
 
 it('owner cannot update a session to a conflicting slot', function () {
@@ -455,6 +587,44 @@ it('cancelling a session cancels all its participants', function () {
         ->where('payment_status', 'cancelled')
         ->count()
     )->toBe(1);
+});
+
+it('owner cancellation still notifies active participants', function () {
+    Mail::fake();
+    Event::fake([NotificationBroadcast::class, BookingSlotUpdated::class]);
+
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $player = makePlayer();
+    $session = makeOpenPlaySession($court);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'user_id' => $player->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'confirmed',
+        'joined_at' => now(),
+    ]);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'confirmed',
+        'guest_name' => 'Guest',
+        'guest_email' => 'guest@example.com',
+        'guest_tracking_token' => (string) \Illuminate\Support\Str::uuid(),
+        'joined_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->deleteJson("/api/dashboard/hubs/{$hub->id}/open-play/{$session->id}")
+        ->assertOk();
+
+    expect($player->notifications()->count())->toBe(1)
+        ->and($player->notifications()->first()->data['activity_type'])->toBe('open_play_session_cancelled');
+
+    Mail::assertQueued(OpenPlaySessionCancelled::class, 1);
 });
 
 // ── Public: List sessions ──────────────────────────────────────

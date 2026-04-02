@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { Court } from '~/types/hub';
 import type { BookingDetail, BookingStatus } from '~/types/booking';
-import type { OpenPlaySession } from '~/types/openPlay';
+import type { OpenPlayParticipant, OpenPlaySession } from '~/types/openPlay';
 import { useHubs } from '~/composables/useHubs';
 import { useOwnerBookings } from '~/composables/useOwnerBookings';
 import { useOwnerOpenPlay } from '~/composables/useOwnerOpenPlay';
+import { getOpenPlayParticipantPresentation } from '~/utils/openPlayPresentation';
 import OpenPlayOwnerModal from '~/components/openPlay/OpenplayOwnerModal.vue';
 
 definePageMeta({ middleware: 'owner-hub', layout: 'dashboard-hub' });
@@ -19,7 +20,12 @@ const {
   createWalkIn,
   updateBooking
 } = useOwnerBookings();
-const { fetchSession } = useOwnerOpenPlay();
+const {
+  fetchSession,
+  confirmParticipant,
+  rejectParticipant,
+  cancelParticipant
+} = useOwnerOpenPlay();
 const toast = useToast();
 
 const hubId = computed(() => String(route.params.id));
@@ -184,11 +190,58 @@ const filteredBookings = computed(() => {
     const ds = tableDateStr.value;
     list = list.filter((b) => formatDateString(new Date(b.start_time)) === ds);
   }
+  return list;
+});
+
+const filteredCalendarBookings = computed(() => {
+  let list = filteredBookings.value;
   if (statusFilter.value.length > 0)
     list = list.filter((b) => statusFilter.value.includes(effectiveStatus(b)));
   if (courtFilter.value.length > 0)
     list = list.filter((b) => courtFilter.value.includes(b.court_id));
   return list;
+});
+
+type DisplayStatus = BookingStatus | 'expired';
+
+type BookingTableRow =
+  | {
+      kind: 'booking';
+      id: string;
+      booking: BookingDetail;
+    }
+  | {
+      kind: 'open_play_participant';
+      id: string;
+      booking: BookingDetail;
+      participant: OpenPlayParticipant;
+    };
+
+const filteredTableRows = computed<BookingTableRow[]>(() => {
+  let rows = filteredBookings.value.flatMap((booking): BookingTableRow[] => {
+    if (booking.session_type !== 'open_play') {
+      return [{ kind: 'booking', id: `booking:${booking.id}`, booking }];
+    }
+
+    return (booking.open_play_participants ?? []).map((participant) => ({
+      kind: 'open_play_participant' as const,
+      id: `participant:${participant.id}`,
+      booking,
+      participant
+    }));
+  });
+
+  if (statusFilter.value.length > 0) {
+    rows = rows.filter((row) =>
+      statusFilter.value.includes(effectiveTableRowStatus(row))
+    );
+  }
+
+  if (courtFilter.value.length > 0) {
+    rows = rows.filter((row) => courtFilter.value.includes(row.booking.court_id));
+  }
+
+  return rows;
 });
 
 const filteredCourts = computed(() => {
@@ -287,26 +340,93 @@ async function handleConfirm(booking: BookingDetail) {
   }
 }
 
+async function handleConfirmParticipant(
+  booking: BookingDetail,
+  participant: OpenPlayParticipant
+) {
+  if (!booking.open_play_session_id) return;
+
+  confirmingId.value = participant.id;
+  try {
+    await confirmParticipant(
+      hubId.value,
+      booking.open_play_session_id,
+      participant.id
+    );
+    await loadBookings();
+    toast.add({ title: 'Participant confirmed', color: 'success' });
+  } catch {
+    toast.add({ title: 'Failed to confirm participant', color: 'error' });
+  } finally {
+    confirmingId.value = null;
+  }
+}
+
 // ── Reject ────────────────────────────────────────────────────
 const isRejectOpen = ref(false);
 const rejectTargetBooking = ref<BookingDetail | null>(null);
+const rejectTargetParticipant = ref<{
+  booking: BookingDetail;
+  participant: OpenPlayParticipant;
+} | null>(null);
 const rejectNote = ref('');
 const rejectError = ref('');
 const rejectingId = ref<string | null>(null);
 
 function openReject(booking: BookingDetail) {
   rejectTargetBooking.value = booking;
+  rejectTargetParticipant.value = null;
+  rejectNote.value = '';
+  rejectError.value = '';
+  isRejectOpen.value = true;
+}
+
+function openRejectParticipant(
+  booking: BookingDetail,
+  participant: OpenPlayParticipant
+) {
+  rejectTargetBooking.value = null;
+  rejectTargetParticipant.value = { booking, participant };
   rejectNote.value = '';
   rejectError.value = '';
   isRejectOpen.value = true;
 }
 
 async function submitReject() {
-  if (!rejectTargetBooking.value) return;
   if (!rejectNote.value.trim()) {
     rejectError.value = 'Please provide a rejection reason.';
     return;
   }
+
+  if (rejectTargetParticipant.value) {
+    const { booking, participant } = rejectTargetParticipant.value;
+    if (!booking.open_play_session_id) return;
+
+    rejectingId.value = participant.id;
+    try {
+      await rejectParticipant(
+        hubId.value,
+        booking.open_play_session_id,
+        participant.id,
+        rejectNote.value.trim()
+      );
+      await loadBookings();
+      isRejectOpen.value = false;
+      toast.add({
+        title: 'Receipt rejected. Participant can re-upload.',
+        color: 'warning'
+      });
+    } catch {
+      toast.add({ title: 'Failed to reject participant', color: 'error' });
+    } finally {
+      rejectingId.value = null;
+    }
+
+    return;
+  }
+
+  if (!rejectTargetBooking.value) return;
+
   rejectingId.value = rejectTargetBooking.value.id;
   try {
     const updated = await rejectBooking(
@@ -330,14 +450,51 @@ async function submitReject() {
 // ── Cancel ────────────────────────────────────────────────────
 const isCancelOpen = ref(false);
 const cancelTargetBooking = ref<BookingDetail | null>(null);
+const cancelTargetParticipant = ref<{
+  booking: BookingDetail;
+  participant: OpenPlayParticipant;
+} | null>(null);
 const cancellingId = ref<string | null>(null);
 
 function openCancel(booking: BookingDetail) {
   cancelTargetBooking.value = booking;
+  cancelTargetParticipant.value = null;
+  isCancelOpen.value = true;
+}
+
+function openCancelParticipant(
+  booking: BookingDetail,
+  participant: OpenPlayParticipant
+) {
+  cancelTargetBooking.value = null;
+  cancelTargetParticipant.value = { booking, participant };
   isCancelOpen.value = true;
 }
 
 async function submitCancel() {
+  if (cancelTargetParticipant.value) {
+    const { booking, participant } = cancelTargetParticipant.value;
+    if (!booking.open_play_session_id) return;
+
+    cancellingId.value = participant.id;
+    try {
+      await cancelParticipant(
+        hubId.value,
+        booking.open_play_session_id,
+        participant.id
+      );
+      await loadBookings();
+      isCancelOpen.value = false;
+      toast.add({ title: 'Participant cancelled', color: 'success' });
+    } catch {
+      toast.add({ title: 'Failed to cancel participant', color: 'error' });
+    } finally {
+      cancellingId.value = null;
+    }
+
+    return;
+  }
+
   if (!cancelTargetBooking.value) return;
   cancellingId.value = cancelTargetBooking.value.id;
   try {
@@ -497,6 +654,16 @@ function customerLabel(b: BookingDetail): string {
   return 'Unknown';
 }
 
+function participantLabel(participant: OpenPlayParticipant): string {
+  if (participant.user) {
+    return `${participant.user.first_name} ${participant.user.last_name}`.trim();
+  }
+
+  if (participant.guest_name) return `${participant.guest_name} (guest)`;
+
+  return 'Unknown';
+}
+
 function formatDateRange(start: string, end: string): string {
   const s = new Date(start);
   const e = new Date(end);
@@ -521,12 +688,31 @@ function formatDateRange(start: string, end: string): string {
   return `${dateStr} · ${timeStart} – ${timeEnd}`;
 }
 
-type DisplayStatus = BookingStatus | 'expired';
-
 function effectiveStatus(booking: BookingDetail): DisplayStatus {
   if (booking.status === 'cancelled' && booking.cancelled_by === 'system')
     return 'expired';
   return booking.status;
+}
+
+function effectiveParticipantStatus(
+  participant: OpenPlayParticipant
+): DisplayStatus {
+  if (
+    participant.payment_status === 'cancelled' &&
+    participant.cancelled_by === 'system' &&
+    participant.expires_at &&
+    new Date(participant.expires_at).getTime() <= Date.now()
+  ) {
+    return 'expired';
+  }
+
+  return participant.payment_status;
+}
+
+function effectiveTableRowStatus(row: BookingTableRow): DisplayStatus {
+  return row.kind === 'booking'
+    ? effectiveStatus(row.booking)
+    : effectiveParticipantStatus(row.participant);
 }
 
 function statusColor(
@@ -622,6 +808,75 @@ function bookingDropdownItems(booking: BookingDetail) {
       }
     ]);
   }
+  return groups;
+}
+
+function participantStatusLabel(participant: OpenPlayParticipant): string {
+  return getOpenPlayParticipantPresentation(participant).label;
+}
+
+function participantStatusColor(participant: OpenPlayParticipant) {
+  return getOpenPlayParticipantPresentation(participant).color;
+}
+
+function participantDropdownItems(
+  booking: BookingDetail,
+  participant: OpenPlayParticipant
+) {
+  const groups: {
+    label: string;
+    icon: string;
+    color?: 'error';
+    loading?: boolean;
+    onSelect: () => void;
+  }[][] = [];
+
+  if (
+    participant.payment_status === 'payment_sent' ||
+    participant.payment_status === 'pending_payment'
+  ) {
+    const actions = [
+      {
+        label:
+          participant.payment_status === 'payment_sent'
+            ? 'Confirm Payment'
+            : 'Confirm Booking',
+        icon: 'i-heroicons-check-circle',
+        loading: confirmingId.value === participant.id,
+        onSelect: () => handleConfirmParticipant(booking, participant)
+      }
+    ];
+
+    if (
+      participant.payment_status === 'payment_sent' ||
+      participant.payment_method !== 'pay_on_site'
+    ) {
+      actions.push({
+        label:
+          participant.payment_status === 'payment_sent'
+            ? 'Reject Receipt'
+            : 'Reject',
+        icon: 'i-heroicons-x-circle',
+        color: 'error' as const,
+        onSelect: () => openRejectParticipant(booking, participant)
+      });
+    }
+
+    groups.push(actions);
+  }
+
+  if (participant.payment_status !== 'cancelled') {
+    groups.push([
+      {
+        label: 'Cancel Participant',
+        icon: 'i-heroicons-x-mark',
+        color: 'error' as const,
+        loading: cancellingId.value === participant.id,
+        onSelect: () => openCancelParticipant(booking, participant)
+      }
+    ]);
+  }
+
   return groups;
 }
 </script>
@@ -769,7 +1024,7 @@ function bookingDropdownItems(booking: BookingDetail) {
       >
         <UTable
           v-model:column-pinning="columnPinning"
-          :data="filteredBookings"
+          :data="filteredTableRows"
           :columns="columns"
         >
           <template #empty>
@@ -789,19 +1044,19 @@ function bookingDropdownItems(booking: BookingDetail) {
             <div class="space-y-1">
               <p class="text-sm font-medium text-[#0f1728]">
                 {{
-                  row.original.session_type === 'open_play'
-                    ? 'Open Play'
-                    : customerLabel(row.original)
+                  row.original.kind === 'open_play_participant'
+                    ? participantLabel(row.original.participant)
+                    : customerLabel(row.original.booking)
                 }}
               </p>
               <UBadge
-                v-if="row.original.session_type === 'open_play'"
+                v-if="row.original.kind === 'open_play_participant'"
                 label="Open Play"
                 color="primary"
                 variant="subtle"
               />
               <UBadge
-                v-else-if="row.original.booking_source === 'owner_added'"
+                v-else-if="row.original.booking.booking_source === 'owner_added'"
                 label="Walk-in"
                 color="neutral"
                 variant="subtle"
@@ -812,16 +1067,19 @@ function bookingDropdownItems(booking: BookingDetail) {
           <template #court-cell="{ row }">
             <span
               class="block max-w-[160px] truncate text-sm text-[#0f1728]"
-              :title="row.original.court?.name"
+              :title="row.original.booking.court?.name"
             >
-              {{ row.original.court?.name ?? '—' }}
+              {{ row.original.booking.court?.name ?? '—' }}
             </span>
           </template>
 
           <template #datetime-cell="{ row }">
             <span class="whitespace-nowrap text-sm text-[#64748b]">
               {{
-                formatDateRange(row.original.start_time, row.original.end_time)
+                formatDateRange(
+                  row.original.booking.start_time,
+                  row.original.booking.end_time
+                )
               }}
             </span>
           </template>
@@ -829,31 +1087,58 @@ function bookingDropdownItems(booking: BookingDetail) {
           <template #status-cell="{ row }">
             <div class="space-y-1">
               <UBadge
-                :label="statusLabel(effectiveStatus(row.original))"
-                :color="statusColor(effectiveStatus(row.original))"
+                :label="
+                  row.original.kind === 'open_play_participant'
+                    ? participantStatusLabel(row.original.participant)
+                    : statusLabel(effectiveStatus(row.original.booking))
+                "
+                :color="
+                  row.original.kind === 'open_play_participant'
+                    ? participantStatusColor(row.original.participant)
+                    : statusColor(effectiveStatus(row.original.booking))
+                "
                 variant="subtle"
               />
               <p
                 v-if="
-                  row.original.payment_note &&
-                  row.original.status === 'pending_payment'
+                  row.original.kind === 'open_play_participant'
+                    ? row.original.participant.payment_note &&
+                      row.original.participant.payment_status === 'pending_payment'
+                    : row.original.booking.payment_note &&
+                      row.original.booking.status === 'pending_payment'
                 "
                 class="rounded bg-[#fef9c3] px-1.5 py-0.5 text-[#92400e]"
               >
-                {{ row.original.payment_note }}
+                {{
+                  row.original.kind === 'open_play_participant'
+                    ? row.original.participant.payment_note
+                    : row.original.booking.payment_note
+                }}
               </p>
             </div>
           </template>
 
           <template #receipt-cell="{ row }">
             <a
-              v-if="row.original.receipt_image_url"
-              :href="row.original.receipt_image_url"
+              v-if="
+                row.original.kind === 'open_play_participant'
+                  ? row.original.participant.receipt_image_url
+                  : row.original.booking.receipt_image_url
+              "
+              :href="
+                row.original.kind === 'open_play_participant'
+                  ? row.original.participant.receipt_image_url!
+                  : row.original.booking.receipt_image_url!
+              "
               target="_blank"
               rel="noopener noreferrer"
             >
               <img
-                :src="row.original.receipt_image_url"
+                :src="
+                  row.original.kind === 'open_play_participant'
+                    ? row.original.participant.receipt_image_url!
+                    : row.original.booking.receipt_image_url!
+                "
                 alt="Receipt"
                 class="h-10 w-10 rounded-md border border-[#dbe4ef] object-cover transition-opacity hover:opacity-75"
               />
@@ -862,22 +1147,23 @@ function bookingDropdownItems(booking: BookingDetail) {
           </template>
 
           <template #actions-cell="{ row }">
-            <UButton
-              v-if="
-                row.original.session_type === 'open_play' &&
-                row.original.open_play_session_id
-              "
-              size="sm"
-              color="primary"
-              variant="outline"
-              icon="i-heroicons-pencil-square"
-              @click="openOpenPlayModal(row.original)"
-            >
-              Manage
-            </UButton>
             <UDropdownMenu
-              v-else-if="bookingDropdownItems(row.original).length"
-              :items="bookingDropdownItems(row.original)"
+              v-if="
+                row.original.kind === 'open_play_participant'
+                  ? participantDropdownItems(
+                      row.original.booking,
+                      row.original.participant
+                    ).length
+                  : bookingDropdownItems(row.original.booking).length
+              "
+              :items="
+                row.original.kind === 'open_play_participant'
+                  ? participantDropdownItems(
+                      row.original.booking,
+                      row.original.participant
+                    )
+                  : bookingDropdownItems(row.original.booking)
+              "
             >
               <UButton
                 icon="i-heroicons-ellipsis-horizontal"
@@ -894,7 +1180,7 @@ function bookingDropdownItems(booking: BookingDetail) {
         <BookingOwnerGrid
           v-model:selected-date="selectedDate"
           :courts="filteredCourts"
-          :bookings="filteredBookings"
+          :bookings="filteredCalendarBookings"
           :min-time="gridMinTime"
           :max-time="gridMaxTime"
           :open-play-sessions-map="openPlaySessionsMap"
@@ -921,7 +1207,7 @@ function bookingDropdownItems(booking: BookingDetail) {
     >
       <template #body>
         <p class="mb-3 text-sm text-[#64748b]">
-          Provide a reason so the customer knows what to re-upload.
+          Provide a reason so the participant knows what to re-upload.
         </p>
         <UTextarea
           v-model="rejectNote"
@@ -939,8 +1225,8 @@ function bookingDropdownItems(booking: BookingDetail) {
     <!-- ── Cancel confirmation modal ────────────────────────────────── -->
     <AppModal
       v-model:open="isCancelOpen"
-      title="Cancel Booking"
-      cancel="Keep Booking"
+      :title="cancelTargetParticipant ? 'Cancel Participant' : 'Cancel Booking'"
+      :cancel="cancelTargetParticipant ? 'Keep Participant' : 'Keep Booking'"
       cancel-variant="outline"
       confirm="Yes, Cancel"
       confirm-color="error"
@@ -949,22 +1235,37 @@ function bookingDropdownItems(booking: BookingDetail) {
     >
       <template #body>
         <p class="text-sm text-[#64748b]">
-          Are you sure you want to cancel this booking? The slot will be
-          released immediately.
+          {{
+            cancelTargetParticipant
+              ? 'Are you sure you want to cancel this participant? Their reserved spot will be released immediately.'
+              : 'Are you sure you want to cancel this booking? The slot will be released immediately.'
+          }}
         </p>
         <div
-          v-if="cancelTargetBooking"
+          v-if="cancelTargetParticipant || cancelTargetBooking"
           class="mt-3 rounded-xl border border-[#dbe4ef] bg-[#f8fafc] p-3 text-sm"
         >
           <p class="font-medium text-[#0f1728]">
-            {{ customerLabel(cancelTargetBooking) }}
+            {{
+              cancelTargetParticipant
+                ? participantLabel(cancelTargetParticipant.participant)
+                : customerLabel(cancelTargetBooking!)
+            }}
           </p>
           <p class="mt-0.5 text-[#64748b]">
-            {{ cancelTargetBooking.court?.name }} ·
+            {{
+              cancelTargetParticipant
+                ? cancelTargetParticipant.booking.court?.name
+                : cancelTargetBooking?.court?.name
+            }} ·
             {{
               formatDateRange(
-                cancelTargetBooking.start_time,
-                cancelTargetBooking.end_time
+                cancelTargetParticipant
+                  ? cancelTargetParticipant.booking.start_time
+                  : cancelTargetBooking!.start_time,
+                cancelTargetParticipant
+                  ? cancelTargetParticipant.booking.end_time
+                  : cancelTargetBooking!.end_time
               )
             }}
           </p>

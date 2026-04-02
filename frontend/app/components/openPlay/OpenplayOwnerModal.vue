@@ -4,6 +4,10 @@ import type { FormSubmitEvent } from '#ui/types';
 import type { Court, OperatingHoursEntry } from '~/types/hub';
 import type { OpenPlayParticipant, OpenPlaySession } from '~/types/openPlay';
 import { useOwnerOpenPlay } from '~/composables/useOwnerOpenPlay';
+import {
+  getOpenPlayParticipantPresentation,
+  getOpenPlaySessionPresentation
+} from '~/utils/openPlayPresentation';
 
 const props = defineProps<{
   open: boolean;
@@ -40,6 +44,11 @@ const sessionLoading = ref(false);
 const participants = ref<OpenPlayParticipant[]>([]);
 const participantsLoading = ref(false);
 const saving = ref(false);
+const isCancelledSession = computed(
+  () =>
+    !!session.value &&
+    getOpenPlaySessionPresentation(session.value).status === 'cancelled'
+);
 
 const schema = z
   .object({
@@ -249,7 +258,7 @@ watch(
 );
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
-  if (!props.sessionId) return;
+  if (!props.sessionId || isCancelledSession.value) return;
 
   const {
     date,
@@ -303,7 +312,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 const confirmingId = ref<string | null>(null);
 
 async function handleConfirm(participant: OpenPlayParticipant) {
-  if (!props.sessionId) return;
+  if (!props.sessionId || isCancelledSession.value) return;
   confirmingId.value = participant.id;
   try {
     await confirmParticipant(props.hubId, props.sessionId, participant.id);
@@ -324,6 +333,7 @@ const rejectError = ref('');
 const rejectingId = ref<string | null>(null);
 
 function openReject(participant: OpenPlayParticipant) {
+  if (isCancelledSession.value) return;
   rejectTarget.value = participant;
   rejectNote.value = '';
   rejectError.value = '';
@@ -331,7 +341,7 @@ function openReject(participant: OpenPlayParticipant) {
 }
 
 async function submitReject() {
-  if (!props.sessionId || !rejectTarget.value) return;
+  if (!props.sessionId || !rejectTarget.value || isCancelledSession.value) return;
   if (!rejectNote.value.trim()) {
     rejectError.value = 'Please provide a rejection reason.';
     return;
@@ -364,12 +374,13 @@ const cancelTarget = ref<OpenPlayParticipant | null>(null);
 const cancellingId = ref<string | null>(null);
 
 function openCancelParticipant(participant: OpenPlayParticipant) {
+  if (isCancelledSession.value) return;
   cancelTarget.value = participant;
   isCancelOpen.value = true;
 }
 
 async function submitCancelParticipant() {
-  if (!props.sessionId || !cancelTarget.value) return;
+  if (!props.sessionId || !cancelTarget.value || isCancelledSession.value) return;
 
   cancellingId.value = cancelTarget.value.id;
   try {
@@ -389,7 +400,7 @@ const isCancelSessionOpen = ref(false);
 const cancellingSession = ref(false);
 
 async function submitCancelSession() {
-  if (!props.sessionId) return;
+  if (!props.sessionId || isCancelledSession.value) return;
 
   cancellingSession.value = true;
   try {
@@ -413,7 +424,17 @@ function participantName(participant: OpenPlayParticipant): string {
   return participant.guest_name ?? 'Unknown';
 }
 
+function participantStatusLabel(participant: OpenPlayParticipant): string {
+  return getOpenPlayParticipantPresentation(participant).label;
+}
+
+function participantStatusColor(participant: OpenPlayParticipant) {
+  return getOpenPlayParticipantPresentation(participant).color;
+}
+
 function participantDropdownItems(participant: OpenPlayParticipant) {
+  if (isCancelledSession.value) return [];
+
   const groups: {
     label: string;
     icon: string;
@@ -426,7 +447,7 @@ function participantDropdownItems(participant: OpenPlayParticipant) {
     participant.payment_status === 'payment_sent' ||
     participant.payment_status === 'pending_payment'
   ) {
-    groups.push([
+    const actions = [
       {
         label:
           participant.payment_status === 'payment_sent'
@@ -435,8 +456,14 @@ function participantDropdownItems(participant: OpenPlayParticipant) {
         icon: 'i-heroicons-check-circle',
         loading: confirmingId.value === participant.id,
         onSelect: () => handleConfirm(participant)
-      },
-      {
+      }
+    ];
+
+    if (
+      participant.payment_status === 'payment_sent' ||
+      participant.payment_method !== 'pay_on_site'
+    ) {
+      actions.push({
         label:
           participant.payment_status === 'payment_sent'
             ? 'Reject Receipt'
@@ -444,8 +471,10 @@ function participantDropdownItems(participant: OpenPlayParticipant) {
         icon: 'i-heroicons-x-circle',
         color: 'error' as const,
         onSelect: () => openReject(participant)
-      }
-    ]);
+      });
+    }
+
+    groups.push(actions);
   }
 
   if (participant.payment_status !== 'cancelled') {
@@ -500,9 +529,9 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
   <AppModal
     v-model:open="isOpen"
     title="Open Play Session"
-    confirm="Save Changes"
+    :confirm="isCancelledSession ? undefined : 'Save Changes'"
     :confirm-loading="saving"
-    :confirm-disabled="sessionLoading || saving || !session"
+    :confirm-disabled="sessionLoading || saving || !session || isCancelledSession"
     :ui="{ content: 'sm:max-w-4xl' }"
     @confirm="formRef?.submit()"
   >
@@ -514,16 +543,16 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
         />
       </div>
 
-      <div v-else-if="session" class="space-y-6">
+      <div v-else-if="session" class="min-w-0 space-y-6">
         <UForm
           ref="formRef"
           :schema="schema"
           :state="state"
-          class="space-y-4"
+          class="min-w-0 space-y-4"
           @submit="onSubmit"
         >
           <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
-            <div class="space-y-4">
+            <div class="min-w-0 space-y-4">
               <div
                 class="rounded-xl border border-[#dbe4ef] bg-[#f8fafc] p-4 text-sm"
               >
@@ -543,6 +572,14 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                     variant="subtle"
                   />
                 </div>
+                <UAlert
+                  v-if="isCancelledSession"
+                  class="mt-3"
+                  color="error"
+                  variant="soft"
+                  title="Session cancelled"
+                  description="This session is now read-only. Players can no longer join, and management actions are disabled."
+                />
                 <p class="mt-2 text-[#64748b]">
                   ₱{{ Number(state.pricePerPlayer).toLocaleString('en-PH', { maximumFractionDigits: 2 }) }}
                   / player
@@ -555,6 +592,18 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                   v-model="state.title"
                   placeholder="e.g. Friday Night Doubles"
                   class="w-full"
+                  :disabled="isCancelledSession"
+                />
+              </UFormField>
+
+              <UFormField label="Description (optional)" name="description">
+                <UTextarea
+                  v-model="state.description"
+                  :rows="3"
+                  :maxlength="500"
+                  placeholder="e.g. Bring your own racket and shuttlecocks"
+                  class="w-full"
+                  :disabled="isCancelledSession"
                 />
               </UFormField>
 
@@ -563,16 +612,18 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                   v-model="state.courtId"
                   :items="courtOptions"
                   class="w-full"
+                  :disabled="isCancelledSession"
                 />
               </UFormField>
 
-              <div class="grid grid-cols-3 gap-3">
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <UFormField label="Date" name="date" class="col-span-1">
                   <AppDatePicker
                     v-model="dateObj"
                     variant="nav"
                     display="field"
                     :allow-past="false"
+                    :disabled="isCancelledSession"
                     :label="
                       dateObj.toLocaleDateString('en-PH', {
                         month: 'short',
@@ -587,6 +638,7 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                     v-model="state.startHour"
                     :items="startTimeHourOptions"
                     class="w-full"
+                    :disabled="isCancelledSession"
                   />
                 </UFormField>
                 <UFormField label="End" name="endHour">
@@ -594,17 +646,19 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                     v-model="state.endHour"
                     :items="endHourOptions"
                     class="w-full"
+                    :disabled="isCancelledSession"
                   />
                 </UFormField>
               </div>
 
-              <div class="grid grid-cols-2 gap-3">
+              <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <UFormField label="Max Players" name="maxPlayers">
                   <UInput
                     v-model.number="state.maxPlayers"
                     type="number"
                     :min="2"
                     class="w-full"
+                    :disabled="isCancelledSession"
                   />
                 </UFormField>
                 <UFormField label="Price per Player (₱)" name="pricePerPlayer">
@@ -614,22 +668,13 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                     :min="0"
                     step="0.01"
                     class="w-full"
+                    :disabled="isCancelledSession"
                   />
                 </UFormField>
               </div>
 
-              <UFormField label="Description (optional)" name="description">
-                <UTextarea
-                  v-model="state.description"
-                  :rows="3"
-                  :maxlength="500"
-                  placeholder="e.g. Bring your own racket and shuttlecocks"
-                  class="w-full"
-                />
-              </UFormField>
-
               <div
-                class="flex items-center justify-between rounded-xl border border-[#dbe4ef] bg-[#f8fafc] px-3 py-2.5"
+                class="flex flex-col gap-3 rounded-xl border border-[#dbe4ef] bg-[#f8fafc] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
                   <p class="text-sm font-medium text-[#0f1728]">
@@ -639,26 +684,35 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                     Unregistered players can join via email verification
                   </p>
                 </div>
-                <USwitch v-model="state.guestsCanJoin" />
+                <USwitch
+                  v-model="state.guestsCanJoin"
+                  :disabled="isCancelledSession"
+                  class="self-end sm:self-auto"
+                />
               </div>
             </div>
 
-            <div class="space-y-4">
-              <div class="flex items-center justify-between gap-3">
-                <div>
+            <div class="min-w-0 space-y-4">
+              <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div class="min-w-0">
                   <h3 class="text-sm font-semibold text-[#0f1728]">
                     Participants
                   </h3>
                   <p class="text-sm text-[#64748b]">
-                    Manage receipts, confirmations, and removals.
+                    {{
+                      isCancelledSession
+                        ? 'Participant history is available, but management actions are disabled.'
+                        : 'Manage receipts, confirmations, and removals.'
+                    }}
                   </p>
                 </div>
                 <UButton
-                  v-if="session.status !== 'cancelled'"
+                  v-if="!isCancelledSession"
                   size="sm"
                   color="error"
                   variant="outline"
                   icon="i-heroicons-x-mark"
+                  class="w-full justify-center sm:w-auto"
                   @click="isCancelSessionOpen = true"
                 >
                   Cancel Session
@@ -681,15 +735,15 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
 
               <div
                 v-else
-                class="overflow-x-auto rounded-xl border border-[#dbe4ef]"
+                class="max-w-full overflow-x-auto rounded-xl border border-[#dbe4ef]"
               >
-                <table class="w-full text-sm">
+                <table class="min-w-[34rem] w-full text-sm">
                   <thead
                     class="bg-[#f8fafc] text-xs font-medium uppercase text-[#64748b]"
                   >
                     <tr>
                       <th class="px-4 py-2.5 text-left">Name</th>
-                      <th class="px-4 py-2.5 text-left">Type</th>
+                      <th class="px-4 py-2.5 text-left">Status</th>
                       <th class="px-4 py-2.5 text-left">Payment</th>
                       <th class="px-4 py-2.5" />
                     </tr>
@@ -711,8 +765,8 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                       </td>
                       <td class="px-4 py-3">
                         <UBadge
-                          :label="participant.user_id ? 'Registered' : 'Guest'"
-                          :color="participant.user_id ? 'primary' : 'neutral'"
+                          :label="participantStatusLabel(participant)"
+                          :color="participantStatusColor(participant)"
                           variant="subtle"
                         />
                       </td>

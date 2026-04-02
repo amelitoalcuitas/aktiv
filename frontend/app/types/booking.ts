@@ -74,9 +74,11 @@ export interface VoucherPreview {
 
 /** Full booking shape returned by owner dashboard endpoints (includes eager-loaded relations). */
 export interface BookingDetail extends Booking {
+  hub_name?: string | null;
   court: { id: string; name: string; hub_id: string } | null;
   open_play_session_id?: string | null;
   open_play_session?: import('./openPlay').OpenPlaySession | null;
+  open_play_participants?: import('./openPlay').OpenPlayParticipant[];
   booked_by_user: {
     id: string;
     first_name: string;

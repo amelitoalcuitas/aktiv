@@ -64,7 +64,11 @@ const selectedSessionId = ref<string | null>(null);
 async function loadSessions() {
   sessionsLoading.value = true;
   try {
-    sessions.value = await fetchSessions(hubId.value);
+    const fetchedSessions = await fetchSessions(hubId.value);
+    sessions.value = [...fetchedSessions].sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   } catch {
     toast.add({ title: 'Failed to load open play sessions', color: 'error' });
   } finally {
@@ -102,6 +106,14 @@ async function onSessionCreated(session: OpenPlaySession) {
 
 async function onSessionUpdated() {
   await loadSessions();
+}
+
+function sessionPresentation(session: OpenPlaySession) {
+  return getOpenPlaySessionPresentation(session);
+}
+
+function isCancelledSession(session: OpenPlaySession): boolean {
+  return sessionPresentation(session).status === 'cancelled';
 }
 
 function formatSchedule(session: OpenPlaySession): string {
@@ -216,7 +228,10 @@ onUnmounted(() => {
         <UCard
           v-for="session in sessions"
           :key="session.id"
-          class="rounded-2xl border border-[#dbe4ef] bg-white"
+          :class="[
+            'rounded-2xl border border-[#dbe4ef] bg-white',
+            isCancelledSession(session) ? 'opacity-80' : ''
+          ]"
           :ui="{ root: 'ring-0', body: 'p-5' }"
         >
           <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -226,10 +241,10 @@ onUnmounted(() => {
                   {{ session.title }}
                 </h2>
                 <UBadge
-                  :color="getOpenPlaySessionPresentation(session).color"
+                  :color="sessionPresentation(session).color"
                   variant="soft"
                 >
-                  {{ getOpenPlaySessionPresentation(session).label }}
+                  {{ sessionPresentation(session).label }}
                 </UBadge>
               </div>
 
@@ -262,12 +277,16 @@ onUnmounted(() => {
 
             <div class="flex items-center gap-2">
               <UButton
-                color="primary"
+                :color="isCancelledSession(session) ? 'neutral' : 'primary'"
                 variant="outline"
-                icon="i-heroicons-pencil-square"
+                :icon="
+                  isCancelledSession(session)
+                    ? 'i-heroicons-eye'
+                    : 'i-heroicons-pencil-square'
+                "
                 @click="openManage(session.id)"
               >
-                Manage
+                {{ isCancelledSession(session) ? 'View Details' : 'Manage' }}
               </UButton>
             </div>
           </div>

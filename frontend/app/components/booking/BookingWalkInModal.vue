@@ -300,6 +300,56 @@ function getOperatingRange(
   };
 }
 
+function formatDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function nextWholeHour(base = new Date()): Date {
+  const candidate = new Date(base);
+
+  if (
+    candidate.getMinutes() === 0 &&
+    candidate.getSeconds() === 0 &&
+    candidate.getMilliseconds() === 0
+  ) {
+    return candidate;
+  }
+
+  candidate.setHours(candidate.getHours() + 1, 0, 0, 0);
+  return candidate;
+}
+
+function getSuggestedInitialSlot(): { date: string; startHour: number } {
+  const minimumStart = nextWholeHour();
+
+  for (let offset = 0; offset < 14; offset++) {
+    const candidateDate = new Date(minimumStart);
+    candidateDate.setDate(minimumStart.getDate() + offset);
+    candidateDate.setHours(0, 0, 0, 0);
+
+    const date = formatDateKey(candidateDate);
+    const range = getOperatingRange(date) ?? { openHour: 6, closeHour: 23 };
+    const firstAvailableHour =
+      offset === 0
+        ? Math.max(range.openHour, minimumStart.getHours())
+        : range.openHour;
+    const latestStartHour = range.closeHour - 1;
+
+    if (firstAvailableHour <= latestStartHour) {
+      return {
+        date,
+        startHour: firstAvailableHour
+      };
+    }
+  }
+
+  const fallback = nextWholeHour();
+  return {
+    date: formatDateKey(fallback),
+    startHour: fallback.getHours()
+  };
+}
+
 const startTimeHourOptions = computed(() => {
   const range = getOperatingRange(currentDate.value);
   const openHour = range?.openHour ?? 6;
@@ -330,12 +380,16 @@ function resetForm() {
   const courtId = (props.initialCourtId ??
     props.courts[0]?.id ??
     undefined) as any;
-  const d = new Date();
-  const dateStr =
-    props.initialDate ||
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const startHour =
-    props.initialHour ?? startTimeHourOptions.value[0]?.value ?? 8;
+  const suggestedSlot = getSuggestedInitialSlot();
+  const dateStr = props.initialDate || suggestedSlot.date;
+  const range = getOperatingRange(dateStr) ?? { openHour: 6, closeHour: 23 };
+  const latestStartHour = range.closeHour - 1;
+  const startHour = props.initialHour
+    ?? (
+      props.initialDate
+        ? Math.min(Math.max(range.openHour, suggestedSlot.startHour), latestStartHour)
+        : suggestedSlot.startHour
+    );
 
   walkInForm.courtId = courtId;
   walkInForm.date = dateStr;
@@ -722,6 +776,16 @@ function onSubmit(event: FormSubmitEvent<WalkInSchema | OpenPlaySchema>) {
           />
         </UFormField>
 
+        <UFormField label="Description (optional)" name="description">
+          <UTextarea
+            v-model="openPlayForm.description"
+            placeholder="e.g. Bring your own racket and shuttlecocks"
+            :rows="3"
+            :maxlength="500"
+            class="w-full"
+          />
+        </UFormField>
+
         <!-- Court -->
         <UFormField label="Court" name="courtId">
           <USelect
@@ -785,17 +849,6 @@ function onSubmit(event: FormSubmitEvent<WalkInSchema | OpenPlaySchema>) {
             />
           </UFormField>
         </div>
-
-        <!-- Notes -->
-        <UFormField label="Description (optional)" name="description">
-          <UTextarea
-            v-model="openPlayForm.description"
-            placeholder="e.g. Bring your own racket and shuttlecocks"
-            :rows="3"
-            :maxlength="500"
-            class="w-full"
-          />
-        </UFormField>
 
         <!-- Guests can join -->
         <div

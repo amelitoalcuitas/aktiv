@@ -2,7 +2,7 @@
 import type { Hub } from '~/types/hub';
 import type { OpenPlayParticipant, OpenPlaySession } from '~/types/openPlay';
 import { useAuthStore } from '~/stores/auth';
-import OpenPlayReceiptUploadModal from '~/components/openplay/OpenplayReceiptUploadModal.vue';
+import OpenPlayReceiptUploadModal from '~/components/openPlay/OpenplayReceiptUploadModal.vue';
 import {
   getOpenPlayParticipantPresentation,
   getOpenPlaySessionPresentation

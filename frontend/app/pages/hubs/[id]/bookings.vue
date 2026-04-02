@@ -5,7 +5,7 @@ import type { OpenPlaySession } from '~/types/openPlay';
 import { useHubs } from '~/composables/useHubs';
 import { useOwnerBookings } from '~/composables/useOwnerBookings';
 import { useOwnerOpenPlay } from '~/composables/useOwnerOpenPlay';
-import OpenPlayOwnerModal from '~/components/openplay/OpenplayOwnerModal.vue';
+import OpenPlayOwnerModal from '~/components/openPlay/OpenplayOwnerModal.vue';
 
 definePageMeta({ middleware: 'owner-hub', layout: 'dashboard-hub' });
 
@@ -94,12 +94,15 @@ const gridMaxTime = computed(() => {
 
 // ── Courts ─────────────────────────────────────────────────
 const hubCourts = ref<Court[]>([]);
+const courtsLoaded = ref(false);
 
 async function loadCourts() {
   try {
     hubCourts.value = await fetchCourts(hubId.value);
   } catch {
     hubCourts.value = [];
+  } finally {
+    courtsLoaded.value = true;
   }
 }
 
@@ -738,9 +741,29 @@ function bookingDropdownItems(booking: BookingDetail) {
         </UButton>
       </div>
 
+      <!-- No courts empty state -->
+      <div
+        v-if="courtsLoaded && !hubCourts.length"
+        class="flex flex-col items-center gap-4 rounded-xl border border-dashed border-[var(--aktiv-border)] bg-white px-6 py-16 text-center"
+      >
+        <UIcon
+          name="i-heroicons-squares-2x2"
+          class="h-10 w-10 text-[var(--aktiv-muted)]"
+        />
+        <p class="text-lg font-semibold text-[var(--aktiv-ink)]">
+          No courts added yet
+        </p>
+        <p class="text-sm text-[var(--aktiv-muted)]">
+          Add courts to your hub before managing bookings.
+        </p>
+        <UButton variant="outline" :to="`/hubs/${hubId}/courts`">
+          Go to Courts
+        </UButton>
+      </div>
+
       <!-- Table View -->
       <div
-        v-if="viewMode === 'table'"
+        v-else-if="viewMode === 'table'"
         class="overflow-x-auto rounded-2xl border border-[#dbe4ef] bg-white"
       >
         <UTable
@@ -866,7 +889,7 @@ function bookingDropdownItems(booking: BookingDetail) {
       </div>
 
       <!-- Calendar View -->
-      <div v-else class="min-w-0 overflow-hidden">
+      <div v-else-if="viewMode === 'calendar'" class="min-w-0 overflow-hidden">
         <BookingOwnerGrid
           v-model:selected-date="selectedDate"
           :courts="filteredCourts"

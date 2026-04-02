@@ -87,6 +87,27 @@ Laravel Sanctum API tokens. Frontend stores the token in a cookie (`aktiv_token`
 - **Composables** (`frontend/app/composables/`): handle API calls and business logic (e.g., `useAuth`, `useHubs`, `useBooking`)
 - Nuxt auto-imports components, composables, and stores — no explicit imports needed
 
+#### Auto-Import Rules
+
+- **Components** (`app/components/`): Use directly in templates by name. Folder names + file name are joined in PascalCase. Prefix with `Lazy` to defer loading (`<LazyMyComponent />`). Add `.client.vue` suffix for client-only rendering.
+
+  | File path                             | Used in template as       |
+  | ------------------------------------- | ------------------------- |
+  | `components/Button.vue`               | `<Button />`              |
+  | `components/AppHeader.vue`            | `<AppHeader />`           |
+  | `components/ui/Card.vue`              | `<UiCard />`              |
+  | `components/ui/modal/Confirm.vue`     | `<UiModalConfirm />`      |
+  | `components/form/Input.vue`           | `<FormInput />`           |
+  | `components/hub/BookingCard.vue`      | `<HubBookingCard />`      |
+  | `components/openPlay/SessionCard.vue` | `<OpenPlaySessionCard />` |
+  | `components/openPlay/JoinButton.vue`  | `<OpenPlayJoinButton />`  |
+
+- **Composables** (`app/composables/`): Call directly in `<script setup>` or other composables — no import needed (e.g., `const { data } = useHubs()`).
+- **Utils** (`app/utils/`): Helper functions are globally available (e.g., `formatDate()`).
+- **Vue & Nuxt built-ins**: `ref`, `computed`, `watch`, `useFetch`, `useRoute`, `useRouter`, `useRuntimeConfig`, `navigateTo`, etc. are always available without importing.
+- **Explicit imports**: Use `#imports` or `#components` only when auto-import context is unavailable (e.g., `import { ref } from '#imports'`).
+- **Composables must be called synchronously** inside `setup()`, a plugin, or route middleware — never outside these contexts or after an `await`, or you'll get a "Nuxt instance is unavailable" error.
+
 ### Backend Structure (Laravel 12)
 
 - **Middleware/routing**: configured in `bootstrap/app.php`, NOT in `app/Http/Kernel.php` (removed in Laravel 11+)

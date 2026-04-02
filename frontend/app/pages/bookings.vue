@@ -6,7 +6,7 @@ import type {
 } from '~/types/booking';
 import type { OpenPlayParticipant, OpenPlaySession } from '~/types/openPlay';
 import { getOpenPlayBookingPresentation } from '~/utils/openPlayPresentation';
-import OpenPlayReceiptUploadModal from '~/components/openplay/OpenplayReceiptUploadModal.vue';
+import OpenPlayReceiptUploadModal from '~/components/openPlay/OpenplayReceiptUploadModal.vue';
 
 definePageMeta({ middleware: ['auth'], layout: 'page' });
 

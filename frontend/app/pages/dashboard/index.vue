@@ -40,14 +40,14 @@ onMounted(async () => {
 
 async function loadDashboardData() {
   const todayStr = new Date().toLocaleDateString('en-CA', {
-    timeZone: 'Asia/Manila',
+    timeZone: 'Asia/Manila'
   });
 
   const results = await Promise.all(
     hubStore.myHubs.map((hub) =>
       Promise.all([
         fetchHubBookings(hub.id, { status: 'pending_payment' }),
-        fetchHubBookings(hub.id, { date_from: todayStr, date_to: todayStr }),
+        fetchHubBookings(hub.id, { date_from: todayStr, date_to: todayStr })
       ])
     )
   );
@@ -61,11 +61,13 @@ async function loadDashboardData() {
   }
 
   pendingBookings.value = allPending.sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
   todayBookings.value = allToday.sort(
-    (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+    (a, b) =>
+      new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
   );
 }
 
@@ -75,7 +77,7 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleTimeString('en-PH', {
     timeZone: 'Asia/Manila',
     hour: 'numeric',
-    minute: '2-digit',
+    minute: '2-digit'
   });
 }
 
@@ -85,12 +87,15 @@ function formatDateTime(iso: string) {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
-    minute: '2-digit',
+    minute: '2-digit'
   });
 }
 
 function bookerName(booking: BookingDetail) {
-  return booking.booked_by_user?.name ?? booking.guest_name ?? 'Guest';
+  const name =
+    `${booking.booked_by_user?.first_name} ${booking.booked_by_user?.last_name}`.trim();
+
+  return name || booking.guest_name || 'Guest';
 }
 
 function hubNameForBooking(booking: BookingDetail) {
@@ -99,11 +104,14 @@ function hubNameForBooking(booking: BookingDetail) {
 }
 
 const statusConfig: Record<string, { label: string; color: string }> = {
-  pending_payment: { label: 'Pending Payment', color: 'text-amber-600 bg-amber-50' },
+  pending_payment: {
+    label: 'Pending Payment',
+    color: 'text-amber-600 bg-amber-50'
+  },
   payment_sent: { label: 'Payment Sent', color: 'text-blue-600 bg-blue-50' },
   confirmed: { label: 'Confirmed', color: 'text-green-700 bg-green-50' },
   cancelled: { label: 'Cancelled', color: 'text-red-600 bg-red-50' },
-  completed: { label: 'Completed', color: 'text-[#64748b] bg-[#f0f4f8]' },
+  completed: { label: 'Completed', color: 'text-[#64748b] bg-[#f0f4f8]' }
 };
 </script>
 
@@ -131,12 +139,16 @@ const statusConfig: Record<string, { label: string; color: string }> = {
           to="/dashboard/hubs"
           class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5 transition hover:shadow-md"
         >
-          <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-amber-50">
+          <div
+            class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-amber-50"
+          >
             <UIcon name="i-heroicons-clock" class="h-6 w-6 text-amber-500" />
           </div>
           <div>
             <p class="text-sm text-[#64748b]">Pending Payments</p>
-            <p class="text-2xl font-bold text-[#0f1728]">{{ pendingBookings.length }}</p>
+            <p class="text-2xl font-bold text-[#0f1728]">
+              {{ pendingBookings.length }}
+            </p>
           </div>
         </NuxtLink>
 
@@ -145,12 +157,19 @@ const statusConfig: Record<string, { label: string; color: string }> = {
           to="/dashboard/hubs"
           class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5 transition hover:shadow-md"
         >
-          <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-green-50">
-            <UIcon name="i-heroicons-calendar-days" class="h-6 w-6 text-green-600" />
+          <div
+            class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-green-50"
+          >
+            <UIcon
+              name="i-heroicons-calendar-days"
+              class="h-6 w-6 text-green-600"
+            />
           </div>
           <div>
             <p class="text-sm text-[#64748b]">Today's Bookings</p>
-            <p class="text-2xl font-bold text-[#0f1728]">{{ todayConfirmedCount }}</p>
+            <p class="text-2xl font-bold text-[#0f1728]">
+              {{ todayConfirmedCount }}
+            </p>
           </div>
         </NuxtLink>
 
@@ -159,12 +178,19 @@ const statusConfig: Record<string, { label: string; color: string }> = {
           to="/dashboard/hubs"
           class="flex items-center gap-4 rounded-2xl border border-[#dbe4ef] bg-white p-5 transition hover:shadow-md"
         >
-          <div class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#e8f0f8]">
-            <UIcon name="i-heroicons-building-office-2" class="h-6 w-6 text-[#004e89]" />
+          <div
+            class="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-[#e8f0f8]"
+          >
+            <UIcon
+              name="i-heroicons-building-office-2"
+              class="h-6 w-6 text-[#004e89]"
+            />
           </div>
           <div>
             <p class="text-sm text-[#64748b]">Active Hubs</p>
-            <p class="text-2xl font-bold text-[#0f1728]">{{ activeHubsCount }}</p>
+            <p class="text-2xl font-bold text-[#0f1728]">
+              {{ activeHubsCount }}
+            </p>
           </div>
         </NuxtLink>
       </div>
@@ -172,8 +198,12 @@ const statusConfig: Record<string, { label: string; color: string }> = {
       <div class="grid gap-6 lg:grid-cols-2">
         <!-- ── Pending Bookings ──────────────────────────────────────────────── -->
         <div class="rounded-2xl border border-[#dbe4ef] bg-white">
-          <div class="flex items-center justify-between border-b border-[#dbe4ef] px-5 py-4">
-            <h2 class="text-sm font-semibold text-[#0f1728]">Pending Payments</h2>
+          <div
+            class="flex items-center justify-between border-b border-[#dbe4ef] px-5 py-4"
+          >
+            <h2 class="text-sm font-semibold text-[#0f1728]">
+              Pending Payments
+            </h2>
             <NuxtLink
               to="/dashboard/hubs"
               class="text-xs font-medium text-[#004e89] hover:underline"
@@ -187,7 +217,10 @@ const statusConfig: Record<string, { label: string; color: string }> = {
             v-if="!pendingBookings.length"
             class="flex flex-col items-center justify-center px-5 py-10 text-center"
           >
-            <UIcon name="i-heroicons-check-circle" class="h-8 w-8 text-green-400" />
+            <UIcon
+              name="i-heroicons-check-circle"
+              class="h-8 w-8 text-green-400"
+            />
             <p class="mt-2 text-sm text-[#64748b]">No pending payments</p>
           </div>
 
@@ -197,7 +230,12 @@ const statusConfig: Record<string, { label: string; color: string }> = {
               v-for="booking in pendingBookings.slice(0, 10)"
               :key="booking.id"
               class="flex cursor-pointer items-start justify-between gap-3 px-5 py-3.5 hover:bg-[#f8fafc]"
-              @click="navigateTo({ path: `/hubs/${booking.court?.hub_id}/bookings`, query: { bookingId: booking.id } })"
+              @click="
+                navigateTo({
+                  path: `/hubs/${booking.court?.hub_id}/bookings`,
+                  query: { bookingId: booking.id }
+                })
+              "
             >
               <div class="min-w-0">
                 <p class="truncate text-sm font-medium text-[#0f1728]">
@@ -222,8 +260,12 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 
         <!-- ── Today's Schedule ────────────────────────────────────────────── -->
         <div class="rounded-2xl border border-[#dbe4ef] bg-white">
-          <div class="flex items-center justify-between border-b border-[#dbe4ef] px-5 py-4">
-            <h2 class="text-sm font-semibold text-[#0f1728]">Today's Schedule</h2>
+          <div
+            class="flex items-center justify-between border-b border-[#dbe4ef] px-5 py-4"
+          >
+            <h2 class="text-sm font-semibold text-[#0f1728]">
+              Today's Schedule
+            </h2>
             <NuxtLink
               to="/dashboard/hubs"
               class="text-xs font-medium text-[#004e89] hover:underline"
@@ -238,7 +280,9 @@ const statusConfig: Record<string, { label: string; color: string }> = {
             class="flex flex-col items-center justify-center px-5 py-10 text-center"
           >
             <UIcon name="i-heroicons-calendar" class="h-8 w-8 text-[#c8d5e0]" />
-            <p class="mt-2 text-sm text-[#64748b]">No bookings scheduled for today</p>
+            <p class="mt-2 text-sm text-[#64748b]">
+              No bookings scheduled for today
+            </p>
           </div>
 
           <!-- List -->
@@ -247,7 +291,12 @@ const statusConfig: Record<string, { label: string; color: string }> = {
               v-for="booking in todayBookings"
               :key="booking.id"
               class="flex cursor-pointer items-start justify-between gap-3 px-5 py-3.5 hover:bg-[#f8fafc]"
-              @click="navigateTo({ path: `/hubs/${booking.court?.hub_id}/bookings`, query: { bookingId: booking.id } })"
+              @click="
+                navigateTo({
+                  path: `/hubs/${booking.court?.hub_id}/bookings`,
+                  query: { bookingId: booking.id }
+                })
+              "
             >
               <div class="min-w-0">
                 <p class="truncate text-sm font-medium text-[#0f1728]">
@@ -257,7 +306,8 @@ const statusConfig: Record<string, { label: string; color: string }> = {
                   {{ hubNameForBooking(booking) }} · {{ booking.court?.name }}
                 </p>
                 <p class="mt-0.5 text-xs text-[#64748b]">
-                  {{ formatTime(booking.start_time) }} – {{ formatTime(booking.end_time) }}
+                  {{ formatTime(booking.start_time) }} –
+                  {{ formatTime(booking.end_time) }}
                 </p>
               </div>
               <span
@@ -272,9 +322,6 @@ const statusConfig: Record<string, { label: string; color: string }> = {
       </div>
     </template>
 
-    <BookingVerifyModal
-      v-model:open="isVerifyModalOpen"
-      :hub="verifyHub"
-    />
+    <BookingVerifyModal v-model:open="isVerifyModalOpen" :hub="verifyHub" />
   </div>
 </template>

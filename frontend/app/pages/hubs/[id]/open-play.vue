@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { Hub } from '~/types/hub';
 import type { OpenPlaySession } from '~/types/openPlay';
-import OpenPlayJoinModal from '~/components/openplay/OpenplayJoinModal.vue';
-import OpenPlaySessionCard from '~/components/openplay/OpenplaySessionCard.vue';
+import OpenPlayJoinModal from '~/components/openPlay/OpenplayJoinModal.vue';
+import OpenPlaySessionCard from '~/components/openPlay/OpenplaySessionCard.vue';
 
 definePageMeta({ layout: 'hub' });
 

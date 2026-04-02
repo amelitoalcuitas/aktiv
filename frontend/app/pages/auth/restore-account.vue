@@ -11,13 +11,12 @@ const toast = useToast();
 const deletionDate = computed(() => {
   const iso = authStore.user?.deletion_scheduled_at;
   if (!iso) return '';
-  return new Date(iso).toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInViewerTimezone(iso, {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
-    day: 'numeric',
-  });
+    day: 'numeric'
+  }, 'en-PH');
 });
 
 const restoring = ref(false);

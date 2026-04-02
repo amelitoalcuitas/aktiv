@@ -3,6 +3,7 @@
 @section('title', 'Booking Update — Aktiv')
 
 @section('content')
+    @php($bookingTimezone = $booking->court?->hub?->timezone_name ?? $hub->timezone_name ?? \App\Support\HubTimezone::DEFAULT_TIMEZONE)
     @if (($activityType ?? null) === 'booking_updated')
     {{-- ── Updated (time/court changed by owner) ──────────────── --}}
     <div style="text-align:center; margin-bottom:28px;">
@@ -19,14 +20,14 @@
             </tr>
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Date</td>
-                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone($bookingTimezone)->isoFormat('ddd, MMM D, YYYY') }}</td>
             </tr>
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Time</td>
                 <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">
-                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone($bookingTimezone)->format('g:i A') }}
                     –
-                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone($bookingTimezone)->format('g:i A') }}
                 </td>
             </tr>
             <tr>
@@ -58,14 +59,14 @@
             </tr>
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Date</td>
-                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone($bookingTimezone)->isoFormat('ddd, MMM D, YYYY') }}</td>
             </tr>
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Time</td>
                 <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">
-                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone($bookingTimezone)->format('g:i A') }}
                     –
-                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone($bookingTimezone)->format('g:i A') }}
                 </td>
             </tr>
             @if ($booking->total_price)
@@ -102,14 +103,14 @@
             </tr>
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Date</td>
-                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone($bookingTimezone)->isoFormat('ddd, MMM D, YYYY') }}</td>
             </tr>
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Time</td>
                 <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">
-                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone($bookingTimezone)->format('g:i A') }}
                     –
-                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone($bookingTimezone)->format('g:i A') }}
                 </td>
             </tr>
             <tr>
@@ -143,14 +144,14 @@
             </tr>
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Date</td>
-                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone($bookingTimezone)->isoFormat('ddd, MMM D, YYYY') }}</td>
             </tr>
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Time</td>
                 <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">
-                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone($bookingTimezone)->format('g:i A') }}
                     –
-                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone($bookingTimezone)->format('g:i A') }}
                 </td>
             </tr>
             <tr>

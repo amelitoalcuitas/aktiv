@@ -182,15 +182,14 @@ function reset() {
 
 // ── Helpers ───────────────────────────────────────────────────
 function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString('en-PH', {
+  return formatInHubTimezone(iso, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true,
-    timeZone: 'Asia/Manila'
-  });
+    hour12: true
+  }, 'en-PH', foundBooking.value?.hub_timezone ?? props.hub?.timezone);
 }
 
 const statusColors: Record<string, string> = {

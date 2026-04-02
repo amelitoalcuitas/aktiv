@@ -13,6 +13,7 @@ export type CancelledBy = 'user' | 'owner' | 'system';
 export interface Booking {
   id: string;
   booking_code: string | null;
+  hub_timezone?: string | null;
   court_id: string;
   booked_by: string | null;
   sport: string;
@@ -94,6 +95,7 @@ export interface BookingDetail extends Booking {
 export interface SelectedSlot {
   courtId: string;
   slotStart: Date; // exact start of the 1-hour slot
+  hubTimezone?: string | null;
 }
 
 /** Booking shape returned by the user's own booking list endpoint (includes court + hub). */

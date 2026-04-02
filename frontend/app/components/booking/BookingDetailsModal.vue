@@ -62,11 +62,21 @@ watch(
   (b) => {
     if (b) {
       state.court_id = b.court_id;
-      const start = new Date(b.start_time);
-      state.date = start;
-      state.start_time = `${String(start.getHours()).padStart(2, '0')}:00`;
-      const end = new Date(b.end_time);
-      state.end_time = `${String(end.getHours()).padStart(2, '0')}:00`;
+      const dateKey = getDateKeyInTimezone(b.start_time, b.hub_timezone);
+      const [year, month, day] = dateKey.split('-').map(Number);
+      state.date = new Date(year!, (month ?? 1) - 1, day ?? 1);
+      state.start_time = `${formatInHubTimezone(
+        b.start_time,
+        { hour: '2-digit', hour12: false },
+        'en-US',
+        b.hub_timezone
+      )}:00`.slice(0, 5);
+      state.end_time = `${formatInHubTimezone(
+        b.end_time,
+        { hour: '2-digit', hour12: false },
+        'en-US',
+        b.hub_timezone
+      )}:00`.slice(0, 5);
     }
   },
   { immediate: true }
@@ -94,24 +104,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
   const { date, start_time, end_time, court_id } = event.data;
 
-  const y = date.getFullYear();
-  const mo = date.getMonth();
-  const d = date.getDate();
-
-  const [startH, startM] = start_time.split(':').map(Number);
-  const startDt = new Date(y, mo, d);
-  startDt.setHours(startH || 0, startM || 0, 0, 0);
-
-  const [endH, endM] = end_time.split(':').map(Number);
-  const endDt = new Date(y, mo, d);
-  endDt.setHours(endH || 0, endM || 0, 0, 0);
+  const timezone = props.booking.hub_timezone;
 
   emit('action-update', {
     id: props.booking.id,
     data: {
       court_id,
-      start_time: startDt.toISOString(),
-      end_time: endDt.toISOString()
+      start_time: buildHubIsoFromDateAndTime(date, start_time, timezone),
+      end_time: buildHubIsoFromDateAndTime(date, end_time, timezone)
     }
   });
 }

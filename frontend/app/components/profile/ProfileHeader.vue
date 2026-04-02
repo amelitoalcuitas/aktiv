@@ -67,8 +67,7 @@ function onCropCancel() {
 }
 
 const memberSince = computed(() => {
-  return new Date(props.profile.created_at).toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInViewerTimezone(props.profile.created_at, {
     month: 'long',
     year: 'numeric'
   });

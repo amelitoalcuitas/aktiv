@@ -78,28 +78,22 @@ const isExpired = computed(
 
 function formatSchedule(session: OpenPlaySession): string {
   if (!session.booking) return '';
-
-  const start = new Date(session.booking.start_time);
-  const end = new Date(session.booking.end_time);
-
-  const dateLabel = start.toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  const timezone = session.booking.hub_timezone ?? session.booking.court?.hub_timezone;
+  const dateLabel = formatInHubTimezone(session.booking.start_time, {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  });
-  const startLabel = start.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone);
+  const startLabel = formatInHubTimezone(session.booking.start_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
-  const endLabel = end.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone);
+  const endLabel = formatInHubTimezone(session.booking.end_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
+  }, 'en-PH', timezone);
 
   return `${dateLabel} · ${startLabel} – ${endLabel}`;
 }

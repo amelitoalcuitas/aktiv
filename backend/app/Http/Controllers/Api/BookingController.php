@@ -192,6 +192,7 @@ class BookingController extends Controller
                 'sport' => $booking->sport,
                 'start_time' => $booking->start_time->toIso8601String(),
                 'end_time' => $booking->end_time->toIso8601String(),
+                'hub_timezone' => $hub->timezone_name,
                 'session_type' => $booking->session_type,
                 'status' => $booking->status,
                 'booking_source' => $booking->booking_source,

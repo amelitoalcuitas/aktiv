@@ -224,26 +224,22 @@ const activeParticipantsCount = computed(
 
 function formatSessionTime(session: OpenPlaySession): string {
   if (!session.booking) return '';
-  const s = new Date(session.booking.start_time);
-  const e = new Date(session.booking.end_time);
-  const date = s.toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  const timezone = session.booking.hub_timezone ?? session.booking.court?.hub_timezone;
+  const date = formatInHubTimezone(session.booking.start_time, {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  });
-  const start = s.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone);
+  const start = formatInHubTimezone(session.booking.start_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
-  const end = e.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone);
+  const end = formatInHubTimezone(session.booking.end_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
+  }, 'en-PH', timezone);
   return `${date} · ${start} – ${end}`;
 }
 </script>

@@ -29,7 +29,7 @@ export interface GuestOpenPlayTrackingParticipant {
   start_time: string;
   end_time: string;
   court: { id: string; name: string };
-  hub: { id: string; username: string | null; name: string; phones: string[]; websites: HubWebsite[] };
+  hub: { id: string; username: string | null; name: string; timezone: string; phones: string[]; websites: HubWebsite[] };
 }
 
 export function useGuestOpenPlayTracking() {

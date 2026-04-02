@@ -68,12 +68,11 @@ function normalizeText(value: string | null | undefined): string {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInViewerTimezone(iso, {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
-  });
+  }, 'en-PH');
 }
 
 const roleConfig: Record<string, { label: string; color: string }> = {

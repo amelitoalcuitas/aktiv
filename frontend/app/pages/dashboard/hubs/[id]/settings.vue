@@ -59,12 +59,13 @@ const usernameMessage = ref('');
 const canEditUsername = computed(() => canChangeHubUsername(hubData.value));
 const nextUsernameChange = computed(() => nextHubUsernameChangeDate(hubData.value));
 const usernameLockedUntil = computed(() =>
-  nextUsernameChange.value?.toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  }) ?? null
+  nextUsernameChange.value
+    ? formatInViewerTimezone(nextUsernameChange.value, {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      })
+    : null
 );
 const publicHubUrl = computed(() =>
   usernameDraft.value ? hubPublicPath({ id: hubData.value?.id, username: usernameDraft.value }) : ''

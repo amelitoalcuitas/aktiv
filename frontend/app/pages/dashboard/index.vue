@@ -1162,6 +1162,7 @@ const statusConfig: Record<string, { label: string; color: string }> = {
       v-if="walkInHubId"
       v-model:open="isWalkInModalOpen"
       :hub-id="walkInHubId"
+      :hub-timezone="hubStore.myHubs.find((hub) => String(hub.id) === walkInHubId)?.timezone"
       :courts="walkInCourts"
       :initial-date="walkInInitialDate"
       :initial-hour="walkInInitialHour"

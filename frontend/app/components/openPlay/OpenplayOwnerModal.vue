@@ -12,6 +12,7 @@ import {
 const props = defineProps<{
   open: boolean;
   hubId: string;
+  hubTimezone?: string;
   sessionId: string | null;
   courts: Court[];
   operatingHours?: OperatingHoursEntry[];
@@ -116,7 +117,13 @@ function getOperatingRange(
   if (!operatingHours.length || !date) return null;
 
   const [year, month, day] = date.split('-').map(Number);
-  const dayOfWeek = new Date(year!, month! - 1, day!).getDay();
+  const weekday = formatInHubTimezone(
+    buildUtcDateFromHubLocalParts({ year: year!, month: month!, day: day! }, props.hubTimezone),
+    { weekday: 'short' },
+    'en-US',
+    props.hubTimezone
+  );
+  const dayOfWeek = ({ Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as Record<string, number>)[weekday] ?? 0;
   const entry = operatingHours.find((item) => item.day_of_week === dayOfWeek);
   if (!entry || entry.is_closed) return null;
 
@@ -176,13 +183,13 @@ function hydrateForm(nextSession: OpenPlaySession) {
   const booking = nextSession.booking;
   if (!booking) return;
 
-  const start = new Date(booking.start_time);
-  const end = new Date(booking.end_time);
+  const dateKey = getDateKeyInTimezone(booking.start_time, props.hubTimezone ?? booking.hub_timezone);
+  const [year, month, day] = dateKey.split('-').map(Number);
   state.courtId = booking.court_id;
   state.title = nextSession.title;
-  state.date = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
-  state.startHour = start.getHours();
-  state.endHour = end.getHours();
+  state.date = dateKey;
+  state.startHour = Number(formatInHubTimezone(booking.start_time, { hour: '2-digit', hour12: false }, 'en-US', props.hubTimezone ?? booking.hub_timezone));
+  state.endHour = Number(formatInHubTimezone(booking.end_time, { hour: '2-digit', hour12: false }, 'en-US', props.hubTimezone ?? booking.hub_timezone));
   state.maxPlayers = nextSession.max_players;
   state.pricePerPlayer = Number(nextSession.price_per_player);
   state.description = nextSession.description ?? nextSession.notes ?? '';
@@ -272,19 +279,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     guestsCanJoin
   } = event.data;
 
-  const [year, month, day] = date.split('-').map(Number);
-  const startDt = new Date(year!, month! - 1, day!);
-  startDt.setHours(startHour, 0, 0, 0);
-  const endDt = new Date(year!, month! - 1, day!);
-  endDt.setHours(endHour, 0, 0, 0);
-
   saving.value = true;
   try {
     const updated = await updateSession(props.hubId, props.sessionId, {
       title: title.trim(),
       court_id: courtId,
-      start_time: startDt.toISOString(),
-      end_time: endDt.toISOString(),
+      start_time: buildHubIsoFromDateAndTime(new Date(`${date}T00:00:00`), `${String(startHour).padStart(2, '0')}:00`, props.hubTimezone ?? session.value?.booking?.hub_timezone),
+      end_time: buildHubIsoFromDateAndTime(new Date(`${date}T00:00:00`), `${String(endHour).padStart(2, '0')}:00`, props.hubTimezone ?? session.value?.booking?.hub_timezone),
       max_players: maxPlayers,
       price_per_player: pricePerPlayer,
       description: description?.trim() || null,
@@ -500,26 +501,22 @@ const activeParticipantsCount = computed(() => participants.value.length);
 
 function formatSessionTime(nextSession: OpenPlaySession | null): string {
   if (!nextSession?.booking) return '';
-  const start = new Date(nextSession.booking.start_time);
-  const end = new Date(nextSession.booking.end_time);
-  const date = start.toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  const timezone = props.hubTimezone ?? nextSession.booking.hub_timezone ?? nextSession.booking.court?.hub_timezone;
+  const date = formatInHubTimezone(nextSession.booking.start_time, {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  });
-  const startLabel = start.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone);
+  const startLabel = formatInHubTimezone(nextSession.booking.start_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
-  const endLabel = end.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone);
+  const endLabel = formatInHubTimezone(nextSession.booking.end_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
+  }, 'en-PH', timezone);
 
   return `${date} · ${startLabel} – ${endLabel}`;
 }

@@ -25,6 +25,10 @@ export function useAuth() {
   const isSuperAdmin = computed(() => authStore.user?.role === 'super_admin');
   const user = computed(() => authStore.user);
 
+  function apiPath(path: string): string {
+    return path.startsWith('/') ? path.slice(1) : path;
+  }
+
   async function login(email: string, password: string): Promise<void> {
     const res = await $fetch<{ user: User; token: string }>('/api/auth/login', {
       method: 'POST',
@@ -121,7 +125,7 @@ export function useAuth() {
         ? { redirect }
         : undefined;
 
-    const res = await $fetch<GoogleRedirectResponse>('/auth/google/redirect', {
+    const res = await $fetch<GoogleRedirectResponse>(apiPath('/auth/google/redirect'), {
       baseURL: config.public.apiBase,
       query
     });
@@ -154,7 +158,7 @@ export function useAuth() {
     province: string,
     city: string
   ): Promise<User> {
-    const res = await $fetch<GoogleCompletionResponse>('/auth/google/complete', {
+    const res = await $fetch<GoogleCompletionResponse>(apiPath('/auth/google/complete'), {
       baseURL: config.public.apiBase,
       method: 'POST',
       body: {

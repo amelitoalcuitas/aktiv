@@ -72,9 +72,13 @@ watch(
   () => authStore.user,
   (user) => {
     if (user) {
-      notificationStore.fetchInitial();
+      notificationStore.fetchInitial().catch(() => {
+        notificationStore.unsubscribe();
+      });
       notificationStore.subscribe(user.id);
-      userBookingStore.fetchInitial();
+      userBookingStore.fetchInitial().catch(() => {
+        userBookingStore.unsubscribe();
+      });
       userBookingStore.subscribe(user.id);
       checkPendingReview();
     } else {

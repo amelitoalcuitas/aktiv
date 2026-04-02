@@ -141,8 +141,7 @@ async function handleSubmit() {
 function formatDateTime(iso: string | null) {
   if (!iso) return '';
 
-  return new Date(iso).toLocaleString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInViewerTimezone(iso, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',

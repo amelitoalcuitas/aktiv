@@ -152,26 +152,36 @@ function formatPrice(price: string): string {
 
 function formatSessionDate(session: OpenPlaySession): string {
   if (!session.booking) return '';
+  const timezone = session.booking.hub_timezone ?? session.booking.court?.hub_timezone ?? props.hub?.timezone;
 
-  const start = new Date(session.booking.start_time);
-  const end = new Date(session.booking.end_time);
-
-  return `${start.toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return `${formatInHubTimezone(session.booking.start_time, {
     weekday: 'short',
     month: 'short',
     day: 'numeric'
-  })} · ${start.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone)} · ${formatInHubTimezone(session.booking.start_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  })} – ${end.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone)} – ${formatInHubTimezone(session.booking.end_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  })}`;
+  }, 'en-PH', timezone)}`;
+}
+
+function formatParticipantExpiry(iso: string): string {
+  const timezone =
+    props.session?.booking?.hub_timezone ??
+    props.session?.booking?.court?.hub_timezone ??
+    props.hub?.timezone;
+
+  return formatInHubTimezone(iso, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-PH', timezone);
 }
 
 function closeJoinModal() {
@@ -429,16 +439,7 @@ function goBack() {
             class="mt-2 text-sm text-[var(--aktiv-muted)]"
           >
             Expires
-            {{
-              new Date(currentParticipant.expires_at).toLocaleString('en-PH', {
-                timeZone: 'Asia/Manila',
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-              })
-            }}
+            {{ formatParticipantExpiry(currentParticipant.expires_at) }}
           </p>
         </div>
 

@@ -51,7 +51,7 @@ const presentation = computed(() => getOpenPlaySessionPresentation(props.session
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2">
               <h3 class="text-base font-bold text-[var(--aktiv-ink)]">
-                Open Play
+                {{ session.title }}
               </h3>
               <UBadge :color="presentation.color" variant="soft">
                 {{ presentation.label }}
@@ -79,10 +79,10 @@ const presentation = computed(() => getOpenPlaySessionPresentation(props.session
         </div>
 
         <p
-          v-if="session.notes"
+          v-if="session.description ?? session.notes"
           class="mt-3 text-sm text-[var(--aktiv-muted)]"
         >
-          "{{ session.notes }}"
+          "{{ session.description ?? session.notes }}"
         </p>
         <p class="mt-3 text-sm text-[var(--aktiv-muted)]">
           {{ presentation.helperText }}

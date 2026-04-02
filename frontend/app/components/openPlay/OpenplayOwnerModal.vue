@@ -43,6 +43,11 @@ const saving = ref(false);
 
 const schema = z
   .object({
+    title: z
+      .string({ message: 'Enter a title.' })
+      .trim()
+      .min(1, 'Enter a title.')
+      .max(120, 'Max 120 characters.'),
     courtId: z.string({ message: 'Select a court.' }).min(1, 'Select a court.'),
     date: z.string().min(1, 'Select a date.'),
     startHour: z.number(),
@@ -54,7 +59,7 @@ const schema = z
     pricePerPlayer: z
       .number({ invalid_type_error: 'Enter a number.' })
       .min(0, 'Price must be 0 or more.'),
-    notes: z
+    description: z
       .string()
       .max(500, 'Max 500 characters.')
       .optional()
@@ -74,13 +79,14 @@ const schema = z
 type Schema = z.infer<typeof schema>;
 
 const state = reactive<Schema>({
+  title: '',
   courtId: '',
   date: '',
   startHour: 8,
   endHour: 9,
-  maxPlayers: 2,
+  maxPlayers: 4,
   pricePerPlayer: 0,
-  notes: '',
+  description: '',
   guestsCanJoin: false
 });
 
@@ -164,12 +170,13 @@ function hydrateForm(nextSession: OpenPlaySession) {
   const start = new Date(booking.start_time);
   const end = new Date(booking.end_time);
   state.courtId = booking.court_id;
+  state.title = nextSession.title;
   state.date = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`;
   state.startHour = start.getHours();
   state.endHour = end.getHours();
   state.maxPlayers = nextSession.max_players;
   state.pricePerPlayer = Number(nextSession.price_per_player);
-  state.notes = nextSession.notes ?? '';
+  state.description = nextSession.description ?? nextSession.notes ?? '';
   state.guestsCanJoin = nextSession.guests_can_join;
 }
 
@@ -248,10 +255,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     date,
     startHour,
     endHour,
+    title,
     courtId,
     maxPlayers,
     pricePerPlayer,
-    notes,
+    description,
     guestsCanJoin
   } = event.data;
 
@@ -264,12 +272,13 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   saving.value = true;
   try {
     const updated = await updateSession(props.hubId, props.sessionId, {
+      title: title.trim(),
       court_id: courtId,
       start_time: startDt.toISOString(),
       end_time: endDt.toISOString(),
       max_players: maxPlayers,
       price_per_player: pricePerPlayer,
-      notes: notes?.trim() || null,
+      description: description?.trim() || null,
       guests_can_join: guestsCanJoin
     });
 
@@ -521,9 +530,10 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                 <div class="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p class="font-semibold text-[#0f1728]">
-                      {{ session.booking?.court?.name ?? 'Court' }}
+                      {{ state.title || 'Open Play' }}
                     </p>
                     <p class="mt-1 text-[#64748b]">
+                      {{ session.booking?.court?.name ?? 'Court' }} ·
                       {{ formatSessionTime(session) }}
                     </p>
                   </div>
@@ -536,9 +546,17 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                 <p class="mt-2 text-[#64748b]">
                   ₱{{ Number(state.pricePerPlayer).toLocaleString('en-PH', { maximumFractionDigits: 2 }) }}
                   / player
-                  <span v-if="state.notes"> · {{ state.notes }}</span>
+                  <span v-if="state.description"> · {{ state.description }}</span>
                 </p>
               </div>
+
+              <UFormField label="Title" name="title">
+                <UInput
+                  v-model="state.title"
+                  placeholder="e.g. Friday Night Doubles"
+                  class="w-full"
+                />
+              </UFormField>
 
               <UFormField label="Court" name="courtId">
                 <USelect
@@ -553,6 +571,7 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                   <AppDatePicker
                     v-model="dateObj"
                     variant="nav"
+                    display="field"
                     :allow-past="false"
                     :label="
                       dateObj.toLocaleDateString('en-PH', {
@@ -599,12 +618,12 @@ function formatSessionTime(nextSession: OpenPlaySession | null): string {
                 </UFormField>
               </div>
 
-              <UFormField label="Notes (optional)" name="notes">
+              <UFormField label="Description (optional)" name="description">
                 <UTextarea
-                  v-model="state.notes"
+                  v-model="state.description"
                   :rows="3"
                   :maxlength="500"
-                  placeholder="e.g. Bring your own racket"
+                  placeholder="e.g. Bring your own racket and shuttlecocks"
                   class="w-full"
                 />
               </UFormField>

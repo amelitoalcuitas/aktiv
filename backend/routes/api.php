@@ -160,6 +160,7 @@ Route::middleware(['auth:sanctum', 'owner'])->group(function (): void {
     Route::get('/dashboard/hubs/{hub}/bookings/verify/{code}', [OwnerBookingController::class, 'verifyByCode'])->name('api.dashboard.hubs.bookings.verify');
 
     // Owner open play management
+    Route::get('/dashboard/hubs/{hub}/open-play', [OwnerOpenPlayController::class, 'index'])->name('api.dashboard.hubs.open-play.index');
     Route::post('/dashboard/hubs/{hub}/open-play', [OwnerOpenPlayController::class, 'store'])->name('api.dashboard.hubs.open-play.store');
     Route::get('/dashboard/hubs/{hub}/open-play/{session}', [OwnerOpenPlayController::class, 'show'])->name('api.dashboard.hubs.open-play.show');
     Route::put('/dashboard/hubs/{hub}/open-play/{session}', [OwnerOpenPlayController::class, 'update'])->name('api.dashboard.hubs.open-play.update');

@@ -27,6 +27,11 @@ const manageTabs = computed(() => [
     to: `/dashboard/hubs/${hubId.value}/bookings`
   },
   {
+    label: 'Open Play',
+    icon: 'i-heroicons-user-group',
+    to: `/dashboard/hubs/${hubId.value}/open-play`
+  },
+  {
     label: 'Events',
     icon: 'i-heroicons-megaphone',
     to: `/dashboard/hubs/${hubId.value}/events`

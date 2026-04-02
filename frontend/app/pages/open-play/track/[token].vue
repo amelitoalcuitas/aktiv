@@ -237,7 +237,7 @@ const statusLabel = computed(() => {
             <div class="flex items-center justify-between">
               <div>
                 <p class="font-semibold text-[#0f1728]">
-                  {{ participant.sport }}
+                  {{ participant.title }}
                 </p>
                 <p class="text-sm text-[#64748b]">
                   {{ participant.court.name }} · {{ formatDate(participant.start_time) }}
@@ -287,10 +287,10 @@ const statusLabel = computed(() => {
                       }}
                     </td>
                   </tr>
-                  <tr v-if="participant.notes">
-                    <td class="py-1 text-[#64748b]">Notes</td>
+                  <tr v-if="participant.description ?? participant.notes">
+                    <td class="py-1 text-[#64748b]">Description</td>
                     <td class="py-1 text-right font-medium text-[#0f1728]">
-                      {{ participant.notes }}
+                      {{ participant.description ?? participant.notes }}
                     </td>
                   </tr>
                 </tbody>

@@ -41,6 +41,11 @@ const manageTabs = computed(() => [
     to: `/dashboard/hubs/${hubId.value}/bookings`
   },
   {
+    label: 'Open Play',
+    icon: 'i-heroicons-user-group',
+    to: `/dashboard/hubs/${hubId.value}/open-play`
+  },
+  {
     label: 'Events',
     icon: 'i-heroicons-megaphone',
     to: `/dashboard/hubs/${hubId.value}/events`
@@ -401,14 +406,6 @@ function onWalkInCreated(booking: BookingDetail) {
   allBookings.value.unshift(booking);
 }
 
-function onOpenPlayCreated(session: OpenPlaySession) {
-  upsertOpenPlaySession(session);
-  // The booking embedded in the session response has the same shape as BookingDetail
-  if (session.booking) {
-    allBookings.value.unshift(session.booking as unknown as BookingDetail);
-  }
-}
-
 // ── Owner open play modal ─────────────────────────────────────
 const isOpenPlayModalOpen = ref(false);
 const selectedOpenPlaySessionId = ref<string | null>(null);
@@ -639,7 +636,8 @@ function bookingDropdownItems(booking: BookingDetail) {
         <div>
           <h1 class="text-2xl font-bold text-[#0f1728]">Bookings</h1>
           <p class="mt-1 text-sm text-[#64748b]">
-            Manage court bookings and walk-in reservations.
+            Manage court bookings and walk-in reservations. Open play sessions
+            are created from the Open Play tab.
           </p>
         </div>
         <UFieldGroup>
@@ -740,7 +738,7 @@ function bookingDropdownItems(booking: BookingDetail) {
           class="bg-[#004e89] font-semibold hover:bg-[#003d6b]"
           @click="() => openWalkIn()"
         >
-          Add Booking
+          Add Walk-in
         </UButton>
       </div>
 
@@ -983,8 +981,8 @@ function bookingDropdownItems(booking: BookingDetail) {
       :initial-hour="calendarSlot?.hour"
       :initial-court-id="calendarSlot?.courtId"
       :operating-hours="hubData?.operating_hours ?? []"
+      mode="walkin"
       @created="onWalkInCreated"
-      @openplay:created="onOpenPlayCreated"
     />
 
     <OpenPlayOwnerModal

@@ -26,6 +26,30 @@ class OwnerOpenPlayController extends Controller
         private OpenPlayNotificationService $openPlayNotifications,
     ) {}
 
+    public function index(Hub $hub, Request $request): JsonResponse
+    {
+        abort_if($hub->owner_id !== $request->user()->id, 403);
+
+        $courtIds = $hub->courts()->pluck('id');
+
+        $sessions = OpenPlaySession::query()
+            ->whereHas('booking', fn ($query) => $query->whereIn('court_id', $courtIds))
+            ->with(['booking.court'])
+            ->withCount([
+                'participants as participants_count' => fn ($query) => $query
+                    ->whereIn('payment_status', OpenPlaySession::reservedParticipantStatuses()),
+                'participants as confirmed_participants_count' => fn ($query) => $query
+                    ->where('payment_status', 'confirmed'),
+            ])
+            ->get()
+            ->sortByDesc(fn (OpenPlaySession $session) => $session->booking?->start_time?->getTimestamp() ?? 0)
+            ->values();
+
+        return response()->json([
+            'data' => OpenPlaySessionResource::collection($sessions),
+        ]);
+    }
+
     public function store(Hub $hub, StoreOpenPlaySessionRequest $request): JsonResponse
     {
         abort_if($hub->owner_id !== $request->user()->id, 403);
@@ -71,10 +95,11 @@ class OwnerOpenPlayController extends Controller
             ]);
 
             return OpenPlaySession::create([
+                'title'            => $request->title,
                 'booking_id'       => $booking->id,
                 'max_players'      => $request->max_players,
                 'price_per_player' => $request->price_per_player,
-                'notes'            => $request->notes,
+                'notes'            => $request->description,
                 'guests_can_join'  => $request->boolean('guests_can_join', false),
                 'status'           => 'open',
             ]);
@@ -160,9 +185,10 @@ class OwnerOpenPlayController extends Controller
             ]);
 
             $session->update([
+                'title'            => $request->title,
                 'max_players'      => $request->max_players,
                 'price_per_player' => $request->price_per_player,
-                'notes'            => $request->notes,
+                'notes'            => $request->description,
                 'guests_can_join'  => $request->boolean('guests_can_join', false),
             ]);
 

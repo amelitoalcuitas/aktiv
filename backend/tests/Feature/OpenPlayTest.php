@@ -64,6 +64,7 @@ function makeOpenPlaySession(Court $court, array $overrides = []): OpenPlaySessi
 
     return OpenPlaySession::create(array_merge([
         'booking_id'       => $booking->id,
+        'title'            => 'Open Play',
         'sport'            => 'badminton',
         'max_players'      => 8,
         'price_per_player' => 150.00,
@@ -84,6 +85,7 @@ it('owner can create an open play session', function () {
 
     $this->actingAs($owner)
         ->postJson("/api/dashboard/hubs/{$hub->id}/open-play", [
+            'title'            => 'Friday Night Doubles',
             'court_id'         => $court->id,
             'start_time'       => $start,
             'end_time'         => $end,
@@ -92,6 +94,7 @@ it('owner can create an open play session', function () {
             'guests_can_join'  => false,
         ])
         ->assertCreated()
+        ->assertJsonPath('data.title', 'Friday Night Doubles')
         ->assertJsonPath('data.status', 'open')
         ->assertJsonMissingPath('data.sport');
 
@@ -107,6 +110,7 @@ it('owner cannot create a session on another hub\'s court', function () {
 
     $this->actingAs($owner)
         ->postJson("/api/dashboard/hubs/{$hub->id}/open-play", [
+            'title'            => 'Blocked Session',
             'court_id'         => $otherCourt->id,
             'start_time'       => now()->addDay()->setHour(10)->toIso8601String(),
             'end_time'         => now()->addDay()->setHour(12)->toIso8601String(),
@@ -114,6 +118,50 @@ it('owner cannot create a session on another hub\'s court', function () {
             'price_per_player' => 150,
         ])
         ->assertUnprocessable();
+});
+
+it('owner can fetch hub open play sessions for dashboard management', function () {
+    $owner = makeOwner();
+    $hub = makeOwnerHub($owner);
+    $court = makeHubCourt($hub);
+    $session = makeOpenPlaySession($court);
+
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'confirmed',
+        'joined_at' => now(),
+    ]);
+    OpenPlayParticipant::create([
+        'open_play_session_id' => $session->id,
+        'payment_method' => 'pay_on_site',
+        'payment_status' => 'cancelled',
+        'joined_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->getJson("/api/dashboard/hubs/{$hub->id}/open-play")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.id', $session->id)
+        ->assertJsonPath('data.0.title', 'Open Play')
+        ->assertJsonPath('data.0.booking.court.id', $court->id)
+        ->assertJsonPath('data.0.participants_count', 1)
+        ->assertJsonPath('data.0.confirmed_participants_count', 1)
+        ->assertJsonMissingPath('data.0.sport');
+});
+
+it('owner cannot fetch another owner\'s open play sessions', function () {
+    $owner = makeOwner();
+    $otherOwner = makeOwner();
+    $hub = makeOwnerHub($otherOwner);
+    $court = makeHubCourt($hub);
+
+    makeOpenPlaySession($court);
+
+    $this->actingAs($owner)
+        ->getJson("/api/dashboard/hubs/{$hub->id}/open-play")
+        ->assertForbidden();
 });
 
 it('owner can fetch a single open play session', function () {
@@ -139,6 +187,7 @@ it('owner can fetch a single open play session', function () {
         ->getJson("/api/dashboard/hubs/{$hub->id}/open-play/{$session->id}")
         ->assertOk()
         ->assertJsonPath('data.id', $session->id)
+        ->assertJsonPath('data.title', 'Open Play')
         ->assertJsonPath('data.booking_id', $session->booking_id)
         ->assertJsonPath('data.booking.court.id', $court->id)
         ->assertJsonPath('data.participants_count', 1)
@@ -157,15 +206,18 @@ it('owner can update open play session metadata', function () {
 
     $this->actingAs($owner)
         ->putJson("/api/dashboard/hubs/{$hub->id}/open-play/{$session->id}", [
+            'title' => 'Beginner Badminton Night',
             'court_id' => $court->id,
             'start_time' => $start->toIso8601String(),
             'end_time' => $end->toIso8601String(),
             'max_players' => 10,
             'price_per_player' => 200,
-            'notes' => 'Bring water.',
+            'description' => 'Bring water.',
             'guests_can_join' => true,
         ])
         ->assertOk()
+        ->assertJsonPath('data.title', 'Beginner Badminton Night')
+        ->assertJsonPath('data.description', 'Bring water.')
         ->assertJsonPath('data.max_players', 10)
         ->assertJsonPath('data.price_per_player', '200.00')
         ->assertJsonPath('data.notes', 'Bring water.')
@@ -176,6 +228,7 @@ it('owner can update open play session metadata', function () {
 
     expect($session->fresh()->max_players)->toBe(10);
     expect($session->fresh()->price_per_player)->toBe('200.00');
+    expect($session->fresh()->title)->toBe('Beginner Badminton Night');
 });
 
 it('owner can move an open play session to another available slot and court', function () {
@@ -193,12 +246,13 @@ it('owner can move an open play session to another available slot and court', fu
 
     $this->actingAs($owner)
         ->putJson("/api/dashboard/hubs/{$hub->id}/open-play/{$session->id}", [
+            'title' => 'Moved Session',
             'court_id' => $targetCourt->id,
             'start_time' => $start->toIso8601String(),
             'end_time' => $end->toIso8601String(),
             'max_players' => 8,
             'price_per_player' => 150,
-            'notes' => null,
+            'description' => null,
             'guests_can_join' => false,
         ])
         ->assertOk()
@@ -230,12 +284,13 @@ it('owner cannot update a session to a conflicting slot', function () {
 
     $this->actingAs($owner)
         ->putJson("/api/dashboard/hubs/{$hub->id}/open-play/{$session->id}", [
+            'title' => 'Conflict Session',
             'court_id' => $court->id,
             'start_time' => $start->toIso8601String(),
             'end_time' => $end->toIso8601String(),
             'max_players' => 8,
             'price_per_player' => 150,
-            'notes' => null,
+            'description' => null,
             'guests_can_join' => false,
         ])
         ->assertStatus(409);
@@ -265,12 +320,13 @@ it('owner cannot update a session into a closure event', function () {
 
     $this->actingAs($owner)
         ->putJson("/api/dashboard/hubs/{$hub->id}/open-play/{$session->id}", [
+            'title' => 'Maintenance Conflict',
             'court_id' => $court->id,
             'start_time' => $start->toIso8601String(),
             'end_time' => $end->toIso8601String(),
             'max_players' => 8,
             'price_per_player' => 150,
-            'notes' => null,
+            'description' => null,
             'guests_can_join' => false,
         ])
         ->assertUnprocessable()
@@ -299,12 +355,13 @@ it('owner cannot reduce max players below active reserved participants', functio
 
     $this->actingAs($owner)
         ->putJson("/api/dashboard/hubs/{$hub->id}/open-play/{$session->id}", [
+            'title' => 'Too Small Session',
             'court_id' => $court->id,
             'start_time' => $session->booking->start_time->toIso8601String(),
             'end_time' => $session->booking->end_time->toIso8601String(),
             'max_players' => 1,
             'price_per_player' => 150,
-            'notes' => null,
+            'description' => null,
             'guests_can_join' => false,
         ])
         ->assertUnprocessable()
@@ -333,6 +390,7 @@ it('owner cannot create a session on a conflicting slot', function () {
 
     $this->actingAs($owner)
         ->postJson("/api/dashboard/hubs/{$hub->id}/open-play", [
+            'title'            => 'Conflicting New Session',
             'court_id'         => $court->id,
             'start_time'       => $start->toIso8601String(),
             'end_time'         => $end->toIso8601String(),
@@ -350,6 +408,7 @@ it('non-owner cannot create a session', function () {
 
     $this->actingAs($player)
         ->postJson("/api/dashboard/hubs/{$hub->id}/open-play", [
+            'title'            => 'Unauthorized Session',
             'court_id'         => $court->id,
             'start_time'       => now()->addDay()->setHour(10)->toIso8601String(),
             'end_time'         => now()->addDay()->setHour(12)->toIso8601String(),

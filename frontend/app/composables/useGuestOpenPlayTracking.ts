@@ -22,6 +22,8 @@ export interface GuestOpenPlayTrackingParticipant {
   expires_at: string | null;
   cancelled_by: CancelledBy | null;
   joined_at: string | null;
+  title: string;
+  description: string | null;
   notes: string | null;
   sport: string;
   start_time: string;

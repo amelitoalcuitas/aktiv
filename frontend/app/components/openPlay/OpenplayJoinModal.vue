@@ -338,7 +338,7 @@ function goBack() {
           <div class="flex items-start justify-between gap-3">
             <div>
               <h3 class="text-base font-bold text-[var(--aktiv-ink)]">
-                Open Play
+                {{ session.title }}
               </h3>
               <p class="mt-1 text-sm text-[var(--aktiv-muted)]">
                 {{ session.booking?.court?.name ?? 'Court' }} ·
@@ -375,8 +375,11 @@ function goBack() {
             </span>
           </div>
 
-          <p v-if="session.notes" class="mt-3 text-sm text-[var(--aktiv-ink)]">
-            {{ session.notes }}
+          <p
+            v-if="session.description ?? session.notes"
+            class="mt-3 text-sm text-[var(--aktiv-ink)]"
+          >
+            {{ session.description ?? session.notes }}
           </p>
           <p class="mt-3 text-sm text-[var(--aktiv-muted)]">
             {{ sessionPresentation?.helperText }}

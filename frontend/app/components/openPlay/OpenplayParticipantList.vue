@@ -256,12 +256,15 @@ function formatSessionTime(session: OpenPlaySession): string {
       <!-- Session summary -->
       <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
+          <p class="font-semibold text-[#0f1728]">{{ session.title }}</p>
           <p class="text-sm text-[#64748b]">
             {{ session.booking?.court?.name }} · {{ formatSessionTime(session) }}
           </p>
           <p class="mt-1 text-sm text-[#64748b]">
             ₱{{ session.price_per_player }} / player
-            <span v-if="session.notes"> · {{ session.notes }}</span>
+            <span v-if="session.description ?? session.notes">
+              · {{ session.description ?? session.notes }}
+            </span>
           </p>
         </div>
         <div class="flex items-center gap-3">

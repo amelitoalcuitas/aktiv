@@ -95,12 +95,15 @@ const gridMaxTime = computed(() => {
 // ── Courts ─────────────────────────────────────────────────
 const hubCourts = ref<Court[]>([]);
 const courtsLoaded = ref(false);
+const courtsLoadFailed = ref(false);
 
 async function loadCourts() {
   try {
+    courtsLoadFailed.value = false;
     hubCourts.value = await fetchCourts(hubId.value);
   } catch {
-    hubCourts.value = [];
+    courtsLoadFailed.value = true;
+    toast.add({ title: 'Failed to load courts', color: 'error' });
   } finally {
     courtsLoaded.value = true;
   }
@@ -743,7 +746,7 @@ function bookingDropdownItems(booking: BookingDetail) {
 
       <!-- No courts empty state -->
       <div
-        v-if="courtsLoaded && !hubCourts.length"
+        v-if="courtsLoaded && !courtsLoadFailed && !hubCourts.length"
         class="flex flex-col items-center gap-4 rounded-xl border border-dashed border-[var(--aktiv-border)] bg-white px-6 py-16 text-center"
       >
         <UIcon

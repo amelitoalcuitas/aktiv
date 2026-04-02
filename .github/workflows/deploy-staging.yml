@@ -48,6 +48,7 @@ jobs:
             git fetch origin
             git checkout staging || git checkout -b staging
             git reset --hard origin/staging
+            git clean -fd frontend/.nuxt frontend/.output frontend/node_modules frontend/.pnpm-store
 
             # Load staging secrets for compose build args
             export $(grep -v '^#' /home/deploy/aktiv/.env.staging | xargs)
@@ -55,7 +56,8 @@ jobs:
             # Rebuild containers cleanly
             # Note: composer install & dump-autoload are already handled in the Dockerfile
             docker compose -f docker-compose.yml -f docker-compose.staging.yml down
-            docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build
+            docker compose -f docker-compose.yml -f docker-compose.staging.yml build --no-cache frontend
+            docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d --build --force-recreate
 
             # Laravel setup
             docker compose -f docker-compose.yml -f docker-compose.staging.yml exec -T backend php artisan migrate --force

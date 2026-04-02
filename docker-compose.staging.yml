@@ -2,7 +2,7 @@
 services:
   # ─── Nginx ───────────────────────────────────────────────────────────────
   nginx:
-    ports:
+    ports: !reset
       - "8089:80"
 
   # ─── Frontend ─────────────────────────────────────────────────────────────
@@ -21,8 +21,8 @@ services:
         NUXT_PUBLIC_GOOGLE_MAPS_KEY: ${NUXT_PUBLIC_GOOGLE_MAPS_KEY}
         NUXT_CLARITY_ID: ${NUXT_CLARITY_ID}
     user: "0:0"
-    volumes: []
-    environment: {}
+    volumes: !reset []
+    environment: !reset {}
     command: node .output/server/index.mjs
     restart: unless-stopped
 

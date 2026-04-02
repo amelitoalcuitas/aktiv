@@ -26,8 +26,11 @@ const MONTHS = [
   'December'
 ];
 
+function dateOnlyValue(date: Date): number {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 const today = new Date();
-today.setHours(0, 0, 0, 0);
 
 const viewYear = ref(props.modelValue.getFullYear());
 const viewMonth = ref(props.modelValue.getMonth());
@@ -42,11 +45,7 @@ interface DayCell {
 }
 
 function sameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
+  return dateOnlyValue(a) === dateOnlyValue(b);
 }
 
 const cells = computed<DayCell[]>(() => {
@@ -55,18 +54,16 @@ const cells = computed<DayCell[]>(() => {
   const offset = dow === 0 ? 6 : dow - 1; // shift to Monday-anchor
 
   const selected = new Date(props.modelValue);
-  selected.setHours(0, 0, 0, 0);
 
   return Array.from({ length: 42 }, (_, i) => {
     const d = new Date(viewYear.value, viewMonth.value, 1 - offset + i);
-    d.setHours(0, 0, 0, 0);
     return {
       date: d,
       day: d.getDate(),
       isCurrentMonth: d.getMonth() === viewMonth.value,
       isToday: sameDay(d, today),
       isSelected: sameDay(d, selected),
-      isPast: d < today
+      isPast: dateOnlyValue(d) < dateOnlyValue(today)
     };
   });
 });

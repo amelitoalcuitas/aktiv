@@ -179,20 +179,25 @@ function participantDropdownItems(p: OpenPlayParticipant) {
   }[][] = [];
 
   if (p.payment_status === 'payment_sent' || p.payment_status === 'pending_payment') {
-    groups.push([
+    const actions = [
       {
         label: p.payment_status === 'payment_sent' ? 'Confirm Payment' : 'Confirm Booking',
         icon: 'i-heroicons-check-circle',
         loading: confirmingId.value === p.id,
         onSelect: () => handleConfirm(p)
-      },
-      {
+      }
+    ];
+
+    if (p.payment_status === 'payment_sent' || p.payment_method !== 'pay_on_site') {
+      actions.push({
         label: p.payment_status === 'payment_sent' ? 'Reject Receipt' : 'Reject',
         icon: 'i-heroicons-x-circle',
         color: 'error' as const,
         onSelect: () => openReject(p)
-      }
-    ]);
+      });
+    }
+
+    groups.push(actions);
   }
 
   if (p.payment_status !== 'cancelled') {
@@ -219,26 +224,22 @@ const activeParticipantsCount = computed(
 
 function formatSessionTime(session: OpenPlaySession): string {
   if (!session.booking) return '';
-  const s = new Date(session.booking.start_time);
-  const e = new Date(session.booking.end_time);
-  const date = s.toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  const timezone = session.booking.hub_timezone ?? session.booking.court?.hub_timezone;
+  const date = formatInHubTimezone(session.booking.start_time, {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  });
-  const start = s.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone);
+  const start = formatInHubTimezone(session.booking.start_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
-  const end = e.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone);
+  const end = formatInHubTimezone(session.booking.end_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
+  }, 'en-PH', timezone);
   return `${date} · ${start} – ${end}`;
 }
 </script>
@@ -256,12 +257,15 @@ function formatSessionTime(session: OpenPlaySession): string {
       <!-- Session summary -->
       <div class="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
+          <p class="font-semibold text-[#0f1728]">{{ session.title }}</p>
           <p class="text-sm text-[#64748b]">
             {{ session.booking?.court?.name }} · {{ formatSessionTime(session) }}
           </p>
           <p class="mt-1 text-sm text-[#64748b]">
             ₱{{ session.price_per_player }} / player
-            <span v-if="session.notes"> · {{ session.notes }}</span>
+            <span v-if="session.description ?? session.notes">
+              · {{ session.description ?? session.notes }}
+            </span>
           </p>
         </div>
         <div class="flex items-center gap-3">
@@ -300,9 +304,8 @@ function formatSessionTime(session: OpenPlaySession): string {
           <thead class="bg-[#f8fafc] text-xs font-medium uppercase text-[#64748b]">
             <tr>
               <th class="px-4 py-2.5 text-left">Name</th>
-              <th class="px-4 py-2.5 text-left">Type</th>
-              <th class="px-4 py-2.5 text-left">Payment</th>
               <th class="px-4 py-2.5 text-left">Status</th>
+              <th class="px-4 py-2.5 text-left">Payment</th>
               <th class="px-4 py-2.5 text-left">Receipt</th>
               <th class="px-4 py-2.5" />
             </tr>
@@ -314,16 +317,6 @@ function formatSessionTime(session: OpenPlaySession): string {
                 <span v-if="p.guest_email" class="block text-xs font-normal text-[#64748b]">
                   {{ p.guest_email }}
                 </span>
-              </td>
-              <td class="px-4 py-3">
-                <UBadge
-                  :label="p.user_id ? 'Registered' : 'Guest'"
-                  :color="p.user_id ? 'primary' : 'neutral'"
-                  variant="subtle"
-                />
-              </td>
-              <td class="px-4 py-3 text-[#64748b]">
-                {{ p.payment_method === 'pay_on_site' ? 'Pay on Site' : 'Digital Bank' }}
               </td>
               <td class="px-4 py-3">
                 <div class="space-y-1">
@@ -339,6 +332,9 @@ function formatSessionTime(session: OpenPlaySession): string {
                     {{ p.payment_note }}
                   </p>
                 </div>
+              </td>
+              <td class="px-4 py-3 text-[#64748b]">
+                {{ p.payment_method === 'pay_on_site' ? 'Pay on Site' : 'Digital Bank' }}
               </td>
               <td class="px-4 py-3">
                 <a

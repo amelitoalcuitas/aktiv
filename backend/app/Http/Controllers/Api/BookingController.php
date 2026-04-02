@@ -13,6 +13,7 @@ use App\Models\Hub;
 use App\Services\BookingNotificationService;
 use App\Services\HubEventDiscountService;
 use App\Services\ImageUploadService;
+use App\Support\HubTimezone;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,14 +39,16 @@ class BookingController extends Controller
         $query = Booking::whereIn('court_id', $courtIds)
             ->whereNotIn('status', ['cancelled']);
 
+        $timezone = $hub->timezone_name;
+
         if ($request->filled('date_from')) {
-            $query->where('end_time', '>=', Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay()->utc());
+            $query->where('end_time', '>=', HubTimezone::startOfDayUtc($request->date_from, $timezone));
         } else {
-            $query->where('end_time', '>=', now('Asia/Manila')->startOfDay()->utc());
+            $query->where('end_time', '>=', HubTimezone::todayStartUtc($timezone));
         }
 
         if ($request->filled('date_to')) {
-            $query->where('start_time', '<=', Carbon::parse($request->date_to, 'Asia/Manila')->endOfDay()->utc());
+            $query->where('start_time', '<=', HubTimezone::endOfDayUtc($request->date_to, $timezone));
         }
 
         $bookings = $query->orderBy('start_time')->get();
@@ -76,7 +79,7 @@ class BookingController extends Controller
 
         $bookings = Booking::where('court_id', $court->id)
             ->whereNotIn('status', ['cancelled'])
-            ->where('end_time', '>=', now('Asia/Manila')->startOfDay()->utc())
+            ->where('end_time', '>=', HubTimezone::todayStartUtc($hub->timezone_name))
             ->orderBy('start_time')
             ->get();
 
@@ -189,6 +192,7 @@ class BookingController extends Controller
                 'sport' => $booking->sport,
                 'start_time' => $booking->start_time->toIso8601String(),
                 'end_time' => $booking->end_time->toIso8601String(),
+                'hub_timezone' => $hub->timezone_name,
                 'session_type' => $booking->session_type,
                 'status' => $booking->status,
                 'booking_source' => $booking->booking_source,

@@ -108,14 +108,20 @@ const drawerUi = computed(() => {
 
     <template v-if="slots.footer || confirm" #footer>
       <slot name="footer">
-        <div class="flex justify-end gap-2 w-full">
-          <UButton color="neutral" :variant="cancelVariant" @click="onCancel">
+        <div class="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+          <UButton
+            color="neutral"
+            :variant="cancelVariant"
+            class="w-full justify-center sm:w-auto"
+            @click="onCancel"
+          >
             {{ cancel }}
           </UButton>
           <UButton
             :color="confirmColor"
             :loading="confirmLoading"
             :disabled="confirmDisabled"
+            class="w-full justify-center sm:w-auto"
             @click="emit('confirm')"
           >
             {{ confirm }}

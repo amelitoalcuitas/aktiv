@@ -6,6 +6,7 @@ use App\Models\Court;
 use App\Models\Hub;
 use App\Models\HubEvent;
 use App\Models\User;
+use App\Support\HubTimezone;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -227,7 +228,7 @@ class HubEventDiscountService
             ->where('is_active', true)
             ->where(fn ($q) => $q->whereNotNull('discount_type')->orWhereNotNull('court_discounts'))
             ->get()
-            ->first(fn (HubEvent $event) => $this->matchesEventWindow($event, $court, $startTime, $endTime));
+            ->first(fn (HubEvent $event) => $this->matchesEventWindow($hub, $event, $court, $startTime, $endTime));
     }
 
     private function findVoucherEvent(
@@ -262,21 +263,22 @@ class HubEventDiscountService
             ->where('event_type', $eventType)
             ->where('is_active', true)
             ->get()
-            ->first(fn (HubEvent $event) => $this->matchesEventWindow($event, $court, $startTime, $endTime));
+            ->first(fn (HubEvent $event) => $this->matchesEventWindow($hub, $event, $court, $startTime, $endTime));
     }
 
-    private function matchesEventWindow(HubEvent $event, Court $court, Carbon $startTime, Carbon $endTime): bool
+    private function matchesEventWindow(Hub $hub, HubEvent $event, Court $court, Carbon $startTime, Carbon $endTime): bool
     {
-        $bookingStart = $startTime->copy()->setTimezone('Asia/Manila')->startOfDay();
-        $bookingEnd = $endTime->copy()->setTimezone('Asia/Manila')->endOfDay();
+        $timezone = $hub->timezone_name;
+        $bookingStart = $startTime->copy()->setTimezone($timezone)->startOfDay();
+        $bookingEnd = $endTime->copy()->setTimezone($timezone)->endOfDay();
 
         if ($event->date_from->gt($bookingEnd) || $event->date_to->lt($bookingStart)) {
             return false;
         }
 
         if ($event->time_from && $event->time_to) {
-            $slotStart = $startTime->copy()->setTimezone('Asia/Manila')->format('H:i');
-            $slotEnd = $endTime->copy()->setTimezone('Asia/Manila')->format('H:i');
+            $slotStart = $startTime->copy()->setTimezone($timezone)->format('H:i');
+            $slotEnd = $endTime->copy()->setTimezone($timezone)->format('H:i');
 
             if (! ($slotStart < substr($event->time_to, 0, 5) && $slotEnd > substr($event->time_from, 0, 5))) {
                 return false;

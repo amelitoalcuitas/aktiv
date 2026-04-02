@@ -68,20 +68,18 @@ function statusLabel(status?: BookingStatus): string {
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInHubTimezone(iso, {
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  });
+  }, 'en-PH', props.booking?.hub_timezone);
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInHubTimezone(iso, {
     hour: 'numeric',
     minute: '2-digit'
-  });
+  }, 'en-PH', props.booking?.hub_timezone);
 }
 </script>
 

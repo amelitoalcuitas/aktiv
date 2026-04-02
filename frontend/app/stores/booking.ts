@@ -14,8 +14,10 @@ export const useUserBookingStore = defineStore('userBooking', () => {
       fetchMyBookings({ page: 1 }),
       fetchMyBookings({ status: 'pending_payment', page: 1 }),
     ]);
-    recentBookings.value = recent.data.slice(0, 5);
-    pendingCount.value = pending.meta.total;
+    recentBookings.value = Array.isArray(recent?.data)
+      ? recent.data.slice(0, 5)
+      : [];
+    pendingCount.value = pending?.meta?.total ?? 0;
   }
 
   async function refresh() {

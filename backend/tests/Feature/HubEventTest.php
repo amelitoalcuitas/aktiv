@@ -34,6 +34,39 @@ it('lists events for own hub', function () {
         ->assertJsonCount(3, 'data');
 });
 
+it('filters events by overlapping date range', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+
+    HubEvent::factory()->create([
+        'hub_id' => $hub->id,
+        'title' => 'Previous month event',
+        'date_from' => '2026-03-29',
+        'date_to' => '2026-03-31',
+    ]);
+
+    HubEvent::factory()->create([
+        'hub_id' => $hub->id,
+        'title' => 'Visible month event',
+        'date_from' => '2026-04-02',
+        'date_to' => '2026-04-05',
+    ]);
+
+    HubEvent::factory()->create([
+        'hub_id' => $hub->id,
+        'title' => 'Crosses into visible month',
+        'date_from' => '2026-03-31',
+        'date_to' => '2026-04-02',
+    ]);
+
+    $this->actingAs($owner)
+        ->getJson("/api/dashboard/hubs/{$hub->id}/events?date_from=2026-04-01&date_to=2026-04-30")
+        ->assertOk()
+        ->assertJsonCount(2, 'data')
+        ->assertJsonFragment(['title' => 'Visible month event'])
+        ->assertJsonFragment(['title' => 'Crosses into visible month'])
+        ->assertJsonMissing(['title' => 'Previous month event']);
+});
+
 it('rejects non-owner from listing events', function () {
     [, $hub] = makeOwnerWithHub();
     $other   = makeOtherOwner();
@@ -41,6 +74,40 @@ it('rejects non-owner from listing events', function () {
     $this->actingAs($other)
         ->getJson("/api/dashboard/hubs/{$hub->id}/events")
         ->assertForbidden();
+});
+
+it('shows a single event for own hub', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+    $event = HubEvent::factory()->create([
+        'hub_id' => $hub->id,
+        'title' => 'Featured Event',
+    ]);
+
+    $this->actingAs($owner)
+        ->getJson("/api/dashboard/hubs/{$hub->id}/events/{$event->id}")
+        ->assertOk()
+        ->assertJsonPath('data.id', $event->id)
+        ->assertJsonPath('data.title', 'Featured Event');
+});
+
+it('rejects non-owner from viewing a single event', function () {
+    [, $hub] = makeOwnerWithHub();
+    $event = HubEvent::factory()->create(['hub_id' => $hub->id]);
+    $other = makeOtherOwner();
+
+    $this->actingAs($other)
+        ->getJson("/api/dashboard/hubs/{$hub->id}/events/{$event->id}")
+        ->assertForbidden();
+});
+
+it('returns not found when viewing an event from another hub', function () {
+    [$owner, $hub] = makeOwnerWithHub();
+    [, $otherHub] = makeOwnerWithHub();
+    $event = HubEvent::factory()->create(['hub_id' => $otherHub->id]);
+
+    $this->actingAs($owner)
+        ->getJson("/api/dashboard/hubs/{$hub->id}/events/{$event->id}")
+        ->assertNotFound();
 });
 
 // ── CRUD — Store ─────────────────────────────────────────────────

@@ -65,22 +65,20 @@ async function downloadQr() {
 }
 
 function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString('en-PH', {
+  return formatInHubTimezone(iso, {
     hour: '2-digit',
     minute: '2-digit',
-    hour12: true,
-    timeZone: 'Asia/Manila'
-  });
+    hour12: true
+  }, 'en-PH', props.booking?.hub_timezone);
 }
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-PH', {
+  return formatInHubTimezone(iso, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
-    timeZone: 'Asia/Manila'
-  });
+    year: 'numeric'
+  }, 'en-PH', props.booking?.hub_timezone);
 }
 </script>
 

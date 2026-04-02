@@ -27,14 +27,14 @@
             </tr>
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Date</td>
-                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->isoFormat('ddd, MMM D, YYYY') }}</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ \Carbon\Carbon::parse($booking->start_time)->timezone($booking->court->hub->timezone_name)->isoFormat('ddd, MMM D, YYYY') }}</td>
             </tr>
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Time</td>
                 <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">
-                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ \Carbon\Carbon::parse($booking->start_time)->timezone($booking->court->hub->timezone_name)->format('g:i A') }}
                     –
-                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone('Asia/Manila')->format('g:i A') }}
+                    {{ \Carbon\Carbon::parse($booking->end_time)->timezone($booking->court->hub->timezone_name)->format('g:i A') }}
                 </td>
             </tr>
             <tr>
@@ -44,7 +44,7 @@
             @if ($participant->expires_at)
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Payment deadline</td>
-                <td style="padding:4px 0; text-align:right; font-weight:500; color:#dc2626;">{{ \Carbon\Carbon::parse($participant->expires_at)->timezone('Asia/Manila')->format('M j, g:i A') }}</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#dc2626;">{{ \Carbon\Carbon::parse($participant->expires_at)->timezone($booking->court->hub->timezone_name)->format('M j, g:i A') }}</td>
             </tr>
             @endif
         </table>

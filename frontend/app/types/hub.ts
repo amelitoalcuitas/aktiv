@@ -56,6 +56,7 @@ export interface Hub {
   landmark: string | null;
   lat: string | null;
   lng: string | null;
+  timezone: string;
   cover_image_url: string | null;
   gallery_images: { id: string; url: string; order: number }[];
   is_active: boolean;

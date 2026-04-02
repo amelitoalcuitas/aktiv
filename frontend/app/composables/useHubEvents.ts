@@ -29,8 +29,14 @@ interface StoreEventPayload {
 export function useHubEvents() {
   const { apiFetch } = useApi();
 
-  async function fetchEvents(hubId: string): Promise<HubEvent[]> {
-    const res = await apiFetch<{ data: HubEvent[] }>(`/dashboard/hubs/${hubId}/events`);
+  async function fetchEvents(
+    hubId: string,
+    params?: { date_from?: string; date_to?: string }
+  ): Promise<HubEvent[]> {
+    const res = await apiFetch<{ data: HubEvent[] }>(
+      `/dashboard/hubs/${hubId}/events`,
+      { query: params }
+    );
     return res.data;
   }
 
@@ -39,6 +45,13 @@ export function useHubEvents() {
       method: 'POST',
       body: payload,
     });
+    return res.data;
+  }
+
+  async function fetchEvent(hubId: string, eventId: string): Promise<HubEvent> {
+    const res = await apiFetch<{ data: HubEvent }>(
+      `/dashboard/hubs/${hubId}/events/${eventId}`
+    );
     return res.data;
   }
 
@@ -61,5 +74,5 @@ export function useHubEvents() {
     return res.data;
   }
 
-  return { fetchEvents, createEvent, updateEvent, deleteEvent, toggleEvent };
+  return { fetchEvents, fetchEvent, createEvent, updateEvent, deleteEvent, toggleEvent };
 }

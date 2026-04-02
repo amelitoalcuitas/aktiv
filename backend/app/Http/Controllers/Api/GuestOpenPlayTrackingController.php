@@ -149,6 +149,8 @@ class GuestOpenPlayTrackingController extends Controller
             'expires_at'           => $participant->expires_at?->toIso8601String(),
             'cancelled_by'         => $participant->cancelled_by,
             'joined_at'            => $participant->joined_at?->toIso8601String(),
+            'title'                => $session->title,
+            'description'          => $session->notes,
             'notes'                => $session->notes,
             'sport'                => $session->sport ?? $booking->sport ?? 'Open Play',
             'start_time'           => $booking->start_time->toIso8601String(),
@@ -161,6 +163,7 @@ class GuestOpenPlayTrackingController extends Controller
                 'id'       => $hub->id,
                 'username' => $hub->username,
                 'name'     => $hub->name,
+                'timezone' => $hub->timezone_name,
                 'phones'   => $hub->contactNumbers->pluck('number')->values(),
                 'websites' => $hub->websites->map(fn (HubWebsite $website): array => [
                     'platform' => $website->platform,

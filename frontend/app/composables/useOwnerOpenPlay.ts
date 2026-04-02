@@ -2,17 +2,29 @@ import type { OpenPlaySession, OpenPlayParticipant } from '~/types/openPlay';
 import { useApi } from '~/utils/api';
 
 interface CreateSessionPayload {
+  title: string;
   court_id: string;
   start_time: string;
   end_time: string;
   max_players: number;
   price_per_player: number;
-  notes?: string | null;
+  description?: string | null;
   guests_can_join?: boolean;
 }
 
 export function useOwnerOpenPlay() {
   const { apiFetch } = useApi();
+
+  async function fetchSessions(
+    hubId: string,
+    params?: { date_from?: string; date_to?: string }
+  ): Promise<OpenPlaySession[]> {
+    const res = await apiFetch<{ data: OpenPlaySession[] }>(
+      `/dashboard/hubs/${hubId}/open-play`,
+      { query: params }
+    );
+    return res.data;
+  }
 
   async function createSession(
     hubId: string,
@@ -103,6 +115,7 @@ export function useOwnerOpenPlay() {
   }
 
   return {
+    fetchSessions,
     createSession,
     fetchSession,
     updateSession,

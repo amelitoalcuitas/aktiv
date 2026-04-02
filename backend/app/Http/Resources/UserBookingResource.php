@@ -36,6 +36,7 @@ class UserBookingResource extends JsonResource
                     'id'              => $this->court->hub->id,
                     'username'        => $this->court->hub->username,
                     'name'            => $this->court->hub->name,
+                    'timezone'        => $this->court->hub->timezone_name,
                     'cover_image_url' => $this->court->hub->cover_image_url,
                 ] : null,
             ]),

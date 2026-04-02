@@ -28,10 +28,7 @@ const selectedDate = ref(new Date());
 const bookingsMap = ref<Record<string, CalendarBooking[]>>({});
 
 function formatDateString(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return getDateKeyInTimezone(date, hub.value?.timezone);
 }
 
 async function loadAllBookings() {
@@ -64,7 +61,7 @@ function onSlotClick({ court, date }: { court: Court; date: Date }) {
   const HOUR = 3_600_000;
 
   if (existing.length === 0 || existing[0]!.courtId !== court.id) {
-    selectedSlots.value = [{ courtId: court.id, slotStart: date }];
+    selectedSlots.value = [{ courtId: court.id, slotStart: date, hubTimezone: hub.value?.timezone }];
     return;
   }
 
@@ -84,16 +81,16 @@ function onSlotClick({ court, date }: { court: Court; date: Date }) {
   }
 
   if (t === minT - HOUR) {
-    selectedSlots.value = [{ courtId: court.id, slotStart: date }, ...sorted];
+    selectedSlots.value = [{ courtId: court.id, slotStart: date, hubTimezone: hub.value?.timezone }, ...sorted];
     return;
   }
 
   if (t === maxT + HOUR) {
-    selectedSlots.value = [...sorted, { courtId: court.id, slotStart: date }];
+    selectedSlots.value = [...sorted, { courtId: court.id, slotStart: date, hubTimezone: hub.value?.timezone }];
     return;
   }
 
-  selectedSlots.value = [{ courtId: court.id, slotStart: date }];
+  selectedSlots.value = [{ courtId: court.id, slotStart: date, hubTimezone: hub.value?.timezone }];
 }
 
 function onClearSlots() {
@@ -211,6 +208,7 @@ const gridMaxTime = computed(() => {
           :bookings-map="bookingsMap"
           :selected-date="selectedDate"
           :selected-slots="selectedSlots"
+          :time-zone="hub?.timezone"
           :min-time="gridMinTime"
           :max-time="gridMaxTime"
           :operating-hours="hub?.operating_hours ?? []"

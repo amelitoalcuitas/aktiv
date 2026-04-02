@@ -12,6 +12,7 @@ const manageTabs = computed(() => [
   { label: 'Hub', icon: 'i-heroicons-building-storefront', to: `/dashboard/hubs/${hubId.value}/edit` },
   { label: 'Courts', icon: 'i-heroicons-squares-2x2', to: `/dashboard/hubs/${hubId.value}/courts` },
   { label: 'Bookings', icon: 'i-heroicons-calendar-days', to: `/dashboard/hubs/${hubId.value}/bookings` },
+  { label: 'Open Play', icon: 'i-heroicons-user-group', to: `/dashboard/hubs/${hubId.value}/open-play` },
   { label: 'Events', icon: 'i-heroicons-megaphone', to: `/dashboard/hubs/${hubId.value}/events` },
   { label: 'Reviews', icon: 'i-heroicons-star', to: `/dashboard/hubs/${hubId.value}/reviews` },
   { label: 'Settings', icon: 'i-heroicons-cog-6-tooth', to: `/dashboard/hubs/${hubId.value}/settings` }

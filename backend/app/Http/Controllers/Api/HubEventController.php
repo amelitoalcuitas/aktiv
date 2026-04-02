@@ -9,21 +9,42 @@ use App\Http\Resources\HubEventResource;
 use App\Models\Hub;
 use App\Models\HubEvent;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class HubEventController extends Controller
 {
     /**
      * List all events for a hub (owner dashboard).
      */
-    public function index(Hub $hub): JsonResponse
+    public function index(Hub $hub, Request $request): JsonResponse
     {
         $this->authorizeOwner($hub);
 
-        $events = HubEvent::where('hub_id', $hub->id)
-            ->orderByDesc('date_from')
-            ->get();
+        $query = HubEvent::where('hub_id', $hub->id)
+            ->orderByDesc('date_from');
+
+        if ($request->filled('date_from')) {
+            $query->where('date_to', '>=', $request->string('date_from')->toString());
+        }
+
+        if ($request->filled('date_to')) {
+            $query->where('date_from', '<=', $request->string('date_to')->toString());
+        }
+
+        $events = $query->get();
 
         return response()->json(['data' => HubEventResource::collection($events)]);
+    }
+
+    /**
+     * Show a single event for the hub (owner dashboard).
+     */
+    public function show(Hub $hub, HubEvent $event): JsonResponse
+    {
+        $this->authorizeOwner($hub);
+        abort_if($event->hub_id !== $hub->id, 404);
+
+        return response()->json(['data' => new HubEventResource($event)]);
     }
 
     /**

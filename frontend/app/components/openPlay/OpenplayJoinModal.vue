@@ -37,13 +37,21 @@ const currentParticipant = computed(
 const isFree = computed(
   () => Number(props.session?.price_per_player ?? '0') === 0
 );
+const sessionPresentation = computed(() =>
+  props.session ? getOpenPlaySessionPresentation(props.session) : null
+);
+const isSessionCancelled = computed(
+  () => sessionPresentation.value?.status === 'cancelled'
+);
 const canUploadReceipt = computed(
   () =>
+    !isSessionCancelled.value &&
     currentParticipant.value?.payment_status === 'pending_payment' &&
     currentParticipant.value?.payment_method === 'digital_bank'
 );
 const canLeaveSession = computed(
   () =>
+    !isSessionCancelled.value &&
     isAuthenticated.value &&
     (currentParticipant.value?.payment_status === 'pending_payment' ||
       currentParticipant.value?.payment_status === 'payment_sent')
@@ -61,7 +69,10 @@ const sendingCode = ref(false);
 const joining = ref(false);
 const leaving = ref(false);
 const joinDisabled = computed(
-  () => props.session?.status === 'full' && !currentParticipant.value
+  () =>
+    !!props.session &&
+    (isSessionCancelled.value ||
+      (props.session.status === 'full' && !currentParticipant.value))
 );
 const selectedPaymentLabel = computed(() => {
   if (isFree.value) return 'Free session';
@@ -99,9 +110,6 @@ const currentParticipantPresentation = computed(() =>
   currentParticipant.value
     ? getOpenPlayParticipantPresentation(currentParticipant.value)
     : null
-);
-const sessionPresentation = computed(() =>
-  props.session ? getOpenPlaySessionPresentation(props.session) : null
 );
 
 watch(
@@ -144,26 +152,36 @@ function formatPrice(price: string): string {
 
 function formatSessionDate(session: OpenPlaySession): string {
   if (!session.booking) return '';
+  const timezone = session.booking.hub_timezone ?? session.booking.court?.hub_timezone ?? props.hub?.timezone;
 
-  const start = new Date(session.booking.start_time);
-  const end = new Date(session.booking.end_time);
-
-  return `${start.toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return `${formatInHubTimezone(session.booking.start_time, {
     weekday: 'short',
     month: 'short',
     day: 'numeric'
-  })} · ${start.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone)} · ${formatInHubTimezone(session.booking.start_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  })} – ${end.toLocaleTimeString('en-PH', {
-    timeZone: 'Asia/Manila',
+  }, 'en-PH', timezone)} – ${formatInHubTimezone(session.booking.end_time, {
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  })}`;
+  }, 'en-PH', timezone)}`;
+}
+
+function formatParticipantExpiry(iso: string): string {
+  const timezone =
+    props.session?.booking?.hub_timezone ??
+    props.session?.booking?.court?.hub_timezone ??
+    props.hub?.timezone;
+
+  return formatInHubTimezone(iso, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-PH', timezone);
 }
 
 function closeJoinModal() {
@@ -338,7 +356,7 @@ function goBack() {
           <div class="flex items-start justify-between gap-3">
             <div>
               <h3 class="text-base font-bold text-[var(--aktiv-ink)]">
-                Open Play
+                {{ session.title }}
               </h3>
               <p class="mt-1 text-sm text-[var(--aktiv-muted)]">
                 {{ session.booking?.court?.name ?? 'Court' }} ·
@@ -375,8 +393,11 @@ function goBack() {
             </span>
           </div>
 
-          <p v-if="session.notes" class="mt-3 text-sm text-[var(--aktiv-ink)]">
-            {{ session.notes }}
+          <p
+            v-if="session.description ?? session.notes"
+            class="mt-3 text-sm text-[var(--aktiv-ink)]"
+          >
+            {{ session.description ?? session.notes }}
           </p>
           <p class="mt-3 text-sm text-[var(--aktiv-muted)]">
             {{ sessionPresentation?.helperText }}
@@ -418,16 +439,7 @@ function goBack() {
             class="mt-2 text-sm text-[var(--aktiv-muted)]"
           >
             Expires
-            {{
-              new Date(currentParticipant.expires_at).toLocaleString('en-PH', {
-                timeZone: 'Asia/Manila',
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                hour12: true
-              })
-            }}
+            {{ formatParticipantExpiry(currentParticipant.expires_at) }}
           </p>
         </div>
 
@@ -435,7 +447,9 @@ function goBack() {
           v-else-if="joinDisabled"
           class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
         >
-          <p class="font-semibold text-amber-900">Session full</p>
+          <p class="font-semibold text-amber-900">
+            {{ isSessionCancelled ? 'Session cancelled' : 'Session full' }}
+          </p>
           <p class="mt-1">{{ sessionPresentation?.helperText }}</p>
         </div>
 
@@ -670,7 +684,12 @@ function goBack() {
           </UButton>
         </template>
 
-        <template v-else-if="isAuthenticated || session?.guests_can_join">
+        <template
+          v-else-if="
+            !isSessionCancelled &&
+            (isAuthenticated || session?.guests_can_join)
+          "
+        >
           <UButton
             v-if="step === 'details'"
             color="primary"

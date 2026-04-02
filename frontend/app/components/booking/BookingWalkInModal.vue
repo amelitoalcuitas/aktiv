@@ -10,11 +10,13 @@ import { useOwnerOpenPlay } from '~/composables/useOwnerOpenPlay';
 const props = defineProps<{
   open: boolean;
   hubId?: string;
+  hubTimezone?: string;
   courts: Court[];
   initialDate?: string;
   initialHour?: number;
   initialCourtId?: string;
   operatingHours?: OperatingHoursEntry[];
+  mode?: 'both' | 'walkin' | 'openplay';
 }>();
 
 const emit = defineEmits<{
@@ -32,8 +34,14 @@ const isOpen = computed({
   set: (val) => emit('update:open', val)
 });
 
+const resolvedMode = computed(() => props.mode ?? 'both');
+const defaultBookingMode = computed<'walkin' | 'openplay'>(() =>
+  resolvedMode.value === 'openplay' ? 'openplay' : 'walkin'
+);
+const showModeToggle = computed(() => resolvedMode.value === 'both');
+
 // ── Mode toggle ──────────────────────────────────────────────
-const bookingMode = ref<'walkin' | 'openplay'>('walkin');
+const bookingMode = ref<'walkin' | 'openplay'>(defaultBookingMode.value);
 
 const loading = ref(false);
 const formRef = useTemplateRef('formRef');
@@ -74,6 +82,11 @@ const walkInSchema = z
 
 // ── Open play schema ─────────────────────────────────────────
 const openPlaySchema = z.object({
+  title: z
+    .string({ message: 'Enter a title.' })
+    .trim()
+    .min(1, 'Enter a title.')
+    .max(120, 'Max 120 characters.'),
   courtId: z.string({ message: 'Select a court.' }).min(1, 'Select a court.'),
   date: z.string().min(1, 'Select a date.'),
   startHour: z.number(),
@@ -85,7 +98,7 @@ const openPlaySchema = z.object({
   pricePerPlayer: z
     .number({ invalid_type_error: 'Enter a number.' })
     .min(0, 'Price must be 0 or more.'),
-  notes: z
+  description: z
     .string()
     .max(500, 'Max 500 characters.')
     .optional()
@@ -114,13 +127,14 @@ const walkInForm = reactive<WalkInSchema>({
 });
 
 const openPlayForm = reactive<OpenPlaySchema>({
+  title: '',
   courtId: undefined as any,
   date: '',
   startHour: 8,
   endHour: 9,
-  maxPlayers: 2,
+  maxPlayers: 4,
   pricePerPlayer: 0,
-  notes: '',
+  description: '',
   guestsCanJoin: false
 });
 
@@ -261,8 +275,10 @@ const isPastSlot = computed(() => {
   const now = new Date();
   const [y, mo, d] = currentDate.value.split('-').map(Number);
   const form = bookingMode.value === 'openplay' ? openPlayForm : walkInForm;
-  const slotStart = new Date(y!, mo! - 1, d!);
-  slotStart.setHours(form.startHour, 0, 0, 0);
+  const slotStart = buildUtcDateFromHubLocalParts(
+    { year: y!, month: mo!, day: d!, hour: form.startHour, minute: 0, second: 0 },
+    props.hubTimezone
+  );
   return slotStart < now;
 });
 
@@ -277,13 +293,87 @@ function getOperatingRange(
 ): { openHour: number; closeHour: number } | null {
   const oh = props.operatingHours ?? [];
   if (!oh.length || !date) return null;
+  const weekdayMap: Record<string, number> = {
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6
+  };
   const [y, mo, d] = date.split('-').map(Number);
-  const dow = new Date(y!, mo! - 1, d!).getDay();
+  const base = buildUtcDateFromHubLocalParts(
+    { year: y!, month: mo!, day: d! },
+    props.hubTimezone
+  );
+  const dow = weekdayMap[
+    formatInHubTimezone(base, { weekday: 'short' }, 'en-US', props.hubTimezone)
+  ] ?? 0;
   const entry = oh.find((e) => e.day_of_week === dow);
   if (!entry || entry.is_closed) return null;
   return {
     openHour: parseInt(entry.opens_at.split(':')[0]!, 10),
     closeHour: parseInt(entry.closes_at.split(':')[0]!, 10)
+  };
+}
+
+function formatDateKey(date: Date): string {
+  return getDateKeyInTimezone(date, props.hubTimezone);
+}
+
+function nextWholeHour(base = new Date()): Date {
+  const dateKey = getDateKeyInTimezone(base, props.hubTimezone);
+  const timeLabel = formatInHubTimezone(
+    base,
+    { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false },
+    'en-US',
+    props.hubTimezone
+  );
+  const [hour, minute, second] = timeLabel.split(':').map(Number);
+  const wholeHour = minute === 0 && second === 0 ? hour : hour + 1;
+  const [year, month, day] = dateKey.split('-').map(Number);
+
+  return buildUtcDateFromHubLocalParts(
+    { year: year!, month: month!, day: day!, hour: wholeHour % 24, minute: 0, second: 0 },
+    props.hubTimezone
+  );
+}
+
+function getSuggestedInitialSlot(): { date: string; startHour: number } {
+  const minimumStart = nextWholeHour();
+
+  for (let offset = 0; offset < 14; offset++) {
+    const candidateDate = new Date(minimumStart);
+    candidateDate.setUTCDate(candidateDate.getUTCDate() + offset);
+
+    const date = formatDateKey(candidateDate);
+    const range = getOperatingRange(date) ?? { openHour: 6, closeHour: 23 };
+    const firstAvailableHour =
+      offset === 0
+        ? Math.max(
+            range.openHour,
+            Number(
+              formatInHubTimezone(minimumStart, { hour: '2-digit', hour12: false }, 'en-US', props.hubTimezone)
+            )
+          )
+        : range.openHour;
+    const latestStartHour = range.closeHour - 1;
+
+    if (firstAvailableHour <= latestStartHour) {
+      return {
+        date,
+        startHour: firstAvailableHour
+      };
+    }
+  }
+
+  const fallback = nextWholeHour();
+  return {
+    date: formatDateKey(fallback),
+    startHour: Number(
+      formatInHubTimezone(fallback, { hour: '2-digit', hour12: false }, 'en-US', props.hubTimezone)
+    )
   };
 }
 
@@ -312,17 +402,21 @@ const endHourOptions = computed(() => {
 
 // ── Reset ────────────────────────────────────────────────────
 function resetForm() {
-  bookingMode.value = 'walkin';
+  bookingMode.value = defaultBookingMode.value;
 
   const courtId = (props.initialCourtId ??
     props.courts[0]?.id ??
     undefined) as any;
-  const d = new Date();
-  const dateStr =
-    props.initialDate ||
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const startHour =
-    props.initialHour ?? startTimeHourOptions.value[0]?.value ?? 8;
+  const suggestedSlot = getSuggestedInitialSlot();
+  const dateStr = props.initialDate || suggestedSlot.date;
+  const range = getOperatingRange(dateStr) ?? { openHour: 6, closeHour: 23 };
+  const latestStartHour = range.closeHour - 1;
+  const startHour = props.initialHour
+    ?? (
+      props.initialDate
+        ? Math.min(Math.max(range.openHour, suggestedSlot.startHour), latestStartHour)
+        : suggestedSlot.startHour
+    );
 
   walkInForm.courtId = courtId;
   walkInForm.date = dateStr;
@@ -338,12 +432,13 @@ function resetForm() {
   userSearchResults.value = [];
 
   openPlayForm.courtId = courtId;
+  openPlayForm.title = '';
   openPlayForm.date = dateStr;
   openPlayForm.startHour = startHour;
   openPlayForm.endHour = startHour + 1;
-  openPlayForm.maxPlayers = 2;
+  openPlayForm.maxPlayers = 4;
   openPlayForm.pricePerPlayer = 0;
-  openPlayForm.notes = '';
+  openPlayForm.description = '';
   openPlayForm.guestsCanJoin = false;
 }
 
@@ -384,18 +479,12 @@ async function onSubmitWalkIn(event: FormSubmitEvent<WalkInSchema>) {
     guestEmail
   } = event.data;
 
-  const [y, mo, day] = date.split('-').map(Number);
-  const startDt = new Date(y!, mo! - 1, day!);
-  startDt.setHours(startHour, 0, 0, 0);
-  const endDt = new Date(y!, mo! - 1, day!);
-  endDt.setHours(endHour, 0, 0, 0);
-
   loading.value = true;
   try {
     const booking = await createWalkIn(props.hubId, courtId, {
       court_id: courtId,
-      start_time: startDt.toISOString(),
-      end_time: endDt.toISOString(),
+      start_time: buildHubIsoFromDateAndTime(new Date(`${date}T00:00:00`), `${String(startHour).padStart(2, '0')}:00`, props.hubTimezone),
+      end_time: buildHubIsoFromDateAndTime(new Date(`${date}T00:00:00`), `${String(endHour).padStart(2, '0')}:00`, props.hubTimezone),
       session_type: 'private',
       booked_by: customerMode === 'registered' ? bookedBy : null,
       guest_name: customerMode === 'guest' ? guestName?.trim() || null : null,
@@ -425,28 +514,24 @@ async function onSubmitOpenPlay(event: FormSubmitEvent<OpenPlaySchema>) {
     date,
     startHour,
     endHour,
+    title,
     courtId,
     maxPlayers,
     pricePerPlayer,
-    notes,
+    description,
     guestsCanJoin
   } = event.data;
-
-  const [y, mo, day] = date.split('-').map(Number);
-  const startDt = new Date(y!, mo! - 1, day!);
-  startDt.setHours(startHour, 0, 0, 0);
-  const endDt = new Date(y!, mo! - 1, day!);
-  endDt.setHours(endHour, 0, 0, 0);
 
   loading.value = true;
   try {
     const session = await createSession(props.hubId, {
+      title: title.trim(),
       court_id: courtId,
-      start_time: startDt.toISOString(),
-      end_time: endDt.toISOString(),
+      start_time: buildHubIsoFromDateAndTime(new Date(`${date}T00:00:00`), `${String(startHour).padStart(2, '0')}:00`, props.hubTimezone),
+      end_time: buildHubIsoFromDateAndTime(new Date(`${date}T00:00:00`), `${String(endHour).padStart(2, '0')}:00`, props.hubTimezone),
       max_players: maxPlayers,
       price_per_player: pricePerPlayer,
-      notes: notes?.trim() || null,
+      description: description?.trim() || null,
       guests_can_join: guestsCanJoin
     });
     emit('openplay:created', session);
@@ -481,10 +566,16 @@ function onSubmit(event: FormSubmitEvent<WalkInSchema | OpenPlaySchema>) {
 <template>
   <AppModal
     v-model:open="isOpen"
-    title="Add Booking"
+    :title="
+      resolvedMode === 'openplay'
+        ? 'Create Open Play'
+        : resolvedMode === 'walkin'
+          ? 'Add Walk-in'
+          : 'Add Booking'
+    "
     :ui="{ content: 'sm:max-w-xl' }"
     :confirm="
-      bookingMode === 'openplay'
+      resolvedMode === 'openplay' || bookingMode === 'openplay'
         ? 'Create Open Play Session'
         : 'Confirm Walk-in'
     "
@@ -493,7 +584,7 @@ function onSubmit(event: FormSubmitEvent<WalkInSchema | OpenPlaySchema>) {
   >
     <template #body>
       <!-- Mode toggle -->
-      <div class="mb-4 flex gap-2">
+      <div v-if="showModeToggle" class="mb-4 flex gap-2">
         <UButton
           size="sm"
           :variant="bookingMode === 'walkin' ? 'solid' : 'outline'"
@@ -536,6 +627,7 @@ function onSubmit(event: FormSubmitEvent<WalkInSchema | OpenPlaySchema>) {
             <AppDatePicker
               v-model="dateObj"
               variant="nav"
+              display="field"
               :allow-past="false"
               :label="
                 dateObj.toLocaleDateString('en-PH', {
@@ -691,6 +783,24 @@ function onSubmit(event: FormSubmitEvent<WalkInSchema | OpenPlaySchema>) {
         class="space-y-4"
         @submit="onSubmit"
       >
+        <UFormField label="Title" name="title">
+          <UInput
+            v-model="openPlayForm.title"
+            placeholder="e.g. Friday Night Doubles"
+            class="w-full"
+          />
+        </UFormField>
+
+        <UFormField label="Description (optional)" name="description">
+          <UTextarea
+            v-model="openPlayForm.description"
+            placeholder="e.g. Bring your own racket and shuttlecocks"
+            :rows="3"
+            :maxlength="500"
+            class="w-full"
+          />
+        </UFormField>
+
         <!-- Court -->
         <UFormField label="Court" name="courtId">
           <USelect
@@ -706,6 +816,7 @@ function onSubmit(event: FormSubmitEvent<WalkInSchema | OpenPlaySchema>) {
             <AppDatePicker
               v-model="dateObj"
               variant="nav"
+              display="field"
               :allow-past="false"
               :label="
                 dateObj.toLocaleDateString('en-PH', {
@@ -753,17 +864,6 @@ function onSubmit(event: FormSubmitEvent<WalkInSchema | OpenPlaySchema>) {
             />
           </UFormField>
         </div>
-
-        <!-- Notes -->
-        <UFormField label="Notes (optional)" name="notes">
-          <UTextarea
-            v-model="openPlayForm.notes"
-            placeholder="e.g. Bring your own racket"
-            :rows="3"
-            :maxlength="500"
-            class="w-full"
-          />
-        </UFormField>
 
         <!-- Guests can join -->
         <div

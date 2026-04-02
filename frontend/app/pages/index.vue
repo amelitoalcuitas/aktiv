@@ -12,7 +12,7 @@ const featuredHubsLoading = ref(true);
 onMounted(async () => {
   try {
     const res = await fetchHubsPaginated({ sort: 'top', per_page: 3 });
-    featuredHubs.value = res.data;
+    featuredHubs.value = Array.isArray(res?.data) ? res.data : [];
   } finally {
     featuredHubsLoading.value = false;
   }

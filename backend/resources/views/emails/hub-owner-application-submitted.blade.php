@@ -39,7 +39,7 @@
             @endif
             <tr>
                 <td style="padding:4px 0; color:#64748b;">Submitted</td>
-                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ $hubOwnerRequest->created_at->timezone('Asia/Manila')->format('M j, Y g:i A') }}</td>
+                <td style="padding:4px 0; text-align:right; font-weight:500; color:#0f1728;">{{ $hubOwnerRequest->created_at->timezone(config('app.timezone'))->format('M j, Y g:i A') }} UTC</td>
             </tr>
         </table>
     </div>

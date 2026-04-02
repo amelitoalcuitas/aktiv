@@ -23,9 +23,9 @@ export const useNotificationStore = defineStore('notifications', () => {
     const data = await apiFetch<NotificationsResponse>(
       '/notifications?per_page=50'
     );
-    items.value = data.data;
-    hasMore.value = data.has_more;
-    nextCursor.value = data.next_cursor;
+    items.value = Array.isArray(data?.data) ? data.data : [];
+    hasMore.value = Boolean(data?.has_more);
+    nextCursor.value = data?.next_cursor ?? null;
   }
 
   async function fetchMore() {
@@ -37,9 +37,9 @@ export const useNotificationStore = defineStore('notifications', () => {
     const data = await apiFetch<NotificationsResponse>(
       `/notifications?per_page=20${cursor}`
     );
-    items.value.push(...data.data);
-    hasMore.value = data.has_more;
-    nextCursor.value = data.next_cursor;
+    items.value.push(...(Array.isArray(data?.data) ? data.data : []));
+    hasMore.value = Boolean(data?.has_more);
+    nextCursor.value = data?.next_cursor ?? null;
   }
 
   async function markRead(id: string) {

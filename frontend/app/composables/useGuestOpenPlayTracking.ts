@@ -22,12 +22,14 @@ export interface GuestOpenPlayTrackingParticipant {
   expires_at: string | null;
   cancelled_by: CancelledBy | null;
   joined_at: string | null;
+  title: string;
+  description: string | null;
   notes: string | null;
   sport: string;
   start_time: string;
   end_time: string;
   court: { id: string; name: string };
-  hub: { id: string; username: string | null; name: string; phones: string[]; websites: HubWebsite[] };
+  hub: { id: string; username: string | null; name: string; timezone: string; phones: string[]; websites: HubWebsite[] };
 }
 
 export function useGuestOpenPlayTracking() {

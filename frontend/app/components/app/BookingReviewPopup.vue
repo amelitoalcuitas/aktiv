@@ -32,12 +32,11 @@ const courtName = computed(() => props.booking.court?.name ?? '');
 const hubId = computed(() => props.booking.court?.hub?.id ?? 0);
 
 const bookingDate = computed(() =>
-  new Date(props.booking.start_time).toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  formatInHubTimezone(props.booking.start_time, {
     weekday: 'long',
     month: 'long',
     day: 'numeric'
-  })
+  }, 'en-PH', props.booking.court?.hub?.timezone)
 );
 
 async function handleSubmit() {

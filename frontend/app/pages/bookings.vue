@@ -184,13 +184,12 @@ const isBanned = computed(() => {
 const banExpiryFormatted = computed(() => {
   const until = authStore.user?.booking_banned_until;
   if (!until) return '';
-  return new Date(until).toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+  return formatInViewerTimezone(until, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  });
+  }, 'en-PH');
 });
 
 // ── WebSocket sync ────────────────────────────────────────────
@@ -202,36 +201,37 @@ watch(
 );
 
 // ── Date/time helpers ─────────────────────────────────────────
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-PH', {
-    timeZone: 'Asia/Manila',
+function bookingTimezone(booking: MyBookingItem): string | null | undefined {
+  return booking.court?.hub?.timezone;
+}
+
+function formatDate(iso: string, timezone?: string | null): string {
+  return formatInHubTimezone(iso, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric'
-  });
+  }, 'en-PH', timezone);
 }
 
-function formatExpiry(iso: string): string {
-  return new Date(iso).toLocaleString('en-PH', {
-    timeZone: 'Asia/Manila',
+function formatExpiry(iso: string, timezone?: string | null): string {
+  return formatInHubTimezone(iso, {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
-  });
+  }, 'en-PH', timezone);
 }
 
-function formatTime(start: string, end: string): string {
+function formatTime(start: string, end: string, timezone?: string | null): string {
   const opts: Intl.DateTimeFormatOptions = {
-    timeZone: 'Asia/Manila',
     hour: 'numeric',
     minute: '2-digit',
     hour12: true
   };
-  const s = new Date(start).toLocaleTimeString('en-PH', opts);
-  const e = new Date(end).toLocaleTimeString('en-PH', opts);
+  const s = formatInHubTimezone(start, opts, 'en-PH', timezone);
+  const e = formatInHubTimezone(end, opts, 'en-PH', timezone);
   return `${s} – ${e}`;
 }
 
@@ -559,16 +559,16 @@ function displayActionLabel(booking: MyBookingItem): string {
               {{ displaySubtitle(booking) }}
             </p>
             <p class="mt-1 text-sm md:text-base text-[var(--aktiv-ink)]">
-              {{ formatDate(booking.start_time) }}
+              {{ formatDate(booking.start_time, bookingTimezone(booking)) }}
             </p>
             <p class="text-sm md:text-base text-[var(--aktiv-muted)]">
-              {{ formatTime(booking.start_time, booking.end_time) }}
+              {{ formatTime(booking.start_time, booking.end_time, bookingTimezone(booking)) }}
             </p>
             <p
               v-if="booking.status === 'pending_payment' && booking.expires_at"
               class="mt-0.5 text-xs md:text-sm text-[var(--aktiv-muted)]"
             >
-              Expires at {{ formatExpiry(booking.expires_at) }}
+              Expires at {{ formatExpiry(booking.expires_at, bookingTimezone(booking)) }}
             </p>
           </div>
 
@@ -723,9 +723,9 @@ function displayActionLabel(booking: MyBookingItem): string {
         <p class="text-[var(--aktiv-muted)]">
           {{ displaySubtitle(cancelTarget) }}
         </p>
-        <p class="mt-1">{{ formatDate(cancelTarget.start_time) }}</p>
+        <p class="mt-1">{{ formatDate(cancelTarget.start_time, bookingTimezone(cancelTarget)) }}</p>
         <p class="text-[var(--aktiv-muted)]">
-          {{ formatTime(cancelTarget.start_time, cancelTarget.end_time) }}
+          {{ formatTime(cancelTarget.start_time, cancelTarget.end_time, bookingTimezone(cancelTarget)) }}
         </p>
       </div>
       <p class="mt-3 text-xs text-[var(--aktiv-muted)]">

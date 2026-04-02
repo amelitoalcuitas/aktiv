@@ -13,6 +13,7 @@ class OpenPlaySession extends Model
 
     protected $fillable = [
         'booking_id',
+        'title',
         'sport',
         'max_players',
         'price_per_player',

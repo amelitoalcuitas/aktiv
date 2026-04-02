@@ -14,12 +14,13 @@ class StoreOpenPlaySessionRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'title'            => ['required', 'string', 'max:120'],
             'court_id'         => ['required', 'uuid', 'exists:courts,id'],
             'start_time'       => ['required', 'date'],
             'end_time'         => ['required', 'date', 'after:start_time'],
             'max_players'      => ['required', 'integer', 'min:2'],
             'price_per_player' => ['required', 'numeric', 'min:0'],
-            'notes'            => ['nullable', 'string', 'max:500'],
+            'description'      => ['nullable', 'string', 'max:500'],
             'guests_can_join'  => ['boolean'],
         ];
     }

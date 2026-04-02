@@ -119,36 +119,36 @@ Laravel Sanctum API tokens. Frontend stores the token in a cookie (`aktiv_token`
 
 ### Timezone Rules
 
-All timestamps are stored as **UTC** in PostgreSQL `timestamp without timezone` columns (Laravel default). The app's local timezone is **Asia/Manila (UTC+8)**.
+All persisted timestamps are stored as **UTC** in PostgreSQL `timestamp without timezone` columns (Laravel default). The app runtime stays on UTC. The authoritative business timezone is per-hub via `hubs.timezone`, with legacy hubs defaulting to `Asia/Manila`.
 
-**Backend — date-range queries:** When filtering by a YYYY-MM-DD calendar date from the frontend, always convert through the Manila timezone AND call `.utc()` before passing to Eloquent:
+**Product rule:** Use the hub timezone for booking-domain logic. Viewer-local timezone is optional convenience display only and must never drive scheduler math, availability, conflict checks, or "today" calculations.
+
+**Backend — date-range queries:** When filtering by a YYYY-MM-DD calendar date from the frontend, always convert through the hub timezone and then call `.utc()` before passing to Eloquent:
 
 ```php
 // CORRECT
-Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay()->utc()
-Carbon::parse($request->date_to,   'Asia/Manila')->endOfDay()->utc()
-now('Asia/Manila')->startOfDay()->utc()
+HubTimezone::startOfDayUtc($request->date_from, $hub->timezone_name)
+HubTimezone::endOfDayUtc($request->date_to, $hub->timezone_name)
 
-// WRONG — naive string passed to PostgreSQL, compared against UTC-stored values
-Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay()
-now()->startOfDay()
+// WRONG — naive string or a hardcoded timezone in generic logic
+Carbon::parse($request->date_from)->startOfDay()
+Carbon::parse($request->date_from, 'Asia/Manila')->startOfDay()->utc()
 ```
 
-**Backend — relative-time comparisons:** Bare `now()` (UTC) is correct for `expires_at` storage and expiry checks — both sides of the comparison are UTC.
+**Backend — relative-time comparisons:** Bare `now()` (UTC) is correct for `expires_at` storage and expiry checks because both sides are UTC timestamps.
 
-**Frontend → API date params:** Send `YYYY-MM-DD` strings built from local JS date methods (`.getFullYear()` etc.). This is correct — it represents the Manila calendar date the user is viewing. The backend's `Asia/Manila` Carbon parse will interpret it correctly.
+**Frontend — scheduler math:** Never assume the browser's local timezone for booking construction or operating-hours checks. Build booking ISO timestamps relative to the hub timezone, then send UTC ISO strings to the API.
 
-**Frontend — displaying API timestamps:** API responses contain ISO strings with a UTC offset (e.g. `2026-03-20T22:00:00+00:00`). When passing these to `toLocaleString` / `toLocaleDateString` / `toLocaleTimeString`, always include `timeZone: 'Asia/Manila'` so display is correct regardless of the browser's system timezone:
+**Frontend — displaying API timestamps:** Use shared timezone helpers and pass the resolved hub timezone for booking-domain display. Do not hardcode `timeZone: 'Asia/Manila'` in reusable components once hub timezone exists.
 
 ```ts
 // CORRECT
-new Date(iso).toLocaleString('en-PH', { timeZone: 'Asia/Manila', ... })
+formatInHubTimezone(iso, { month: 'short', day: 'numeric' }, 'en-PH', hub.timezone)
 
-// WRONG — depends on browser's system timezone
+// WRONG
+new Date(iso).toLocaleString('en-PH', { timeZone: 'Asia/Manila' })
 new Date(iso).toLocaleString('en-PH', { ... })
 ```
-
-**Frontend — booking time construction:** `setHours(h, m, 0, 0)` then `.toISOString()` is correct — it sets the local Manila hour and converts to UTC ISO for the API.
 
 ---
 

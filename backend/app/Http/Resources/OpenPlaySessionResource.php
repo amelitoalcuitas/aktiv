@@ -15,6 +15,8 @@ class OpenPlaySessionResource extends JsonResource
         return [
             'id'               => $this->id,
             'booking_id'       => $this->booking_id,
+            'title'            => $this->title,
+            'description'      => $this->notes,
             'max_players'      => $this->max_players,
             'price_per_player' => $this->price_per_player,
             'notes'            => $this->notes,
@@ -26,10 +28,12 @@ class OpenPlaySessionResource extends JsonResource
                 'court'      => $booking->relationLoaded('court') ? [
                     'id'   => $booking->court->id,
                     'name' => $booking->court->name,
+                    'hub_timezone' => $booking->court->hub?->timezone_name,
                 ] : null,
                 'start_time' => $booking->start_time->toIso8601String(),
                 'end_time'   => $booking->end_time->toIso8601String(),
                 'status'     => $booking->status,
+                'hub_timezone' => $booking->court?->hub?->timezone_name,
             ] : null,
             'participants_count'           => $this->participants_count ?? 0,
             'confirmed_participants_count' => $this->confirmed_participants_count ?? 0,

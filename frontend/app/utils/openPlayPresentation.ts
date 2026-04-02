@@ -70,8 +70,8 @@ function buildParticipantDisplay(source: OpenPlayStatusSource): OpenPlayDisplayS
 
       return {
         status: 'pending_venue_confirmation',
-        label: 'Pending Venue Confirmation',
-        actionLabel: 'Pending Venue Confirmation',
+        label: 'Pending Confirmation',
+        actionLabel: 'Pending Confirmation',
         helperText: 'Your join is still waiting for venue confirmation and is not guaranteed yet.',
         color: 'warning'
       };
@@ -131,8 +131,18 @@ export function getOpenPlayBookingPresentation(
 }
 
 export function getOpenPlaySessionPresentation(
-  session: Pick<OpenPlaySession, 'status' | 'viewer_participant'>
+  session: Pick<OpenPlaySession, 'status' | 'viewer_participant' | 'booking'>
 ): OpenPlayDisplayState {
+  if (session.status === 'cancelled' || session.booking?.status === 'cancelled') {
+    return {
+      status: 'cancelled',
+      label: 'Cancelled',
+      actionLabel: 'View Details',
+      helperText: 'This session has been cancelled and is no longer available to join or manage.',
+      color: 'error'
+    };
+  }
+
   if (session.viewer_participant) {
     return getOpenPlayParticipantPresentation(session.viewer_participant);
   }
@@ -149,7 +159,7 @@ export function getOpenPlaySessionPresentation(
 
   return {
     status: 'open',
-    label: 'Open',
+    label: 'Active',
     actionLabel: 'Join',
     helperText: 'Spots are currently available to join.',
     color: 'primary'

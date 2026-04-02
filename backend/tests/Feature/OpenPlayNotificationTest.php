@@ -10,6 +10,7 @@ use App\Mail\OpenPlayParticipantRejected;
 use App\Mail\OpenPlayPaymentPending;
 use App\Mail\OpenPlaySessionCancelled;
 use App\Mail\OpenPlaySessionStarted;
+use App\Mail\OpenPlaySessionUpdated;
 use App\Models\Booking;
 use App\Models\Court;
 use App\Models\Hub;
@@ -442,6 +443,85 @@ it('includes the guest tracking link in open play guest cancellation emails', fu
 });
 
 // ── notifySessionCancelled ────────────────────────────────────────
+
+it('notifies active participants when session schedule is updated', function () {
+    Mail::fake();
+    Event::fake([NotificationBroadcast::class, BookingSlotUpdated::class]);
+
+    $owner = makeNotifOwner();
+    $hub = makeNotifHub($owner);
+    $court = makeNotifCourt($hub);
+    $newCourt = Court::factory()->create(['hub_id' => $hub->id, 'name' => 'Court Update B']);
+    $player = makeNotifPlayer();
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub');
+
+    $participant = makeNotifParticipant($session, $player, ['payment_status' => 'confirmed', 'expires_at' => null]);
+    $participant->setRelation('openPlaySession', $session);
+
+    $originalStart = $session->booking->start_time->copy();
+    $originalEnd = $session->booking->end_time->copy();
+
+    $session->booking->update([
+        'court_id' => $newCourt->id,
+        'start_time' => $originalStart->copy()->addHour(),
+        'end_time' => $originalEnd->copy()->addHour(),
+    ]);
+
+    $session->load('booking.court.hub');
+
+    app(OpenPlayNotificationService::class)->notifySessionUpdated(
+        $session,
+        $court->name,
+        $originalStart,
+        $originalEnd,
+    );
+
+    expect($player->notifications()->count())->toBe(1)
+        ->and($player->notifications()->first()->data['activity_type'])->toBe('open_play_session_updated')
+        ->and($player->notifications()->first()->data['original_court_name'])->toBe($court->name);
+
+    Event::assertDispatched(NotificationBroadcast::class);
+    Event::assertDispatched(BookingSlotUpdated::class);
+});
+
+it('sends session updated email with guest tracking link for guest participants', function () {
+    Mail::fake();
+
+    $owner = makeNotifOwner();
+    $hub = makeNotifHub($owner);
+    $court = makeNotifCourt($hub);
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub');
+
+    $participant = makeNotifGuestParticipant($session, ['payment_status' => 'confirmed', 'expires_at' => null]);
+    $participant->setRelation('openPlaySession', $session);
+
+    $originalStart = $session->booking->start_time->copy();
+    $originalEnd = $session->booking->end_time->copy();
+
+    $session->booking->update([
+        'start_time' => $originalStart->copy()->addHour(),
+        'end_time' => $originalEnd->copy()->addHour(),
+    ]);
+
+    $session->load('booking.court.hub');
+
+    app(OpenPlayNotificationService::class)->notifySessionUpdated(
+        $session,
+        $court->name,
+        $originalStart,
+        $originalEnd,
+    );
+
+    Mail::assertQueued(OpenPlaySessionUpdated::class, function ($mail) use ($participant, $court) {
+        return $mail->hasTo('guest@example.com')
+            && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}")
+            && str_contains($mail->render(), $court->name);
+    });
+});
 
 it('notifies all active participants when session is cancelled', function () {
     Mail::fake();

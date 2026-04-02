@@ -28,8 +28,6 @@ const { data: courts, error } = await useAsyncData<Court[]>(
 const isOwner = computed(() => authStore.user?.id === hub.value?.owner_id);
 
 // ── Today schedule helpers ─────────────────────────────────────────────────
-const todayDayOfWeek = new Date().getDay();
-
 function parseMins(time: string): number {
   const parts = time.split(':');
   const h = parseInt(parts[0] ?? '0', 10);
@@ -40,11 +38,10 @@ function parseMins(time: string): number {
 const todayCloseLabel = computed(() => {
   if (!hub.value?.operating_hours?.length) return null;
   const todayHours = hub.value.operating_hours.find(
-    (oh) => oh.day_of_week === new Date().getDay()
+    (oh) => oh.day_of_week === getCurrentWeekdayInTimezone(hub.value?.timezone)
   );
   if (!todayHours || todayHours.is_closed) return null;
-  const now = new Date();
-  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const nowMins = getCurrentMinutesInTimezone(hub.value?.timezone);
   const openMins = parseMins(todayHours.opens_at);
   const closeMins = parseMins(todayHours.closes_at);
   if (nowMins < openMins || nowMins >= closeMins) return null;
@@ -78,10 +75,7 @@ const bookingsMap = ref<Record<string, CalendarBooking[]>>({});
 const openPlaySessions = ref<OpenPlaySession[]>([]);
 
 function formatDateString(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
+  return getDateKeyInTimezone(date, hub.value?.timezone);
 }
 
 async function loadAllBookings() {
@@ -152,7 +146,7 @@ function onSlotClick({ court, date }: { court: Court; date: Date }) {
   const HOUR = 3_600_000;
 
   if (existing.length === 0 || existing[0]!.courtId !== court.id) {
-    selectedSlots.value = [{ courtId: court.id, slotStart: date }];
+    selectedSlots.value = [{ courtId: court.id, slotStart: date, hubTimezone: hub.value?.timezone }];
     return;
   }
 
@@ -168,22 +162,22 @@ function onSlotClick({ court, date }: { court: Court; date: Date }) {
     } else if (t === maxT) {
       selectedSlots.value = sorted.slice(0, -1);
     } else {
-      selectedSlots.value = [{ courtId: court.id, slotStart: date }];
+      selectedSlots.value = [{ courtId: court.id, slotStart: date, hubTimezone: hub.value?.timezone }];
     }
     return;
   }
 
   if (t === minT - HOUR) {
-    selectedSlots.value = [{ courtId: court.id, slotStart: date }, ...sorted];
+    selectedSlots.value = [{ courtId: court.id, slotStart: date, hubTimezone: hub.value?.timezone }, ...sorted];
     return;
   }
 
   if (t === maxT + HOUR) {
-    selectedSlots.value = [...sorted, { courtId: court.id, slotStart: date }];
+    selectedSlots.value = [...sorted, { courtId: court.id, slotStart: date, hubTimezone: hub.value?.timezone }];
     return;
   }
 
-  selectedSlots.value = [{ courtId: court.id, slotStart: date }];
+  selectedSlots.value = [{ courtId: court.id, slotStart: date, hubTimezone: hub.value?.timezone }];
 }
 
 function onClearSlots() {
@@ -216,9 +210,10 @@ const filteredOpenPlaySessionsMap = computed<Record<string, OpenPlaySession>>(
           if (!session.booking) return false;
 
           return (
-            new Date(session.booking.start_time).toLocaleDateString('en-CA', {
-              timeZone: 'Asia/Manila'
-            }) === selectedDateKey
+            getDateKeyInTimezone(
+              session.booking.start_time,
+              session.booking.hub_timezone ?? session.booking.court?.hub_timezone ?? hub.value?.timezone
+            ) === selectedDateKey
           );
         })
         .map((session) => [session.booking_id, session])
@@ -429,14 +424,15 @@ onUnmounted(() => {
               Valid until
               <strong class="font-semibold text-[#166534]">
                 {{
-                  new Date(`${event.date_to}T00:00:00`).toLocaleDateString(
-                    'en-PH',
+                  formatInHubTimezone(
+                    `${event.date_to}T12:00:00Z`,
                     {
-                      timeZone: 'Asia/Manila',
                       month: 'long',
                       day: 'numeric',
                       year: 'numeric'
-                    }
+                    },
+                    'en-PH',
+                    hub?.timezone
                   )
                 }}
               </strong>
@@ -691,6 +687,7 @@ onUnmounted(() => {
               :bookings-map="bookingsMap"
               :selected-date="selectedDate"
               :selected-slots="selectedSlots"
+              :time-zone="hub?.timezone"
               :open-play-sessions-map="filteredOpenPlaySessionsMap"
               :min-time="gridMinTime"
               :max-time="gridMaxTime"

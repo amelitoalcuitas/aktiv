@@ -12,12 +12,14 @@ const props = withDefaults(
     maxTime?: string;
     openPlaySessionsMap?: Record<string, OpenPlaySession>;
     operatingHours?: OperatingHoursEntry[];
+    timeZone?: string | null;
   }>(),
   {
     minTime: '06:00',
     maxTime: '23:00',
     openPlaySessionsMap: () => ({}),
-    operatingHours: () => []
+    operatingHours: () => [],
+    timeZone: null
   }
 );
 
@@ -31,6 +33,36 @@ const emit = defineEmits<{
   'view-open-play': [BookingDetail];
 }>();
 
+const weekdayMap: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6
+};
+
+function getSelectedDateKey(date: Date): string {
+  return getDateKeyInTimezone(date, props.timeZone);
+}
+
+function getSelectedWeekday(date: Date): number {
+  return weekdayMap[
+    formatInHubTimezone(date, { weekday: 'short' }, 'en-US', props.timeZone)
+  ] ?? 0;
+}
+
+function buildSlotDate(timeStr: string): Date {
+  const [year, month, day] = getSelectedDateKey(props.selectedDate).split('-').map(Number);
+  const [hour, minute] = timeStr.split(':').map(Number);
+
+  return buildUtcDateFromHubLocalParts(
+    { year, month, day, hour, minute, second: 0 },
+    props.timeZone
+  );
+}
+
 // ── Time slot generation ───────────────────────────────────────
 function parseMinutes(t: string): number {
   const parts = t.split(':');
@@ -40,7 +72,7 @@ function parseMinutes(t: string): number {
 const effectiveMinTime = computed(() => {
   if (!props.operatingHours.length) return props.minTime;
   const entry = props.operatingHours.find(
-    (e) => e.day_of_week === props.selectedDate.getDay()
+    (e) => e.day_of_week === getSelectedWeekday(props.selectedDate)
   );
   if (!entry || entry.is_closed) return props.minTime;
   return entry.opens_at;
@@ -49,7 +81,7 @@ const effectiveMinTime = computed(() => {
 const effectiveMaxTime = computed(() => {
   if (!props.operatingHours.length) return props.maxTime;
   const entry = props.operatingHours.find(
-    (e) => e.day_of_week === props.selectedDate.getDay()
+    (e) => e.day_of_week === getSelectedWeekday(props.selectedDate)
   );
   if (!entry || entry.is_closed) return props.maxTime;
   return entry.closes_at;
@@ -75,18 +107,13 @@ function formatTimeLabel(t: string): string {
 }
 
 function slotStartDate(timeStr: string): Date {
-  const parts = timeStr.split(':');
-  const h = Number(parts[0] ?? 0);
-  const m = Number(parts[1] ?? 0);
-  const d = new Date(props.selectedDate);
-  d.setHours(h, m, 0, 0);
-  return d;
+  return buildSlotDate(timeStr);
 }
 
 // ── Closed day detection ───────────────────────────────────────
 const isDayClosed = computed(() => {
   if (!props.operatingHours.length) return false;
-  const dow = props.selectedDate.getDay();
+  const dow = getSelectedWeekday(props.selectedDate);
   const entry = props.operatingHours.find((e) => e.day_of_week === dow);
   return entry?.is_closed ?? false;
 });
@@ -101,6 +128,11 @@ interface CellBlock extends CellState {
   slotIdx: number;
   span: number;
 }
+
+const SLOT_WIDTH_PX = 88;
+const BLOCK_INNER_GUTTER_PX = 12;
+const BOOKING_CONTENT_PADDING_PX = 8;
+const MIN_BOOKING_CONTENT_WIDTH_PX = 72;
 
 const now = ref(new Date());
 let nowTimer: ReturnType<typeof setInterval>;
@@ -270,38 +302,91 @@ function getBookingActions(booking: BookingDetail) {
 
 // ── Date navigation ─────────────────────────────────────────────
 const headerLabel = computed(() =>
-  props.selectedDate.toLocaleDateString('en-PH', {
+  formatInHubTimezone(props.selectedDate, {
     weekday: 'long',
     month: 'long',
     day: 'numeric',
     year: 'numeric'
-  })
+  }, 'en-PH', props.timeZone)
 );
 
 function prevDay() {
-  const d = new Date(props.selectedDate);
-  d.setDate(d.getDate() - 1);
-  emit('update:selectedDate', d);
+  const [year, month, day] = getSelectedDateKey(props.selectedDate).split('-').map(Number);
+  const prev = new Date(Date.UTC(year, month - 1, day, 12));
+  prev.setUTCDate(prev.getUTCDate() - 1);
+  emit('update:selectedDate', buildUtcDateFromHubLocalParts({
+    year: prev.getUTCFullYear(),
+    month: prev.getUTCMonth() + 1,
+    day: prev.getUTCDate()
+  }, props.timeZone));
 }
 
 function nextDay() {
-  const d = new Date(props.selectedDate);
-  d.setDate(d.getDate() + 1);
-  emit('update:selectedDate', d);
+  const [year, month, day] = getSelectedDateKey(props.selectedDate).split('-').map(Number);
+  const next = new Date(Date.UTC(year, month - 1, day, 12));
+  next.setUTCDate(next.getUTCDate() + 1);
+  emit('update:selectedDate', buildUtcDateFromHubLocalParts({
+    year: next.getUTCFullYear(),
+    month: next.getUTCMonth() + 1,
+    day: next.getUTCDate()
+  }, props.timeZone));
 }
 
 // ── Auto-scroll ───────────────────────────────────────────────
 const scrollWrapper = useTemplateRef<HTMLDivElement>('scrollWrapper');
+const horizontalScroll = ref(0);
+
+function syncHorizontalScroll() {
+  horizontalScroll.value = scrollWrapper.value?.scrollLeft ?? 0;
+}
+
+function handleGridScroll() {
+  syncHorizontalScroll();
+}
+
 function scrollToCurrentTime() {
   if (!scrollWrapper.value) return;
-  const nowH = new Date().getHours();
+  const nowH = Number(formatInHubTimezone(new Date(), {
+    hour: '2-digit',
+    hour12: false
+  }, 'en-US', props.timeZone));
   const idx = timeSlots.value.findIndex((slot) => {
     const h = parseInt(slot.split(':')[0] ?? '0', 10);
     return h >= nowH;
   });
-  scrollWrapper.value.scrollLeft = Math.max(0, (idx - 1) * 88);
+  scrollWrapper.value.scrollLeft = Math.max(0, (idx - 1) * SLOT_WIDTH_PX);
+  syncHorizontalScroll();
 }
-onMounted(() => nextTick(scrollToCurrentTime));
+
+function bookingBlockWidth(span: number): number {
+  return span * SLOT_WIDTH_PX - BLOCK_INNER_GUTTER_PX;
+}
+
+function bookingContentStyle(block: CellBlock): { left: string; right: string } {
+  const blockWidth = bookingBlockWidth(block.span);
+  const hiddenWidth = Math.max(
+    0,
+    horizontalScroll.value - block.slotIdx * SLOT_WIDTH_PX
+  );
+  const maxOffset = Math.max(
+    BOOKING_CONTENT_PADDING_PX,
+    blockWidth - BOOKING_CONTENT_PADDING_PX - MIN_BOOKING_CONTENT_WIDTH_PX
+  );
+  const left = Math.min(
+    Math.max(BOOKING_CONTENT_PADDING_PX, hiddenWidth + BOOKING_CONTENT_PADDING_PX),
+    maxOffset
+  );
+
+  return {
+    left: `${left}px`,
+    right: `${BOOKING_CONTENT_PADDING_PX}px`
+  };
+}
+
+onMounted(() => nextTick(() => {
+  scrollToCurrentTime();
+  syncHorizontalScroll();
+}));
 
 watch(
   () => props.selectedDate,
@@ -309,9 +394,12 @@ watch(
     nextTick(() => {
       if (!scrollWrapper.value) return;
       const isToday =
-        new Date().toDateString() === props.selectedDate.toDateString();
+        getSelectedDateKey(props.selectedDate) === getTodayDateKeyInTimezone(props.timeZone);
       if (isToday) scrollToCurrentTime();
-      else scrollWrapper.value.scrollLeft = 0;
+      else {
+        scrollWrapper.value.scrollLeft = 0;
+        syncHorizontalScroll();
+      }
     })
 );
 
@@ -377,6 +465,7 @@ function handleBookedCellClick(booking: BookingDetail) {
       ref="scrollWrapper"
       class="w-full overflow-auto"
       style="max-height: 560px"
+      @scroll="handleGridScroll"
     >
       <table class="border-collapse" style="min-width: max-content">
         <thead>
@@ -420,14 +509,14 @@ function handleBookedCellClick(booking: BookingDetail) {
               class="group relative border-r border-[#dbe4ef] p-1.5 last:border-r-0"
             >
               <div
-                :style="{ minWidth: `${block.span * 88 - 12}px` }"
+                :style="{ minWidth: `${bookingBlockWidth(block.span)}px` }"
                 class="w-full"
               >
                 <!-- Closed slot -->
                 <div
                   v-if="block.type === 'closed'"
                   class="h-12 rounded-lg bg-[#fee2e2] flex items-center justify-center"
-                  :style="{ minWidth: `${block.span * 88 - 12}px` }"
+                  :style="{ minWidth: `${bookingBlockWidth(block.span)}px` }"
                 >
                   <span
                     class="text-xs font-bold tracking-widest text-[#991b1b] uppercase"
@@ -438,7 +527,7 @@ function handleBookedCellClick(booking: BookingDetail) {
                 <!-- Booked slot -->
                 <div
                   v-else-if="block.type === 'booked'"
-                  class="group relative flex h-12 cursor-pointer flex-col justify-center rounded-lg px-2 transition-opacity hover:opacity-90"
+                  class="group relative h-12 cursor-pointer overflow-hidden rounded-lg transition-opacity hover:opacity-90"
                   :class="
                     block.booking!.session_type === 'open_play'
                       ? 'border border-[#7c3aed] bg-[#8b5cf6] text-white'
@@ -453,7 +542,10 @@ function handleBookedCellClick(booking: BookingDetail) {
                   "
                   @click="handleBookedCellClick(block.booking!)"
                 >
-                  <div class="pr-5">
+                  <div
+                    class="absolute inset-y-0 flex min-w-0 flex-col justify-center pr-5"
+                    :style="bookingContentStyle(block)"
+                  >
                     <p
                       class="truncate text-[11px] font-bold"
                       :style="
@@ -485,21 +577,20 @@ function handleBookedCellClick(booking: BookingDetail) {
                       }}
                     </p>
                   </div>
-
                 </div>
 
                 <!-- Past slot -->
                 <div
                   v-else-if="block.type === 'past'"
                   class="h-12 rounded-lg bg-[#f1f5f9] opacity-50"
-                  :style="{ minWidth: `${block.span * 88 - 12}px` }"
+                  :style="{ minWidth: `${bookingBlockWidth(block.span)}px` }"
                 />
 
                 <!-- Available slot -->
                 <div
                   v-else
                   class="relative h-12 rounded-lg border border-dashed border-[#93c5fd] bg-[#dbeafe] transition-all duration-75 group-hover:border-none group-hover:bg-[#bfdbfe]"
-                  :style="{ minWidth: `${block.span * 88 - 12}px` }"
+                  :style="{ minWidth: `${bookingBlockWidth(block.span)}px` }"
                 >
                   <button
                     type="button"

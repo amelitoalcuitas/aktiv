@@ -15,6 +15,7 @@ use App\Models\HubWebsite;
 use App\Models\HubSport;
 use App\Services\HubDiscoveryRankingService;
 use App\Services\ImageUploadService;
+use App\Support\HubTimezone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -225,7 +226,7 @@ class HubController extends Controller
         $limit = $request->integer('limit');
         if ($limit > 0) {
             $hubs = $query->limit($limit)->get();
-            $eventsMap = $this->loadActiveEventsMap($hubs->pluck('id')->all());
+            $eventsMap = $this->loadActiveEventsMap($hubs);
 
             return response()->json(['data' => $hubs->map(fn (Hub $hub) => $this->formatHub($hub, activeEvents: $eventsMap[$hub->id] ?? collect()))]);
         }
@@ -238,7 +239,7 @@ class HubController extends Controller
             $suggestions = $this->buildSuggestions($search, $request, $lat, $lng);
         }
 
-        $eventsMap = $this->loadActiveEventsMap($paginator->getCollection()->pluck('id')->all());
+        $eventsMap = $this->loadActiveEventsMap($paginator->getCollection());
 
         return response()->json([
             'data' => $paginator->getCollection()->map(fn (Hub $hub) => $this->formatHub($hub, activeEvents: $eventsMap[$hub->id] ?? collect())),
@@ -287,8 +288,9 @@ class HubController extends Controller
             $hub->loadCount(["ratings as ratings_{$star}" => fn ($q) => $q->where('rating', $star)]);
         }
 
-        $todayStart = now('Asia/Manila')->startOfDay();
-        $todayEnd   = now('Asia/Manila')->endOfDay();
+        $timezone = $hub->timezone_name;
+        $todayStart = now($timezone)->startOfDay();
+        $todayEnd   = now($timezone)->endOfDay();
         $activeEvents = HubEvent::where('hub_id', $hub->id)
             ->where('is_active', true)
             ->where('date_from', '<=', $todayEnd)
@@ -361,6 +363,7 @@ class HubController extends Controller
             'is_active'   => isset($validated['is_active']) ? (bool) $validated['is_active'] : true,
             'is_approved' => true,
             'is_verified' => false,
+            'timezone' => HubTimezone::resolve($validated['timezone'] ?? null),
             'username_changed_at' => null,
         ]);
 
@@ -746,21 +749,31 @@ class HubController extends Controller
      * @param  array<string>  $hubIds
      * @return array<string, \Illuminate\Support\Collection<int, HubEvent>>
      */
-    private function loadActiveEventsMap(array $hubIds): array
+    private function loadActiveEventsMap($hubs): array
     {
-        if (empty($hubIds)) {
+        $hubs = $hubs instanceof Collection ? $hubs->values() : collect($hubs);
+
+        if ($hubs->isEmpty()) {
             return [];
         }
 
-        $todayStart = now('Asia/Manila')->startOfDay();
-        $todayEnd   = now('Asia/Manila')->endOfDay();
+        $hubIds = $hubs->pluck('id')->all();
 
-        return HubEvent::whereIn('hub_id', $hubIds)
+        $candidateEvents = HubEvent::whereIn('hub_id', $hubIds)
             ->where('is_active', true)
-            ->where('date_from', '<=', $todayEnd)
-            ->where('date_to', '>=', $todayStart)
-            ->get()
+            ->where('date_from', '<=', now(HubTimezone::DEFAULT_TIMEZONE)->addDay()->toDateString())
+            ->where('date_to', '>=', now(HubTimezone::DEFAULT_TIMEZONE)->subDay()->toDateString())
+            ->get();
+
+        return $candidateEvents
             ->groupBy('hub_id')
+            ->map(function (Collection $events, string $hubId) use ($hubs): Collection {
+                $hub = $hubs->firstWhere('id', $hubId);
+                $today = now($hub?->timezone_name ?? HubTimezone::DEFAULT_TIMEZONE)->toDateString();
+
+                return $events->filter(fn (HubEvent $event): bool => $event->date_from->toDateString() <= $today
+                    && $event->date_to->toDateString() >= $today)->values();
+            })
             ->all();
     }
 
@@ -776,6 +789,7 @@ class HubController extends Controller
             'zip_code'             => $hub->zip_code,
             'province'             => $hub->province,
             'country'              => $hub->country,
+            'timezone'             => $hub->timezone_name,
             'address'              => $hub->address,
             'address_line2'        => $hub->address_line2,
             'landmark'             => $hub->landmark,

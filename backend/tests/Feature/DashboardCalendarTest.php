@@ -6,6 +6,7 @@ use App\Models\Hub;
 use App\Models\HubEvent;
 use App\Models\OpenPlaySession;
 use App\Models\User;
+use Carbon\Carbon;
 
 function makeDashboardOwner(): User
 {
@@ -54,6 +55,14 @@ function makeDashboardOpenPlaySession(Court $court, array $overrides = []): Open
     ], $overrides['session'] ?? []));
 }
 
+function dashboardEventWindow(string $startDate, string $endDate, string $startTime = '00:00', string $endTime = '23:59'): array
+{
+    return [
+        'start_time' => Carbon::createFromFormat('Y-m-d H:i', "{$startDate} {$startTime}", 'Asia/Manila')->utc(),
+        'end_time' => Carbon::createFromFormat('Y-m-d H:i', "{$endDate} {$endTime}", 'Asia/Manila')->utc(),
+    ];
+}
+
 it('returns combined calendar items across owned hubs', function () {
     $owner = makeDashboardOwner();
     $alphaHub = makeDashboardHub($owner, 'Alpha Hub');
@@ -63,10 +72,7 @@ it('returns combined calendar items across owned hubs', function () {
     $event = HubEvent::factory()->create([
         'hub_id' => $alphaHub->id,
         'title' => 'League Night',
-        'date_from' => '2026-05-10',
-        'date_to' => '2026-05-10',
-        'time_from' => '18:00:00',
-        'time_to' => '20:00:00',
+        ...dashboardEventWindow('2026-05-10', '2026-05-10', '18:00', '20:00'),
         'is_active' => true,
     ]);
 
@@ -102,8 +108,7 @@ it('filters calendar items by overlapping range and expands multi day events ins
     $event = HubEvent::factory()->create([
         'hub_id' => $hub->id,
         'title' => 'Long Weekend Event',
-        'date_from' => '2026-04-29',
-        'date_to' => '2026-05-02',
+        ...dashboardEventWindow('2026-04-29', '2026-05-02'),
         'is_active' => true,
     ]);
 
@@ -141,8 +146,7 @@ it('excludes inactive events and cancelled or completed open play records', func
     HubEvent::factory()->create([
         'hub_id' => $hub->id,
         'title' => 'Inactive Event',
-        'date_from' => '2026-05-05',
-        'date_to' => '2026-05-05',
+        ...dashboardEventWindow('2026-05-05', '2026-05-05'),
         'is_active' => false,
     ]);
 
@@ -189,16 +193,14 @@ it('only returns items from the authenticated owner hubs', function () {
     HubEvent::factory()->create([
         'hub_id' => $ownerHub->id,
         'title' => 'Own Event',
-        'date_from' => '2026-05-05',
-        'date_to' => '2026-05-05',
+        ...dashboardEventWindow('2026-05-05', '2026-05-05'),
         'is_active' => true,
     ]);
 
     HubEvent::factory()->create([
         'hub_id' => $otherHub->id,
         'title' => 'Other Event',
-        'date_from' => '2026-05-05',
-        'date_to' => '2026-05-05',
+        ...dashboardEventWindow('2026-05-05', '2026-05-05'),
         'is_active' => true,
     ]);
 

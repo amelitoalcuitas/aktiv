@@ -432,28 +432,12 @@ class OwnerOpenPlayController extends Controller
 
     private function findClosureEvent(Hub $hub, Court $court, Carbon $startTime, Carbon $endTime): ?HubEvent
     {
-        $timezone = $hub->timezone_name;
-        $bookingStart = $startTime->copy()->setTimezone($timezone)->startOfDay();
-        $bookingEnd   = $endTime->copy()->setTimezone($timezone)->endOfDay();
-
-        $slotStart = $startTime->copy()->setTimezone($timezone)->format('H:i');
-        $slotEnd   = $endTime->copy()->setTimezone($timezone)->format('H:i');
-
         return HubEvent::where('hub_id', $hub->id)
             ->where('event_type', 'closure')
             ->where('is_active', true)
-            ->where('date_from', '<=', $bookingEnd)
-            ->where('date_to', '>=', $bookingStart)
             ->get()
-            ->filter(function (HubEvent $event) use ($slotStart, $slotEnd) {
-                if (! $event->time_from || ! $event->time_to) {
-                    return true;
-                }
-
-                return $slotStart < substr($event->time_to, 0, 5)
-                    && $slotEnd > substr($event->time_from, 0, 5);
-            })
-            ->first(fn (HubEvent $event) => $event->appliesToCourt($court->id));
+            ->first(fn (HubEvent $event) => $event->overlapsWindow($startTime, $endTime)
+                && $event->appliesToCourt($court->id));
     }
 
     private function resolveExpiresAt(Carbon $endTime): Carbon

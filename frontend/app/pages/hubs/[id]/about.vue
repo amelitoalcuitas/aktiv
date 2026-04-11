@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import maplibregl from 'maplibre-gl';
-import type { Hub, Court } from '~/types/hub';
+import type { Hub, Court, HubEvent } from '~/types/hub';
 import type { CalendarBooking, SelectedSlot } from '~/types/booking';
 import type { OpenPlaySession } from '~/types/openPlay';
 import { useAuthStore } from '~/stores/auth';
@@ -12,6 +12,7 @@ const route = useRoute();
 const { fetchCourts } = useHubs();
 const { fetchHubBookings } = useBooking();
 const { fetchSessions } = useOpenPlay();
+const { fetchPublicEvents } = useHubEvents();
 const authStore = useAuthStore();
 const toast = useToast();
 
@@ -73,22 +74,43 @@ const mobileGrandTotal = computed(() => {
 const selectedDate = ref(new Date());
 const bookingsMap = ref<Record<string, CalendarBooking[]>>({});
 const openPlaySessions = ref<OpenPlaySession[]>([]);
+const currentDayBannerEvents = ref<HubEvent[]>([]);
+const selectedDateEvents = ref<HubEvent[]>([]);
+const scheduleLoading = ref(false);
+let scheduleLoadRequestId = 0;
 
 function formatDateString(date: Date): string {
   return getDateKeyInTimezone(date, hub.value?.timezone);
 }
 
-async function loadAllBookings() {
-  if (!courts.value || courts.value.length === 0) return;
+async function loadScheduleForSelectedDate() {
+  if (!hub.value?.id || !courts.value?.length) {
+    bookingsMap.value = {};
+    selectedDateEvents.value = [];
+    scheduleLoading.value = false;
+    return;
+  }
+
+  const requestId = ++scheduleLoadRequestId;
   const dateStr = formatDateString(selectedDate.value);
-  try {
-    bookingsMap.value = await fetchHubBookings(hubId.value, {
+  scheduleLoading.value = true;
+
+  const [nextBookings, nextEvents] = await Promise.all([
+    fetchHubBookings(hubId.value, {
       date_from: dateStr,
       date_to: dateStr
-    });
-  } catch {
-    bookingsMap.value = {};
-  }
+    }).catch(() => ({} as Record<string, CalendarBooking[]>)),
+    fetchPublicEvents(hubId.value, {
+      date_from: dateStr,
+      date_to: dateStr
+    }).catch(() => [] as HubEvent[])
+  ]);
+
+  if (requestId !== scheduleLoadRequestId) return;
+
+  bookingsMap.value = nextBookings;
+  selectedDateEvents.value = nextEvents;
+  scheduleLoading.value = false;
 }
 
 async function loadOpenPlaySessions() {
@@ -99,13 +121,43 @@ async function loadOpenPlaySessions() {
   }
 }
 
+async function loadCurrentDayBannerEvents() {
+  if (!hub.value?.id) {
+    currentDayBannerEvents.value = [];
+    return;
+  }
+
+  const todayKey = getTodayDateKeyInTimezone(hub.value.timezone);
+
+  try {
+    currentDayBannerEvents.value = await fetchPublicEvents(hubId.value, {
+      date_from: todayKey,
+      date_to: todayKey
+    });
+  } catch {
+    currentDayBannerEvents.value = [];
+  }
+}
+
 watch(
   () => courts.value,
-  () => loadAllBookings(),
+  () => loadScheduleForSelectedDate(),
   { immediate: true }
 );
 
-watch(selectedDate, () => loadAllBookings());
+watch(selectedDate, () => {
+  loadScheduleForSelectedDate();
+});
+
+watch(
+  () => hub.value?.id,
+  (id) => {
+    if (!id) return;
+    loadScheduleForSelectedDate();
+    loadCurrentDayBannerEvents();
+  },
+  { immediate: true }
+);
 
 await loadOpenPlaySessions();
 
@@ -136,6 +188,103 @@ async function copyVoucherCode(code: string) {
     toast.add({ title: 'Failed to copy voucher code', color: 'error' });
   }
 }
+
+function formatEventDateRange(event: HubEvent) {
+  const dateFrom = formatInHubTimezone(
+    event.start_time,
+    {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    },
+    'en-PH',
+    hub.value?.timezone
+  );
+  const dateTo = formatInHubTimezone(
+    event.end_time,
+    {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    },
+    'en-PH',
+    hub.value?.timezone
+  );
+
+  if (dateFrom === dateTo) {
+    return `on ${dateFrom}`;
+  }
+
+  return `from ${dateFrom} - ${dateTo}`;
+}
+
+function formatEventTimeRange(event: HubEvent) {
+  return `${formatInHubTimezone(event.start_time, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-PH', hub.value?.timezone)} - ${formatInHubTimezone(event.end_time, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-PH', hub.value?.timezone)}`;
+}
+
+const selectedDateIsToday = computed(() =>
+  formatDateString(selectedDate.value) === getTodayDateKeyInTimezone(hub.value?.timezone)
+);
+
+const currentDayClosureEvents = computed(() =>
+  currentDayBannerEvents.value.filter((e) => e.event_type === 'closure')
+);
+
+const currentDayAnnouncementEvents = computed(() =>
+  currentDayBannerEvents.value.filter((e) => e.event_type === 'announcement')
+);
+
+const currentDayPromoEvents = computed(() =>
+  currentDayBannerEvents.value.filter((e) => e.event_type === 'promo')
+);
+
+const currentDayVoucherAnnouncementEvents = computed(() =>
+  currentDayBannerEvents.value.filter(
+    (e) => e.event_type === 'voucher' && e.show_announcement
+  )
+);
+
+const selectedClosureEvents = computed(() =>
+  selectedDateEvents.value.filter((e) => e.event_type === 'closure')
+);
+
+const selectedAnnouncementEvents = computed(() =>
+  selectedDateEvents.value.filter((e) => e.event_type === 'announcement')
+);
+
+const selectedPromoEvents = computed(() =>
+  selectedDateEvents.value.filter((e) => e.event_type === 'promo')
+);
+
+const selectedVoucherAnnouncementEvents = computed(() =>
+  selectedDateEvents.value.filter(
+    (e) => e.event_type === 'voucher' && e.show_announcement
+  )
+);
+
+const showCurrentDayNoticeSection = computed(() =>
+  currentDayClosureEvents.value.length ||
+  currentDayAnnouncementEvents.value.length ||
+  currentDayPromoEvents.value.length ||
+  currentDayVoucherAnnouncementEvents.value.length
+);
+
+const showSelectedDateNoticeSection = computed(() =>
+  !selectedDateIsToday.value && (
+    selectedClosureEvents.value.length ||
+    selectedAnnouncementEvents.value.length ||
+    selectedPromoEvents.value.length ||
+    selectedVoucherAnnouncementEvents.value.length
+  )
+);
 
 // ── Multi-slot selection ────────────────────────────────────────────────────
 const selectedSlots = ref<SelectedSlot[]>([]);
@@ -194,7 +343,7 @@ function onRemoveSlots(slots: SelectedSlot[]) {
 }
 
 function onBookingCreated() {
-  // The websocket event (booking.slot.updated) triggers loadAllBookings already.
+  // The websocket event (booking.slot.updated) triggers a schedule reload already.
 }
 
 const selectedOpenPlaySessionId = ref<string | null>(null);
@@ -234,7 +383,7 @@ function openOpenPlaySession(session: OpenPlaySession) {
 }
 
 async function onOpenPlayUpdated() {
-  await Promise.all([loadAllBookings(), loadOpenPlaySessions()]);
+  await Promise.all([loadScheduleForSelectedDate(), loadOpenPlaySessions()]);
 }
 
 function scrollToSchedule() {
@@ -315,7 +464,7 @@ onMounted(() => {
   echo.connector.pusher.connection.connect();
   hubChannel = echo.channel(`hub.${hubId.value}`);
   hubChannel.listen('.booking.slot.updated', () => {
-    loadAllBookings();
+    loadScheduleForSelectedDate();
   });
 });
 
@@ -343,118 +492,6 @@ onUnmounted(() => {
     </div>
 
     <template v-else-if="hub">
-      <!-- Closure alert (non-dismissable) -->
-      <template
-        v-if="hub.active_events?.some((e) => e.event_type === 'closure')"
-      >
-        <div
-          v-for="event in hub.active_events?.filter(
-            (e) => e.event_type === 'closure'
-          )"
-          :key="event.id"
-          class="mb-4 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-3"
-        >
-          <p class="font-semibold text-[#991b1b]">
-            <UIcon name="i-heroicons-x-circle" class="mr-1 inline h-4 w-4" />
-            {{ event.title }}
-          </p>
-          <p v-if="event.description" class="mt-0.5 text-sm text-[#b91c1c]">
-            {{ event.description }}
-          </p>
-          <p class="mt-0.5 text-sm text-[#b91c1c]">
-            Closed
-            {{
-              event.date_from === event.date_to
-                ? `on ${event.date_from}`
-                : `from ${event.date_from} to ${event.date_to}`
-            }}
-            <template v-if="event.time_from && event.time_to">
-              · {{ event.time_from }} – {{ event.time_to }}
-            </template>
-          </p>
-        </div>
-      </template>
-
-      <!-- Announcement banner (non-dismissable) -->
-      <div
-        v-for="event in hub.active_events?.filter(
-          (e) => e.event_type === 'announcement'
-        )"
-        :key="event.id"
-        class="mb-4 rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3"
-      >
-        <p class="font-semibold text-[#1e40af]">{{ event.title }}</p>
-        <p v-if="event.description" class="mt-0.5 text-sm text-[#1d4ed8]">
-          {{ event.description }}
-        </p>
-      </div>
-
-      <!-- Promo banner (non-dismissable) -->
-      <HubPromoAlert
-        v-for="event in hub.active_events?.filter(
-          (e) => e.event_type === 'promo'
-        )"
-        :key="event.id"
-        :event="event"
-        :courts="courts ?? []"
-      />
-
-      <div
-        v-for="event in hub.active_events?.filter(
-          (e) => e.event_type === 'voucher' && e.show_announcement
-        )"
-        :key="event.id"
-        class="mb-4 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3"
-      >
-        <div class="flex items-start gap-3">
-          <div
-            class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#dcfce7]"
-          >
-            <UIcon name="i-heroicons-ticket" class="h-5 w-5 text-[#166534]" />
-          </div>
-
-          <div class="min-w-0 flex-1">
-            <p class="font-semibold text-[#166534]">
-              {{ event.title || 'Voucher Available' }}
-            </p>
-            <p v-if="event.description" class="mt-0.5 text-sm text-[#15803d]">
-              {{ event.description }}
-            </p>
-            <p class="mt-1 text-sm text-[#15803d]">
-              Valid until
-              <strong class="font-semibold text-[#166534]">
-                {{
-                  formatInHubTimezone(
-                    `${event.date_to}T12:00:00Z`,
-                    {
-                      month: 'long',
-                      day: 'numeric',
-                      year: 'numeric'
-                    },
-                    'en-PH',
-                    hub?.timezone
-                  )
-                }}
-              </strong>
-            </p>
-            <div
-              v-if="event.voucher_code"
-              class="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-[#166534]"
-            >
-              <span>Voucher code: {{ event.voucher_code }}</span>
-              <UButton
-                size="xs"
-                variant="ghost"
-                color="success"
-                icon="i-heroicons-clipboard-document"
-                @click="copyVoucherCode(event.voucher_code)"
-              >
-              </UButton>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div
         class="grid grid-cols-1 items-start gap-6 lg:grid-cols-2 xl:grid-cols-[2fr_2fr_minmax(320px,1.2fr)]"
       >
@@ -681,25 +718,218 @@ onUnmounted(() => {
               </UBadge>
             </div>
           </div>
+          <div v-if="showCurrentDayNoticeSection" class="mb-4 space-y-3">
+            <div class="flex items-center gap-2">
+              <UIcon
+                name="i-heroicons-bell-alert"
+                class="h-4 w-4 text-[var(--aktiv-primary)]"
+              />
+              <p class="text-sm font-semibold text-[var(--aktiv-ink)]">
+                Happening today
+              </p>
+            </div>
+            <div
+              v-for="event in currentDayClosureEvents"
+              :key="event.id"
+              class="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-3"
+            >
+              <p class="font-semibold text-[#991b1b]">
+                <UIcon name="i-heroicons-x-circle" class="mr-1 inline h-4 w-4" />
+                {{ event.title }}
+              </p>
+              <p v-if="event.description" class="mt-0.5 text-sm text-[#b91c1c]">
+                {{ event.description }}
+              </p>
+              <p class="mt-0.5 text-sm text-[#b91c1c]">
+                Closed today
+                {{ formatEventDateRange(event) }}
+                · {{ formatEventTimeRange(event) }}
+              </p>
+            </div>
+
+            <div
+              v-for="event in currentDayAnnouncementEvents"
+              :key="event.id"
+              class="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3"
+            >
+              <p class="font-semibold text-[#1e40af]">{{ event.title }}</p>
+              <p v-if="event.description" class="mt-0.5 text-sm text-[#1d4ed8]">
+                {{ event.description }}
+              </p>
+            </div>
+
+            <HubPromoAlert
+              v-for="event in currentDayPromoEvents"
+              :key="event.id"
+              :event="event"
+              :courts="courts ?? []"
+              :timezone="hub?.timezone"
+            />
+
+            <div
+              v-for="event in currentDayVoucherAnnouncementEvents"
+              :key="event.id"
+              class="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3"
+            >
+              <div class="flex items-start gap-3">
+                <div
+                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#dcfce7]"
+                >
+                  <UIcon name="i-heroicons-ticket" class="h-5 w-5 text-[#166534]" />
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold text-[#166534]">
+                    {{ event.title || 'Voucher Available' }}
+                  </p>
+                  <p v-if="event.description" class="mt-0.5 text-sm text-[#15803d]">
+                    {{ event.description }}
+                  </p>
+                  <p class="mt-1 text-sm text-[#15803d]">
+                    Valid until
+                    <strong class="font-semibold text-[#166534]">
+                      {{
+                        formatInHubTimezone(
+                          event.end_time,
+                          {
+                            month: 'long',
+                            day: 'numeric',
+                            year: 'numeric'
+                          },
+                          'en-PH',
+                          hub?.timezone
+                        )
+                      }}
+                    </strong>
+                  </p>
+                  <div
+                    v-if="event.voucher_code"
+                    class="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-[#166534]"
+                  >
+                    <span>Voucher code: {{ event.voucher_code }}</span>
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="success"
+                      icon="i-heroicons-clipboard-document"
+                      @click="copyVoucherCode(event.voucher_code)"
+                    >
+                    </UButton>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-if="showSelectedDateNoticeSection" class="mb-4 space-y-3">
+            <div
+              v-for="event in selectedClosureEvents"
+              :key="event.id"
+              class="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-3"
+            >
+              <p class="font-semibold text-[#991b1b]">
+                <UIcon name="i-heroicons-x-circle" class="mr-1 inline h-4 w-4" />
+                {{ event.title }}
+              </p>
+              <p v-if="event.description" class="mt-0.5 text-sm text-[#b91c1c]">
+                {{ event.description }}
+              </p>
+              <p class="mt-0.5 text-sm text-[#b91c1c]">
+                Closed
+                {{ formatEventDateRange(event) }}
+                · {{ formatEventTimeRange(event) }}
+              </p>
+            </div>
+
+            <div
+              v-for="event in selectedAnnouncementEvents"
+              :key="event.id"
+              class="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3"
+            >
+              <p class="font-semibold text-[#1e40af]">{{ event.title }}</p>
+              <p v-if="event.description" class="mt-0.5 text-sm text-[#1d4ed8]">
+                {{ event.description }}
+              </p>
+              <p class="mt-1 text-sm text-[#1d4ed8]">
+                Applies
+                {{ formatEventDateRange(event) }}
+                · {{ formatEventTimeRange(event) }}
+              </p>
+            </div>
+
+            <div
+              v-for="event in selectedPromoEvents"
+              :key="event.id"
+              class="rounded-xl border border-[#fde68a] bg-[#fefce8] px-4 py-3"
+            >
+              <p class="font-semibold text-[#854d0e]">
+                {{ event.title || 'Promo available' }}
+              </p>
+              <p v-if="event.description" class="mt-0.5 text-sm text-[#92400e]">
+                {{ event.description }}
+              </p>
+              <p class="mt-1 text-sm text-[#92400e]">
+                Promo pricing applies
+                {{ formatEventDateRange(event) }}
+                · {{ formatEventTimeRange(event) }}
+              </p>
+            </div>
+
+            <div
+              v-for="event in selectedVoucherAnnouncementEvents"
+              :key="event.id"
+              class="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3"
+            >
+              <div class="flex items-start gap-3">
+                <div
+                  class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#dcfce7]"
+                >
+                  <UIcon name="i-heroicons-ticket" class="h-5 w-5 text-[#166534]" />
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <p class="font-semibold text-[#166534]">
+                    {{ event.title || 'Voucher Available' }}
+                  </p>
+                  <p v-if="event.description" class="mt-0.5 text-sm text-[#15803d]">
+                    {{ event.description }}
+                  </p>
+                  <p class="mt-1 text-sm text-[#15803d]">
+                    Available
+                    {{ formatEventDateRange(event) }}
+                    · {{ formatEventTimeRange(event) }}
+                  </p>
+                  <div
+                    v-if="event.voucher_code"
+                    class="mt-1 flex flex-wrap items-center gap-2 text-sm font-medium text-[#166534]"
+                  >
+                    <span>Voucher code: {{ event.voucher_code }}</span>
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="success"
+                      icon="i-heroicons-clipboard-document"
+                      @click="copyVoucherCode(event.voucher_code)"
+                    >
+                    </UButton>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="space-y-4">
             <SchedulerResourceGrid
               :courts="filteredCourts"
               :bookings-map="bookingsMap"
               :selected-date="selectedDate"
               :selected-slots="selectedSlots"
+              :loading="scheduleLoading"
               :time-zone="hub?.timezone"
               :open-play-sessions-map="filteredOpenPlaySessionsMap"
               :min-time="gridMinTime"
               :max-time="gridMaxTime"
               :operating-hours="hub?.operating_hours ?? []"
-              :closure-events="
-                hub?.active_events?.filter((e) => e.event_type === 'closure') ??
-                []
-              "
-              :promo-events="
-                hub?.active_events?.filter((e) => e.event_type === 'promo') ??
-                []
-              "
+              :closure-events="selectedClosureEvents"
+              :promo-events="selectedPromoEvents"
               @slot-click="onSlotClick"
               @update:selected-date="selectedDate = $event"
               @own-booking-click="onOwnBookingClick"
@@ -739,6 +969,7 @@ onUnmounted(() => {
             :courts="courts ?? []"
             :hub-id="hubId"
             :hub="hub ?? null"
+            :promo-events="selectedPromoEvents"
             @booking-created="onBookingCreated"
             @clear="onClearSlots"
             @remove-slots="onRemoveSlots"
@@ -826,6 +1057,7 @@ onUnmounted(() => {
               :courts="courts ?? []"
               :hub-id="hubId"
               :hub="hub ?? null"
+              :promo-events="selectedPromoEvents"
               @booking-created="onBookingCreated"
               @clear="
                 () => {

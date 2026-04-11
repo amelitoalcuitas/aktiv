@@ -3,6 +3,8 @@
 namespace Database\Factories;
 
 use App\Models\Hub;
+use App\Support\HubTimezone;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -12,15 +14,17 @@ class HubEventFactory extends Factory
 {
     public function definition(): array
     {
+        $timezone = HubTimezone::DEFAULT_TIMEZONE;
+        $startLocal = Carbon::now($timezone)->startOfDay();
+        $endLocal = $startLocal->copy()->addDays(7)->endOfDay();
+
         return [
             'hub_id'          => Hub::factory(),
             'title'           => fake()->sentence(3),
             'description'     => fake()->sentence(10),
             'event_type'      => 'announcement',
-            'date_from'       => now('Asia/Manila')->toDateString(),
-            'date_to'         => now('Asia/Manila')->addDays(7)->toDateString(),
-            'time_from'       => null,
-            'time_to'         => null,
+            'start_time'      => $startLocal->copy()->utc(),
+            'end_time'        => $endLocal->copy()->utc(),
             'discount_type'   => null,
             'discount_value'  => null,
             'voucher_code'    => null,

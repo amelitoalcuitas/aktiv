@@ -25,6 +25,10 @@ services:
       - ./version.json:/app/public/version.json:ro
     environment:
       - NUXT_PUBLIC_API_BASE=/api
+      - NUXT_PUBLIC_REVERB_KEY=${REVERB_APP_KEY}
+      - NUXT_PUBLIC_REVERB_HOST=localhost
+      - NUXT_PUBLIC_REVERB_PORT=8080
+      - NUXT_PUBLIC_REVERB_SCHEME=http
     command: sh -c "npm install && npm run dev"
     expose:
       - "3000"

@@ -355,13 +355,22 @@ function formatClockTime(value: string | null, timezone?: string | null) {
 }
 
 function formatEventTimeRange(event: HubEvent, timezone?: string | null) {
-  const start = formatClockTime(event.time_from, timezone);
-  const end = formatClockTime(event.time_to, timezone);
+  return `${formatInHubTimezone(event.start_time, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-PH', timezone)} - ${formatInHubTimezone(event.end_time, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-PH', timezone)}`;
+}
 
-  if (!start) return 'All day';
-  if (!end) return start;
+function formatEventDateRange(event: HubEvent, timezone?: string | null) {
+  const dateFrom = getDateKeyInTimezone(event.start_time, timezone);
+  const dateTo = getDateKeyInTimezone(event.end_time, timezone);
 
-  return `${start} - ${end}`;
+  return formatCalendarDateRange(dateFrom, dateTo, timezone);
 }
 
 function eventDisplayTitle(event: HubEvent) {
@@ -938,9 +947,8 @@ const statusConfig: Record<string, { label: string; color: string }> = {
               </p>
               <p class="mt-1 font-medium">
                 {{
-                  formatCalendarDateRange(
-                    selectedCalendarEvent.date_from,
-                    selectedCalendarEvent.date_to,
+                  formatEventDateRange(
+                    selectedCalendarEvent,
                     selectedCalendarItem?.hubTimezone
                   )
                 }}

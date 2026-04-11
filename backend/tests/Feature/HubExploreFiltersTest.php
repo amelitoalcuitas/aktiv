@@ -491,7 +491,7 @@ it('lets active discovery boosts outrank premium-only hubs when primary signals 
         'created_at' => $timestamp,
         'updated_at' => $timestamp,
         'discovery_boost_weight' => 2,
-        'discovery_boost_expires_at' => Carbon::parse('2026-04-05 00:00:00'),
+        'discovery_boost_expires_at' => now()->addDays(5),
     ]);
 
     $response = $this->getJson('/api/hubs');

@@ -6,11 +6,14 @@ export type NotificationActivityType =
   | 'booking_cancelled'
   | 'booking_cancelled_by_guest'
   | 'open_play_receipt_uploaded'
+  | 'open_play_participant_joined'
+  | 'open_play_participant_cancelled_by_customer'
   | 'open_play_participant_confirmed'
   | 'open_play_participant_rejected'
   | 'open_play_participant_cancelled'
   | 'open_play_session_cancelled'
-  | 'open_play_session_started';
+  | 'open_play_session_started'
+  | 'open_play_session_updated';
 
 export interface NotificationData {
   activity_type: NotificationActivityType;

@@ -11,27 +11,25 @@ interface PromoEvent {
   id: string;
   title: string;
   description?: string | null;
-  date_to?: string | null;
+  start_time: string;
+  end_time: string;
   discount_type?: string | null;
   discount_value?: string | null;
-  time_from?: string | null;
-  time_to?: string | null;
   court_discounts?: CourtDiscount[] | null;
 }
 
 const props = defineProps<{
   event: PromoEvent;
   courts?: Court[];
+  timezone?: string | null;
 }>();
 
-function formatTime(t?: string | null): string {
-  if (!t) return '';
-  const [hStr, mStr] = t.split(':');
-  const h = parseInt(hStr ?? '0', 10);
-  const m = parseInt(mStr ?? '0', 10);
-  const period = h >= 12 ? 'PM' : 'AM';
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+function formatTime(value: string): string {
+  return formatInHubTimezone(value, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-PH', props.timezone);
 }
 
 function discountedPrice(
@@ -53,8 +51,7 @@ function savings(originalPrice: string, type: string, value: string): number {
 }
 
 const timeRange = computed(() => {
-  if (!props.event.time_from || !props.event.time_to) return null;
-  return `${formatTime(props.event.time_from)} – ${formatTime(props.event.time_to)}`;
+  return `${formatTime(props.event.start_time)} – ${formatTime(props.event.end_time)}`;
 });
 
 // For global discount: pick the first applicable court as a price reference
@@ -65,10 +62,7 @@ const countdown = ref('');
 let countdownTimer: ReturnType<typeof setInterval> | null = null;
 
 function computeCountdown() {
-  if (!props.event.date_to) { countdown.value = ''; return; }
-  // If time_to exists use it, otherwise end of day (23:59:59)
-  const timeStr = props.event.time_to ?? '23:59:59';
-  const endsAt = new Date(`${props.event.date_to}T${timeStr}+08:00`);
+  const endsAt = new Date(props.event.end_time);
   const diff = endsAt.getTime() - Date.now();
   if (diff <= 0) { countdown.value = 'Ended'; return; }
   const totalSeconds = Math.floor(diff / 1000);

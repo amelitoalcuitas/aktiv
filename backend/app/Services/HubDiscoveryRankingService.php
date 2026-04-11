@@ -258,8 +258,8 @@ class HubDiscoveryRankingService
                 WHERE hub_id = hubs.id
                   AND is_active = true
                   AND event_type = 'promo'
-                  AND date_from <= CURRENT_TIMESTAMP
-                  AND date_to >= CURRENT_TIMESTAMP
+                  AND start_time <= CURRENT_TIMESTAMP
+                  AND end_time >= CURRENT_TIMESTAMP
               ) THEN 1 ELSE 0 END * 0.10
             + (
                 CASE WHEN cover_image_url IS NOT NULL THEN 0.25 ELSE 0 END

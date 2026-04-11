@@ -122,12 +122,10 @@ class Hub extends Model
 
     public function activeEvents(): HasMany
     {
-        $today = now($this->timezone_name)->toDateString();
-
         return $this->hasMany(HubEvent::class)
             ->where('is_active', true)
-            ->where('date_from', '<=', $today)
-            ->where('date_to', '>=', $today);
+            ->where('start_time', '<=', HubTimezone::todayEndUtc($this->timezone_name))
+            ->where('end_time', '>=', HubTimezone::todayStartUtc($this->timezone_name));
     }
 
     public function resolveRouteBinding($value, $field = null): ?EloquentModel

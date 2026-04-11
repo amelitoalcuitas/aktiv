@@ -27,6 +27,17 @@ interface StoreEventPayload {
 export function useHubEvents() {
   const { apiFetch } = useApi();
 
+  async function fetchPublicEvents(
+    hubId: string,
+    params?: { date_from?: string; date_to?: string }
+  ): Promise<HubEvent[]> {
+    const res = await apiFetch<{ data: HubEvent[] }>(
+      `/hubs/${hubId}/events`,
+      { query: params }
+    );
+    return res.data;
+  }
+
   async function fetchEvents(
     hubId: string,
     params?: { date_from?: string; date_to?: string }
@@ -72,5 +83,5 @@ export function useHubEvents() {
     return res.data;
   }
 
-  return { fetchEvents, fetchEvent, createEvent, updateEvent, deleteEvent, toggleEvent };
+  return { fetchPublicEvents, fetchEvents, fetchEvent, createEvent, updateEvent, deleteEvent, toggleEvent };
 }

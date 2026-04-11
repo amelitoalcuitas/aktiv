@@ -62,6 +62,7 @@ Route::get('/hubs', [HubController::class, 'index'])->name('api.hubs.index');
 Route::get('/hubs/cities', [HubController::class, 'cities'])->name('api.hubs.cities');
 Route::get('/hubs/username-availability', [HubController::class, 'usernameAvailability'])->name('api.hubs.username-availability');
 Route::get('/hubs/{hub}', [HubController::class, 'show'])->name('api.hubs.show');
+Route::get('/hubs/{hub}/events', [HubEventController::class, 'publicIndex'])->name('api.hubs.events.index');
 Route::get('/hubs/{hub}/ratings', [HubRatingController::class, 'index'])->name('api.hubs.ratings.index');
 Route::get('/hubs/{hub}/ratings/courts', [HubRatingController::class, 'courts'])->name('api.hubs.ratings.courts');
 Route::get('/hubs/{hub}/members', [HubMemberController::class, 'index'])->name('api.hubs.members.index');

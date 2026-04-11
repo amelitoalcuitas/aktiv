@@ -95,6 +95,71 @@ it('rejects non-owner from listing events', function () {
         ->assertForbidden();
 });
 
+it('lists active public events for a selected future date regardless of the real current date', function () {
+    Carbon::setTestNow(Carbon::create(2026, 3, 12, 10, 0, 0, 'Asia/Manila'));
+
+    try {
+        [, $hub] = makeOwnerWithHub();
+
+        HubEvent::factory()->closure()->create([
+            'hub_id' => $hub->id,
+            'title' => 'Tomorrow closure',
+            ...eventWindow('2026-03-13', '2026-03-13'),
+        ]);
+
+        $this->getJson("/api/hubs/{$hub->id}/events?date_from=2026-03-13&date_to=2026-03-13")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonFragment(['title' => 'Tomorrow closure'])
+            ->assertJsonMissing(['title' => 'Today only']);
+    } finally {
+        Carbon::setTestNow();
+    }
+});
+
+it('excludes public events outside the selected date and inactive events', function () {
+    [, $hub] = makeOwnerWithHub();
+
+    HubEvent::factory()->closure()->create([
+        'hub_id' => $hub->id,
+        'title' => 'Tomorrow closure',
+        ...eventWindow('2026-03-13', '2026-03-13'),
+    ]);
+
+    HubEvent::factory()->closure()->create([
+        'hub_id' => $hub->id,
+        'title' => 'Inactive tomorrow closure',
+        'is_active' => false,
+        ...eventWindow('2026-03-13', '2026-03-13'),
+    ]);
+
+    $this->getJson("/api/hubs/{$hub->id}/events?date_from=2026-03-12&date_to=2026-03-12")
+        ->assertOk()
+        ->assertJsonCount(0, 'data')
+        ->assertJsonMissing(['title' => 'Tomorrow closure'])
+        ->assertJsonMissing(['title' => 'Inactive tomorrow closure']);
+});
+
+it('returns public multi-day events when the selected date overlaps their hub-local window', function () {
+    [, $hub] = makeOwnerWithHub();
+
+    HubEvent::factory()->closure()->create([
+        'hub_id' => $hub->id,
+        'title' => 'Tournament week closure',
+        ...eventWindow('2026-03-12', '2026-03-14', '08:00', '18:00'),
+    ]);
+
+    $this->getJson("/api/hubs/{$hub->id}/events?date_from=2026-03-13&date_to=2026-03-13")
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonFragment(['title' => 'Tournament week closure']);
+
+    $this->getJson("/api/hubs/{$hub->id}/events?date_from=2026-03-15&date_to=2026-03-15")
+        ->assertOk()
+        ->assertJsonCount(0, 'data')
+        ->assertJsonMissing(['title' => 'Tournament week closure']);
+});
+
 it('shows a single event for own hub', function () {
     [$owner, $hub] = makeOwnerWithHub();
     $event = HubEvent::factory()->create([

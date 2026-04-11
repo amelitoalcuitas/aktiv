@@ -21,6 +21,7 @@ const props = withDefaults(
     closureEvents?: HubEvent[];
     promoEvents?: HubEvent[];
     timeZone?: string | null;
+    loading?: boolean;
   }>(),
   {
     minTime: '06:00',
@@ -30,7 +31,8 @@ const props = withDefaults(
     operatingHours: () => [],
     closureEvents: () => [],
     promoEvents: () => [],
-    timeZone: null
+    timeZone: null,
+    loading: false
   }
 );
 
@@ -297,41 +299,59 @@ function bookingTextColor(status: BookingStatus): string {
 }
 
 // ── Promo discount helpers ──────────────────────────────────────
-function getCourtPriceInfo(court: Court): {
+function calculateDiscountedPrice(
+  originalPrice: number,
+  discountType: string | null | undefined,
+  discountValue: string | null | undefined
+): number {
+  const parsedValue = parseFloat(discountValue ?? '0');
+
+  if (discountType === 'percent') {
+    return originalPrice * (1 - parsedValue / 100);
+  }
+
+  if (discountType === 'flat') {
+    return Math.max(0, originalPrice - parsedValue);
+  }
+
+  return originalPrice;
+}
+
+function getSlotPriceInfo(court: Court, slotTime: string): {
   effectivePrice: number;
   originalPrice: number;
   hasDiscount: boolean;
 } {
   const original = parseFloat(court.price_per_hour);
-  const dateKey = formatDateString(props.selectedDate);
-  const activePromo = props.promoEvents.find((e) => {
+  const slotStart = buildSlotDate(slotTime);
+  const slotEnd = new Date(slotStart.getTime() + 3_600_000);
+
+  const activePromos = props.promoEvents.filter((e) => {
     if (e.event_type !== 'promo') return false;
-    const promoStartDate = getDateKeyInTimezone(e.start_time, props.timeZone);
-    const promoEndDate = getDateKeyInTimezone(e.end_time, props.timeZone);
-    if (dateKey < promoStartDate || dateKey > promoEndDate) return false;
     if (e.affected_courts?.length && !e.affected_courts.includes(court.id))
       return false;
-    return true;
+    return new Date(e.start_time) < slotEnd && new Date(e.end_time) > slotStart;
   });
 
-  if (!activePromo)
+  if (!activePromos.length)
     return {
       effectivePrice: original,
       originalPrice: original,
       hasDiscount: false
     };
 
-  const courtDiscount = activePromo.court_discounts?.find(
-    (cd) => cd.court_id === court.id
-  );
-  const dtype = courtDiscount?.discount_type ?? activePromo.discount_type;
-  const dval = parseFloat(
-    courtDiscount?.discount_value ?? activePromo.discount_value ?? '0'
-  );
+  const effective = activePromos.reduce((bestPrice, promo) => {
+    const courtDiscount = promo.court_discounts?.find(
+      (cd) => cd.court_id === court.id
+    );
+    const candidatePrice = calculateDiscountedPrice(
+      original,
+      courtDiscount?.discount_type ?? promo.discount_type,
+      courtDiscount?.discount_value ?? promo.discount_value
+    );
 
-  let effective = original;
-  if (dtype === 'percent') effective = original * (1 - dval / 100);
-  else if (dtype === 'flat') effective = Math.max(0, original - dval);
+    return Math.min(bestPrice, candidatePrice);
+  }, original);
 
   return {
     effectivePrice: effective,
@@ -506,7 +526,20 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
       Both sticky court header and sticky time column are supported via overflow-auto
       on this wrapper.
     -->
-    <div ref="scrollWrapper" class="overflow-auto max-h-[700px]">
+    <div ref="scrollWrapper" class="relative overflow-auto max-h-[700px]">
+      <div
+        v-if="loading"
+        class="absolute inset-0 z-30 flex flex-col gap-3 bg-white/75 p-4 backdrop-blur-[1px]"
+      >
+        <USkeleton class="h-12 w-full rounded-lg" />
+        <div class="grid grid-cols-4 gap-3">
+          <USkeleton
+            v-for="index in 12"
+            :key="index"
+            class="h-14 w-full rounded-md"
+          />
+        </div>
+      </div>
       <table class="w-full border-collapse" style="min-width: max-content">
         <thead>
           <tr>
@@ -693,10 +726,10 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                   :class="[
                     'flex cursor-pointer h-14 w-full items-center justify-center gap-1 rounded-md text-sm font-semibold transition-colors active:scale-95',
                     isSlotSelected(court.id, slotIdx)
-                      ? getCourtPriceInfo(court).hasDiscount
+                      ? getSlotPriceInfo(court, slot).hasDiscount
                         ? 'slot-promo-selected'
                         : 'bg-[var(--aktiv-primary)] text-white hover:bg-[var(--aktiv-primary-hover)]'
-                      : getCourtPriceInfo(court).hasDiscount
+                      : getSlotPriceInfo(court, slot).hasDiscount
                         ? 'slot-promo'
                         : 'bg-[#dbeafe] text-[var(--aktiv-primary)] border border-dashed border-[#93c5fd] hover:brightness-95'
                   ]"
@@ -707,7 +740,7 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                     name="i-heroicons-check"
                     class="shrink-0 size-6"
                   />
-                  <template v-else-if="getCourtPriceInfo(court).hasDiscount">
+                  <template v-else-if="getSlotPriceInfo(court, slot).hasDiscount">
                     <span
                       class="flex flex-col items-center leading-none gap-0.5"
                     >
@@ -716,8 +749,9 @@ function handleBookedCellClick(court: Court, slotIdx: number) {
                       }}</span>
                       <span class="text-sm font-bold"
                         >₱{{
-                          getCourtPriceInfo(
-                            court
+                          getSlotPriceInfo(
+                            court,
+                            slot
                           ).effectivePrice.toLocaleString('en-PH', {
                             maximumFractionDigits: 0
                           })

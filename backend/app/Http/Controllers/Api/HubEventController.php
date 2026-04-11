@@ -15,24 +15,29 @@ use Illuminate\Http\Request;
 class HubEventController extends Controller
 {
     /**
+     * List active public events for a hub.
+     */
+    public function publicIndex(Hub $hub, Request $request): JsonResponse
+    {
+        if (!$hub->is_active && auth('sanctum')->id() !== $hub->owner_id) {
+            abort(404);
+        }
+
+        $events = $this->buildHubEventsQuery($hub, $request)
+            ->where('is_active', true)
+            ->get();
+
+        return response()->json(['data' => HubEventResource::collection($events)]);
+    }
+
+    /**
      * List all events for a hub (owner dashboard).
      */
     public function index(Hub $hub, Request $request): JsonResponse
     {
         $this->authorizeOwner($hub);
 
-        $query = HubEvent::where('hub_id', $hub->id)
-            ->orderByDesc('start_time');
-
-        if ($request->filled('date_from')) {
-            $query->where('end_time', '>=', HubTimezone::startOfDayUtc($request->string('date_from')->toString(), $hub->timezone_name));
-        }
-
-        if ($request->filled('date_to')) {
-            $query->where('start_time', '<=', HubTimezone::endOfDayUtc($request->string('date_to')->toString(), $hub->timezone_name));
-        }
-
-        $events = $query->get();
+        $events = $this->buildHubEventsQuery($hub, $request)->get();
 
         return response()->json(['data' => HubEventResource::collection($events)]);
     }
@@ -105,5 +110,22 @@ class HubEventController extends Controller
     private function authorizeOwner(Hub $hub): void
     {
         abort_if(auth()->id() !== $hub->owner_id, 403);
+    }
+
+    private function buildHubEventsQuery(Hub $hub, Request $request)
+    {
+        $query = HubEvent::query()
+            ->where('hub_id', $hub->id)
+            ->orderByDesc('start_time');
+
+        if ($request->filled('date_from')) {
+            $query->where('end_time', '>=', HubTimezone::startOfDayUtc($request->string('date_from')->toString(), $hub->timezone_name));
+        }
+
+        if ($request->filled('date_to')) {
+            $query->where('start_time', '<=', HubTimezone::endOfDayUtc($request->string('date_to')->toString(), $hub->timezone_name));
+        }
+
+        return $query;
     }
 }

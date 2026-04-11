@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import maplibregl from 'maplibre-gl';
-import type { Hub, Court } from '~/types/hub';
+import type { Hub, Court, HubEvent } from '~/types/hub';
 import type { CalendarBooking, SelectedSlot } from '~/types/booking';
 import type { OpenPlaySession } from '~/types/openPlay';
 import { useAuthStore } from '~/stores/auth';
@@ -135,6 +135,29 @@ async function copyVoucherCode(code: string) {
   } catch {
     toast.add({ title: 'Failed to copy voucher code', color: 'error' });
   }
+}
+
+function formatEventDateRange(event: HubEvent) {
+  const dateFrom = getDateKeyInTimezone(event.start_time, hub.value?.timezone);
+  const dateTo = getDateKeyInTimezone(event.end_time, hub.value?.timezone);
+
+  if (dateFrom === dateTo) {
+    return `on ${dateFrom}`;
+  }
+
+  return `from ${dateFrom} to ${dateTo}`;
+}
+
+function formatEventTimeRange(event: HubEvent) {
+  return `${formatInHubTimezone(event.start_time, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-PH', hub.value?.timezone)} - ${formatInHubTimezone(event.end_time, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-PH', hub.value?.timezone)}`;
 }
 
 // ── Multi-slot selection ────────────────────────────────────────────────────
@@ -363,14 +386,8 @@ onUnmounted(() => {
           </p>
           <p class="mt-0.5 text-sm text-[#b91c1c]">
             Closed
-            {{
-              event.date_from === event.date_to
-                ? `on ${event.date_from}`
-                : `from ${event.date_from} to ${event.date_to}`
-            }}
-            <template v-if="event.time_from && event.time_to">
-              · {{ event.time_from }} – {{ event.time_to }}
-            </template>
+            {{ formatEventDateRange(event) }}
+            · {{ formatEventTimeRange(event) }}
           </p>
         </div>
       </template>
@@ -397,6 +414,7 @@ onUnmounted(() => {
         :key="event.id"
         :event="event"
         :courts="courts ?? []"
+        :timezone="hub?.timezone"
       />
 
       <div
@@ -425,7 +443,7 @@ onUnmounted(() => {
               <strong class="font-semibold text-[#166534]">
                 {{
                   formatInHubTimezone(
-                    `${event.date_to}T12:00:00Z`,
+                    event.end_time,
                     {
                       month: 'long',
                       day: 'numeric',

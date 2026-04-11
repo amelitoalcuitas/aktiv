@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Hub\StoreHubRequest;
 use App\Http\Requests\Hub\UpdateHubRequest;
+use App\Http\Resources\HubEventResource;
 use App\Http\Resources\HubMemberResource;
 use App\Models\Hub;
 use App\Models\HubContactNumber;
@@ -289,12 +290,10 @@ class HubController extends Controller
         }
 
         $timezone = $hub->timezone_name;
-        $todayStart = now($timezone)->startOfDay();
-        $todayEnd   = now($timezone)->endOfDay();
         $activeEvents = HubEvent::where('hub_id', $hub->id)
             ->where('is_active', true)
-            ->where('date_from', '<=', $todayEnd)
-            ->where('date_to', '>=', $todayStart)
+            ->where('start_time', '<=', HubTimezone::todayEndUtc($timezone))
+            ->where('end_time', '>=', HubTimezone::todayStartUtc($timezone))
             ->get();
 
         $membersCount = $hub->members()->count();
@@ -758,21 +757,24 @@ class HubController extends Controller
         }
 
         $hubIds = $hubs->pluck('id')->all();
+        $range = HubTimezone::encompassingTodayRange($hubs);
 
         $candidateEvents = HubEvent::whereIn('hub_id', $hubIds)
             ->where('is_active', true)
-            ->where('date_from', '<=', now(HubTimezone::DEFAULT_TIMEZONE)->addDay()->toDateString())
-            ->where('date_to', '>=', now(HubTimezone::DEFAULT_TIMEZONE)->subDay()->toDateString())
+            ->where('start_time', '<=', $range['end'])
+            ->where('end_time', '>=', $range['start'])
             ->get();
 
         return $candidateEvents
             ->groupBy('hub_id')
             ->map(function (Collection $events, string $hubId) use ($hubs): Collection {
                 $hub = $hubs->firstWhere('id', $hubId);
-                $today = now($hub?->timezone_name ?? HubTimezone::DEFAULT_TIMEZONE)->toDateString();
+                $timezone = $hub?->timezone_name ?? HubTimezone::DEFAULT_TIMEZONE;
+                $todayStart = HubTimezone::todayStartUtc($timezone);
+                $todayEnd = HubTimezone::todayEndUtc($timezone);
 
-                return $events->filter(fn (HubEvent $event): bool => $event->date_from->toDateString() <= $today
-                    && $event->date_to->toDateString() >= $today)->values();
+                return $events->filter(fn (HubEvent $event): bool => $event->start_time <= $todayEnd
+                    && $event->end_time >= $todayStart)->values();
             })
             ->all();
     }
@@ -860,26 +862,7 @@ class HubController extends Controller
                 : [],
             'is_member'      => $isMember,
             'active_events'            => $withBreakdown && $activeEvents !== null
-                ? $activeEvents->values()->map(fn (HubEvent $e): array => [
-                    'id'               => $e->id,
-                    'title'            => $e->title,
-                    'description'      => $e->description,
-                    'event_type'       => $e->event_type,
-                    'date_from'        => $e->date_from->toDateString(),
-                    'date_to'          => $e->date_to->toDateString(),
-                    'time_from'        => $e->time_from,
-                    'time_to'          => $e->time_to,
-                    'discount_type'    => $e->discount_type,
-                    'discount_value'   => $e->discount_value,
-                    'voucher_code'     => $e->voucher_code,
-                    'show_announcement' => $e->show_announcement,
-                    'limit_total_uses' => $e->limit_total_uses,
-                    'max_total_uses' => $e->max_total_uses,
-                    'limit_per_user_uses' => $e->limit_per_user_uses,
-                    'max_uses_per_user' => $e->max_uses_per_user,
-                    'affected_courts'  => $e->affected_courts,
-                    'court_discounts'  => $e->court_discounts,
-                ])
+                ? HubEventResource::collection($activeEvents->values())->resolve()
                 : null,
         ];
     }

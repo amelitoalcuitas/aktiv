@@ -6,6 +6,7 @@ use App\Models\Hub;
 use App\Models\HubEvent;
 use App\Models\HubSettings;
 use App\Models\User;
+use Carbon\Carbon;
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -20,6 +21,27 @@ function makeOwnerWithHub(): array
 function makeOtherOwner(): User
 {
     return User::factory()->create(['role' => 'owner']);
+}
+
+function manilaDateTime(string $date, string $time = '00:00'): Carbon
+{
+    return Carbon::createFromFormat('Y-m-d H:i', "{$date} {$time}", 'Asia/Manila');
+}
+
+function eventWindow(string $startDate, string $endDate, string $startTime = '00:00', string $endTime = '23:59'): array
+{
+    return [
+        'start_time' => manilaDateTime($startDate, $startTime)->utc(),
+        'end_time' => manilaDateTime($endDate, $endTime)->utc(),
+    ];
+}
+
+function eventPayloadWindow(string $startDate, string $endDate, string $startTime = '00:00', string $endTime = '23:59'): array
+{
+    return [
+        'start_time' => manilaDateTime($startDate, $startTime)->toIso8601String(),
+        'end_time' => manilaDateTime($endDate, $endTime)->toIso8601String(),
+    ];
 }
 
 // ── CRUD — Index ─────────────────────────────────────────────────
@@ -40,22 +62,19 @@ it('filters events by overlapping date range', function () {
     HubEvent::factory()->create([
         'hub_id' => $hub->id,
         'title' => 'Previous month event',
-        'date_from' => '2026-03-29',
-        'date_to' => '2026-03-31',
+        ...eventWindow('2026-03-29', '2026-03-31'),
     ]);
 
     HubEvent::factory()->create([
         'hub_id' => $hub->id,
         'title' => 'Visible month event',
-        'date_from' => '2026-04-02',
-        'date_to' => '2026-04-05',
+        ...eventWindow('2026-04-02', '2026-04-05'),
     ]);
 
     HubEvent::factory()->create([
         'hub_id' => $hub->id,
         'title' => 'Crosses into visible month',
-        'date_from' => '2026-03-31',
-        'date_to' => '2026-04-02',
+        ...eventWindow('2026-03-31', '2026-04-02'),
     ]);
 
     $this->actingAs($owner)
@@ -119,8 +138,7 @@ it('creates an announcement event', function () {
         ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
             'title'      => 'Holiday Closure',
             'event_type' => 'announcement',
-            'date_from'  => now()->toDateString(),
-            'date_to'    => now()->addDays(3)->toDateString(),
+            ...eventPayloadWindow(now('Asia/Manila')->toDateString(), now('Asia/Manila')->addDays(3)->toDateString()),
         ])
         ->assertCreated()
         ->assertJsonPath('data.event_type', 'announcement');
@@ -135,8 +153,7 @@ it('creates a promo event with discount', function () {
         ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
             'title'          => 'Opening Promo',
             'event_type'     => 'promo',
-            'date_from'      => now()->toDateString(),
-            'date_to'        => now()->addDays(7)->toDateString(),
+            ...eventPayloadWindow(now('Asia/Manila')->toDateString(), now('Asia/Manila')->addDays(7)->toDateString()),
             'discount_type'  => 'percent',
             'discount_value' => 20,
         ])
@@ -152,8 +169,7 @@ it('rejects a promo event without discount fields', function () {
         ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
             'title'      => 'Promo with no discount',
             'event_type' => 'promo',
-            'date_from'  => now()->toDateString(),
-            'date_to'    => now()->addDays(7)->toDateString(),
+            ...eventPayloadWindow(now('Asia/Manila')->toDateString(), now('Asia/Manila')->addDays(7)->toDateString()),
         ])
         ->assertUnprocessable();
 });
@@ -166,8 +182,7 @@ it('creates a voucher event with announcement details', function () {
             'title' => 'Summer Voucher',
             'description' => 'Use this code on checkout.',
             'event_type' => 'voucher',
-            'date_from' => now()->toDateString(),
-            'date_to' => now()->addDays(7)->toDateString(),
+            ...eventPayloadWindow(now('Asia/Manila')->toDateString(), now('Asia/Manila')->addDays(7)->toDateString()),
             'discount_type' => 'flat',
             'discount_value' => 150,
             'voucher_code' => 'save1234abcd',
@@ -193,8 +208,7 @@ it('requires a title even when voucher announcement is off', function () {
     $this->actingAs($owner)
         ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
             'event_type' => 'voucher',
-            'date_from' => now()->toDateString(),
-            'date_to' => now()->addDays(7)->toDateString(),
+            ...eventPayloadWindow(now('Asia/Manila')->toDateString(), now('Asia/Manila')->addDays(7)->toDateString()),
             'discount_type' => 'percent',
             'discount_value' => 20,
             'voucher_code' => 'SAVE12345678',
@@ -212,8 +226,7 @@ it('stores voucher title and description even when announcement is off', functio
             'title' => 'Private Voucher',
             'description' => 'Hidden from the about page.',
             'event_type' => 'voucher',
-            'date_from' => now()->toDateString(),
-            'date_to' => now()->addDays(7)->toDateString(),
+            ...eventPayloadWindow(now('Asia/Manila')->toDateString(), now('Asia/Manila')->addDays(7)->toDateString()),
             'discount_type' => 'percent',
             'discount_value' => 20,
             'voucher_code' => 'SAVE12345678',
@@ -232,8 +245,7 @@ it('rejects duplicate voucher codes within the same hub', function () {
     $this->actingAs($owner)
         ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
             'event_type' => 'voucher',
-            'date_from' => now()->toDateString(),
-            'date_to' => now()->addDays(7)->toDateString(),
+            ...eventPayloadWindow(now('Asia/Manila')->toDateString(), now('Asia/Manila')->addDays(7)->toDateString()),
             'discount_type' => 'percent',
             'discount_value' => 20,
             'voucher_code' => 'SAVE12345678',
@@ -250,8 +262,7 @@ it('rejects voucher limits when enabled without values', function () {
         ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
             'title' => 'Limited Voucher',
             'event_type' => 'voucher',
-            'date_from' => now()->toDateString(),
-            'date_to' => now()->addDays(7)->toDateString(),
+            ...eventPayloadWindow(now('Asia/Manila')->toDateString(), now('Asia/Manila')->addDays(7)->toDateString()),
             'discount_type' => 'percent',
             'discount_value' => 20,
             'voucher_code' => 'SAVE12345678',
@@ -271,8 +282,7 @@ it('allows the same voucher code on a different hub', function () {
         ->postJson("/api/dashboard/hubs/{$otherHub->id}/events", [
             'title' => 'Second Hub Voucher',
             'event_type' => 'voucher',
-            'date_from' => now()->toDateString(),
-            'date_to' => now()->addDays(7)->toDateString(),
+            ...eventPayloadWindow(now('Asia/Manila')->toDateString(), now('Asia/Manila')->addDays(7)->toDateString()),
             'discount_type' => 'percent',
             'discount_value' => 20,
             'voucher_code' => 'SAVE12345678',
@@ -281,15 +291,17 @@ it('allows the same voucher code on a different hub', function () {
         ->assertCreated();
 });
 
-it('rejects date_to before date_from', function () {
+it('rejects end_time before start_time', function () {
     [$owner, $hub] = makeOwnerWithHub();
 
     $this->actingAs($owner)
         ->postJson("/api/dashboard/hubs/{$hub->id}/events", [
             'title'      => 'Bad dates',
             'event_type' => 'announcement',
-            'date_from'  => now()->addDays(5)->toDateString(),
-            'date_to'    => now()->toDateString(),
+            ...eventPayloadWindow(
+                now('Asia/Manila')->addDays(5)->toDateString(),
+                now('Asia/Manila')->toDateString()
+            ),
         ])
         ->assertUnprocessable();
 });
@@ -336,8 +348,10 @@ it('blocks booking when a closure event covers the slot', function () {
 
     HubEvent::factory()->closure()->create([
         'hub_id'    => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to'   => now('Asia/Manila')->addDays(2)->toDateString(),
+        ...eventWindow(
+            now('Asia/Manila')->subDay()->toDateString(),
+            now('Asia/Manila')->addDays(2)->toDateString()
+        ),
         'is_active' => true,
     ]);
 
@@ -362,8 +376,10 @@ it('allows booking when closure event is inactive', function () {
 
     HubEvent::factory()->closure()->create([
         'hub_id'    => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to'   => now('Asia/Manila')->addDays(2)->toDateString(),
+        ...eventWindow(
+            now('Asia/Manila')->subDay()->toDateString(),
+            now('Asia/Manila')->addDays(2)->toDateString()
+        ),
         'is_active' => false, // inactive — should not block
     ]);
 
@@ -389,8 +405,10 @@ it('auto-applies percent promo discount to booking price', function () {
 
     HubEvent::factory()->promo('percent', 25)->create([
         'hub_id'    => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to'   => now('Asia/Manila')->addDays(2)->toDateString(),
+        ...eventWindow(
+            now('Asia/Manila')->subDay()->toDateString(),
+            now('Asia/Manila')->addDays(2)->toDateString()
+        ),
         'is_active' => true,
     ]);
 
@@ -419,8 +437,10 @@ it('auto-applies flat promo discount to booking price', function () {
 
     HubEvent::factory()->promo('flat', 100)->create([
         'hub_id'    => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to'   => now('Asia/Manila')->addDays(2)->toDateString(),
+        ...eventWindow(
+            now('Asia/Manila')->subDay()->toDateString(),
+            now('Asia/Manila')->addDays(2)->toDateString()
+        ),
         'is_active' => true,
     ]);
 
@@ -447,8 +467,10 @@ it('previews a valid voucher for the selected booking', function () {
 
     HubEvent::factory()->voucher('percent', 25, 'SAVE12345678')->create([
         'hub_id' => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        ...eventWindow(
+            now('Asia/Manila')->subDay()->toDateString(),
+            now('Asia/Manila')->addDays(2)->toDateString()
+        ),
         'is_active' => true,
         'show_announcement' => false,
         'title' => null,
@@ -478,8 +500,10 @@ it('rejects voucher preview when total-use cap is exhausted', function () {
     $court = Court::factory()->create(['hub_id' => $hub->id, 'price_per_hour' => 400, 'is_active' => true]);
     $voucher = HubEvent::factory()->voucher('percent', 25, 'SAVE12345678')->create([
         'hub_id' => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        ...eventWindow(
+            now('Asia/Manila')->subDay()->toDateString(),
+            now('Asia/Manila')->addDays(2)->toDateString()
+        ),
         'is_active' => true,
         'show_announcement' => false,
         'title' => 'Limited Voucher',
@@ -515,8 +539,10 @@ it('rejects voucher preview when guest email has reached the per-user cap', func
     $court = Court::factory()->create(['hub_id' => $hub->id, 'price_per_hour' => 400, 'is_active' => true]);
     $voucher = HubEvent::factory()->voucher('percent', 25, 'SAVE12345678')->create([
         'hub_id' => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        ...eventWindow(
+            now('Asia/Manila')->subDay()->toDateString(),
+            now('Asia/Manila')->addDays(2)->toDateString()
+        ),
         'is_active' => true,
         'show_announcement' => false,
         'title' => 'Email Limited Voucher',
@@ -554,8 +580,10 @@ it('does not count expired bookings toward voucher usage caps', function () {
     $court = Court::factory()->create(['hub_id' => $hub->id, 'price_per_hour' => 400, 'is_active' => true]);
     $voucher = HubEvent::factory()->voucher('percent', 25, 'SAVE12345678')->create([
         'hub_id' => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        ...eventWindow(
+            now('Asia/Manila')->subDay()->toDateString(),
+            now('Asia/Manila')->addDays(2)->toDateString()
+        ),
         'is_active' => true,
         'show_announcement' => false,
         'title' => 'Temporary Voucher',
@@ -588,13 +616,16 @@ it('does not count expired bookings toward voucher usage caps', function () {
 it('rejects voucher preview outside the voucher time window', function () {
     [$owner, $hub] = makeOwnerWithHub();
     $court = Court::factory()->create(['hub_id' => $hub->id, 'price_per_hour' => 400, 'is_active' => true]);
+    $eventDate = now('Asia/Manila')->addDay()->toDateString();
 
     HubEvent::factory()->voucher('percent', 25, 'SAVE12345678')->create([
         'hub_id' => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
-        'time_from' => '09:00',
-        'time_to' => '11:00',
+        ...eventWindow(
+            $eventDate,
+            $eventDate,
+            '09:00',
+            '11:00'
+        ),
         'is_active' => true,
         'show_announcement' => false,
         'title' => null,
@@ -623,15 +654,19 @@ it('applies voucher discount instead of promo for registered bookings', function
 
     HubEvent::factory()->promo('percent', 10)->create([
         'hub_id' => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        ...eventWindow(
+            now('Asia/Manila')->subDay()->toDateString(),
+            now('Asia/Manila')->addDays(2)->toDateString()
+        ),
         'is_active' => true,
     ]);
 
     HubEvent::factory()->voucher('flat', 150, 'SAVE12345678')->create([
         'hub_id' => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        ...eventWindow(
+            now('Asia/Manila')->subDay()->toDateString(),
+            now('Asia/Manila')->addDays(2)->toDateString()
+        ),
         'is_active' => true,
         'show_announcement' => false,
         'title' => null,
@@ -668,8 +703,10 @@ it('applies voucher discount for guest bookings', function () {
 
     HubEvent::factory()->voucher('flat', 100, 'SAVE12345678')->create([
         'hub_id' => $hub->id,
-        'date_from' => now('Asia/Manila')->subDay()->toDateString(),
-        'date_to' => now('Asia/Manila')->addDays(2)->toDateString(),
+        ...eventWindow(
+            now('Asia/Manila')->subDay()->toDateString(),
+            now('Asia/Manila')->addDays(2)->toDateString()
+        ),
         'is_active' => true,
         'show_announcement' => false,
         'title' => null,
@@ -710,8 +747,7 @@ it('returns has_active_promo flag on hub show', function () {
 
     HubEvent::factory()->promo()->create([
         'hub_id'    => $hub->id,
-        'date_from' => now('Asia/Manila')->toDateString(),
-        'date_to'   => now('Asia/Manila')->toDateString(),
+        ...eventWindow(now('Asia/Manila')->toDateString(), now('Asia/Manila')->toDateString()),
         'is_active' => true,
     ]);
 
@@ -728,8 +764,7 @@ it('returns active_events on hub show', function () {
         'hub_id'     => $hub->id,
         'event_type' => 'announcement',
         'title'      => 'Grand Opening',
-        'date_from'  => now('Asia/Manila')->toDateString(),
-        'date_to'    => now('Asia/Manila')->addDays(5)->toDateString(),
+        ...eventWindow(now('Asia/Manila')->toDateString(), now('Asia/Manila')->addDays(5)->toDateString()),
         'is_active'  => true,
     ]);
 

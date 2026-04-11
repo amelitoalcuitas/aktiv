@@ -146,10 +146,8 @@ export interface HubEvent {
   title: string | null
   description: string | null
   event_type: EventType
-  date_from: string   // YYYY-MM-DD
-  date_to: string     // YYYY-MM-DD
-  time_from: string | null
-  time_to: string | null
+  start_time: string
+  end_time: string
   discount_type: DiscountType | null
   discount_value: string | null  // decimal string from API
   voucher_code: string | null

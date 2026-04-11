@@ -39,8 +39,8 @@ class DashboardCalendarController extends Controller
         $events = HubEvent::query()
             ->whereIn('hub_id', $hubIds)
             ->where('is_active', true)
-            ->where('date_to', '>=', $dateFrom)
-            ->where('date_from', '<=', $dateTo)
+            ->where('end_time', '>=', $rangeStart->copy()->utc())
+            ->where('start_time', '<=', $rangeEnd->copy()->utc())
             ->get();
 
         $sessions = OpenPlaySession::query()
@@ -77,15 +77,18 @@ class DashboardCalendarController extends Controller
         string $dateTo,
     ): Collection {
         return $events->flatMap(function (HubEvent $event) use ($hubNames, $hubTimezones, $dateFrom, $dateTo): array {
+            $timezone = $hubTimezones->get($event->hub_id, HubTimezone::DEFAULT_TIMEZONE);
+            $eventStartDate = HubTimezone::localDate($event->start_time, $timezone);
+            $eventEndDate = HubTimezone::localDate($event->end_time, $timezone);
             $startDate = Carbon::createFromFormat(
                 'Y-m-d',
-                max($event->date_from->toDateString(), $dateFrom),
-                $hubTimezones->get($event->hub_id, HubTimezone::DEFAULT_TIMEZONE)
+                max($eventStartDate, $dateFrom),
+                $timezone
             )->startOfDay();
             $endDate = Carbon::createFromFormat(
                 'Y-m-d',
-                min($event->date_to->toDateString(), $dateTo),
-                $hubTimezones->get($event->hub_id, HubTimezone::DEFAULT_TIMEZONE)
+                min($eventEndDate, $dateTo),
+                $timezone
             )->startOfDay();
             $dates = [];
 
@@ -95,14 +98,10 @@ class DashboardCalendarController extends Controller
                     'kind' => 'event',
                     'hub_id' => $event->hub_id,
                     'hub_name' => $hubNames->get($event->hub_id, ''),
-                    'hub_timezone' => $hubTimezones->get($event->hub_id, HubTimezone::DEFAULT_TIMEZONE),
+                    'hub_timezone' => $timezone,
                     'title' => $this->eventTitle($event),
                     'date' => $cursor->toDateString(),
-                    'time_label' => $this->formatEventTimeRange(
-                        $event->time_from,
-                        $event->time_to,
-                        $hubTimezones->get($event->hub_id, HubTimezone::DEFAULT_TIMEZONE)
-                    ),
+                    'time_label' => $this->formatEventTimeRange($event, $cursor->toDateString(), $timezone),
                     'to' => "/dashboard/hubs/{$event->hub_id}/events",
                 ];
             }
@@ -145,29 +144,26 @@ class DashboardCalendarController extends Controller
         return 'Untitled event';
     }
 
-    private function formatEventTimeRange(?string $timeFrom, ?string $timeTo, string $timezone): ?string
+    private function formatEventTimeRange(HubEvent $event, string $date, string $timezone): string
     {
-        if (! $timeFrom) {
-            return null;
+        $start = $event->startsAtInTimezone($timezone);
+        $end = $event->endsAtInTimezone($timezone);
+        $startsOnDate = $start->toDateString() === $date;
+        $endsOnDate = $end->toDateString() === $date;
+
+        if ($startsOnDate && $endsOnDate) {
+            return $this->formatTimeRange($event->start_time, $event->end_time, $timezone);
         }
 
-        $start = $this->formatClockTime($timeFrom, $timezone);
-        $end = $timeTo ? $this->formatClockTime($timeTo, $timezone) : null;
-
-        return $end ? "{$start}-{$end}" : $start;
-    }
-
-    private function formatClockTime(string $value, string $timezone): string
-    {
-        foreach (['H:i:s', 'H:i'] as $format) {
-            $time = Carbon::createFromFormat($format, $value, $timezone);
-
-            if ($time !== false) {
-                return $time->format('g:i A');
-            }
+        if ($startsOnDate) {
+            return 'From ' . $start->format('g:i A');
         }
 
-        return $value;
+        if ($endsOnDate) {
+            return 'Until ' . $end->format('g:i A');
+        }
+
+        return 'All day';
     }
 
     private function formatTimeRange(CarbonInterface $start, CarbonInterface $end, string $timezone): string

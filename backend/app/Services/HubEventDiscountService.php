@@ -249,7 +249,7 @@ class HubEventDiscountService
         }
 
         return $query->get()
-            ->first(fn (HubEvent $event) => $this->matchesEventWindow($event, $court, $startTime, $endTime));
+            ->first(fn (HubEvent $event) => $this->matchesEventWindow($hub, $event, $court, $startTime, $endTime));
     }
 
     private function findEventForWindow(
@@ -268,21 +268,8 @@ class HubEventDiscountService
 
     private function matchesEventWindow(Hub $hub, HubEvent $event, Court $court, Carbon $startTime, Carbon $endTime): bool
     {
-        $timezone = $hub->timezone_name;
-        $bookingStart = $startTime->copy()->setTimezone($timezone)->startOfDay();
-        $bookingEnd = $endTime->copy()->setTimezone($timezone)->endOfDay();
-
-        if ($event->date_from->gt($bookingEnd) || $event->date_to->lt($bookingStart)) {
+        if (! $event->overlapsWindow($startTime, $endTime)) {
             return false;
-        }
-
-        if ($event->time_from && $event->time_to) {
-            $slotStart = $startTime->copy()->setTimezone($timezone)->format('H:i');
-            $slotEnd = $endTime->copy()->setTimezone($timezone)->format('H:i');
-
-            if (! ($slotStart < substr($event->time_to, 0, 5) && $slotEnd > substr($event->time_from, 0, 5))) {
-                return false;
-            }
         }
 
         return $event->appliesToCourt($court->id);

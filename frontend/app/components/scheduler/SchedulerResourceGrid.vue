@@ -123,17 +123,24 @@ function isCourtClosedByEvent(courtId: string, slotTime?: string): boolean {
   if (!props.closureEvents?.length) return false;
   const dateStr = formatDateString(props.selectedDate);
   return props.closureEvents.some((e) => {
-    if (e.date_from > dateStr || e.date_to < dateStr) return false;
-    if (e.affected_courts !== null && !e.affected_courts.includes(courtId))
+    const eventStartDate = getDateKeyInTimezone(e.start_time, props.timeZone);
+    const eventEndDate = getDateKeyInTimezone(e.end_time, props.timeZone);
+    if (eventStartDate > dateStr || eventEndDate < dateStr) return false;
+    if (e.affected_courts !== null && !e.affected_courts.includes(courtId)) {
       return false;
-    // If the closure has a time window, only close slots within it
-    if (slotTime && e.time_from && e.time_to) {
-      // Normalize to HH:mm — DB returns "HH:mm:ss", slots are "HH:mm"
-      const from = e.time_from.slice(0, 5);
-      const to = e.time_to.slice(0, 5);
-      return slotTime >= from && slotTime < to;
     }
-    return true;
+
+    if (slotTime) {
+      const slotStart = buildSlotDate(slotTime);
+      const slotEnd = new Date(slotStart.getTime() + 3_600_000);
+      return new Date(e.start_time) < slotEnd && new Date(e.end_time) > slotStart;
+    }
+
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const dayStart = buildUtcDateFromHubLocalParts({ year, month, day, hour: 0, minute: 0, second: 0 }, props.timeZone);
+    const dayEnd = buildUtcDateFromHubLocalParts({ year, month, day, hour: 23, minute: 59, second: 59 }, props.timeZone);
+
+    return new Date(e.start_time) <= dayEnd && new Date(e.end_time) >= dayStart;
   });
 }
 
@@ -299,7 +306,9 @@ function getCourtPriceInfo(court: Court): {
   const dateKey = formatDateString(props.selectedDate);
   const activePromo = props.promoEvents.find((e) => {
     if (e.event_type !== 'promo') return false;
-    if (dateKey < e.date_from || dateKey > e.date_to) return false;
+    const promoStartDate = getDateKeyInTimezone(e.start_time, props.timeZone);
+    const promoEndDate = getDateKeyInTimezone(e.end_time, props.timeZone);
+    if (dateKey < promoStartDate || dateKey > promoEndDate) return false;
     if (e.affected_courts?.length && !e.affected_courts.includes(court.id))
       return false;
     return true;

@@ -29,10 +29,8 @@ class StoreHubEventRequest extends FormRequest
                 'max:500',
             ]),
             'event_type'       => ['required', 'in:closure,promo,announcement,voucher'],
-            'date_from'        => ['required', 'date_format:Y-m-d'],
-            'date_to'          => ['required', 'date_format:Y-m-d', 'after_or_equal:date_from'],
-            'time_from'        => ['nullable', 'date_format:H:i'],
-            'time_to'          => ['nullable', 'date_format:H:i', 'after:time_from'],
+            'start_time'       => ['required', 'date'],
+            'end_time'         => ['required', 'date', 'after:start_time'],
             'discount_type'    => array_filter(['nullable', $isPromoWithoutCourtDiscounts || $isVoucher ? 'required' : null, 'in:percent,flat']),
             'discount_value'   => array_filter(['nullable', $isPromoWithoutCourtDiscounts || $isVoucher ? 'required' : null, 'numeric', 'min:0']),
             'voucher_code'     => array_filter([

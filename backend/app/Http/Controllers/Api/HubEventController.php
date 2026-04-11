@@ -8,6 +8,7 @@ use App\Http\Requests\HubEvent\UpdateHubEventRequest;
 use App\Http\Resources\HubEventResource;
 use App\Models\Hub;
 use App\Models\HubEvent;
+use App\Support\HubTimezone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -21,14 +22,14 @@ class HubEventController extends Controller
         $this->authorizeOwner($hub);
 
         $query = HubEvent::where('hub_id', $hub->id)
-            ->orderByDesc('date_from');
+            ->orderByDesc('start_time');
 
         if ($request->filled('date_from')) {
-            $query->where('date_to', '>=', $request->string('date_from')->toString());
+            $query->where('end_time', '>=', HubTimezone::startOfDayUtc($request->string('date_from')->toString(), $hub->timezone_name));
         }
 
         if ($request->filled('date_to')) {
-            $query->where('date_from', '<=', $request->string('date_to')->toString());
+            $query->where('start_time', '<=', HubTimezone::endOfDayUtc($request->string('date_to')->toString(), $hub->timezone_name));
         }
 
         $events = $query->get();

@@ -94,7 +94,9 @@ function getEffectivePricePerHour(
   const original = parseFloat(court.price_per_hour);
   const activePromo = promoEvents.find((e) => {
     if (e.event_type !== 'promo') return false;
-    if (dateKey < e.date_from || dateKey > e.date_to) return false;
+    const promoStartDate = getDateKeyInTimezone(e.start_time, props.hub?.timezone);
+    const promoEndDate = getDateKeyInTimezone(e.end_time, props.hub?.timezone);
+    if (dateKey < promoStartDate || dateKey > promoEndDate) return false;
     if (e.affected_courts?.length && !e.affected_courts.includes(court.id)) return false;
     return true;
   });

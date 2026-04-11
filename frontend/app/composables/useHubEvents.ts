@@ -5,10 +5,8 @@ interface StoreEventPayload {
   title?: string | null
   description?: string | null
   event_type: 'closure' | 'promo' | 'announcement' | 'voucher'
-  date_from: string
-  date_to: string
-  time_from?: string | null
-  time_to?: string | null
+  start_time: string
+  end_time: string
   discount_type?: 'percent' | 'flat' | null
   discount_value?: number | null
   voucher_code?: string | null
@@ -28,6 +26,17 @@ interface StoreEventPayload {
 
 export function useHubEvents() {
   const { apiFetch } = useApi();
+
+  async function fetchPublicEvents(
+    hubId: string,
+    params?: { date_from?: string; date_to?: string }
+  ): Promise<HubEvent[]> {
+    const res = await apiFetch<{ data: HubEvent[] }>(
+      `/hubs/${hubId}/events`,
+      { query: params }
+    );
+    return res.data;
+  }
 
   async function fetchEvents(
     hubId: string,
@@ -74,5 +83,5 @@ export function useHubEvents() {
     return res.data;
   }
 
-  return { fetchEvents, fetchEvent, createEvent, updateEvent, deleteEvent, toggleEvent };
+  return { fetchPublicEvents, fetchEvents, fetchEvent, createEvent, updateEvent, deleteEvent, toggleEvent };
 }

@@ -8,6 +8,7 @@ const props = defineProps<{
   courts: Court[];
   hubId: string;
   hub: Hub | null | undefined;
+  promoEvents?: HubEvent[];
 }>();
 
 const emit = defineEmits<{
@@ -82,32 +83,55 @@ interface SummaryGroup {
   pricePerHour: number | null;
   discountedPricePerHour: number | null;
   hasDiscount: boolean;
+  hasMixedDiscountPricing: boolean;
   subtotal: number | null;
   ranges: TimeRange[];
 }
 
+function calculateDiscountedPrice(
+  originalPrice: number,
+  discountType: DiscountType | null | undefined,
+  discountValue: string | null | undefined
+): number {
+  const parsedValue = parseFloat(discountValue ?? '0');
+
+  if (discountType === 'percent') {
+    return originalPrice * (1 - parsedValue / 100);
+  }
+
+  if (discountType === 'flat') {
+    return Math.max(0, originalPrice - parsedValue);
+  }
+
+  return originalPrice;
+}
+
 function getEffectivePricePerHour(
   court: Court,
-  dateKey: string,
+  startTime: Date,
+  endTime: Date,
   promoEvents: HubEvent[]
 ): { effectivePrice: number; hasDiscount: boolean } {
   const original = parseFloat(court.price_per_hour);
-  const activePromo = promoEvents.find((e) => {
+  const activePromos = promoEvents.filter((e) => {
     if (e.event_type !== 'promo') return false;
-    if (dateKey < e.date_from || dateKey > e.date_to) return false;
-    if (e.affected_courts?.length && !e.affected_courts.includes(court.id)) return false;
-    return true;
+    if (e.affected_courts?.length && !e.affected_courts.includes(court.id))
+      return false;
+    return new Date(e.start_time) < endTime && new Date(e.end_time) > startTime;
   });
 
-  if (!activePromo) return { effectivePrice: original, hasDiscount: false };
+  if (!activePromos.length) return { effectivePrice: original, hasDiscount: false };
 
-  const courtDiscount = activePromo.court_discounts?.find((cd) => cd.court_id === court.id);
-  const dtype: DiscountType | null = courtDiscount?.discount_type ?? activePromo.discount_type;
-  const dval = parseFloat(courtDiscount?.discount_value ?? activePromo.discount_value ?? '0');
+  const effective = activePromos.reduce((bestPrice, promo) => {
+    const courtDiscount = promo.court_discounts?.find((cd) => cd.court_id === court.id);
+    const candidatePrice = calculateDiscountedPrice(
+      original,
+      courtDiscount?.discount_type ?? promo.discount_type,
+      courtDiscount?.discount_value ?? promo.discount_value
+    );
 
-  let effective = original;
-  if (dtype === 'percent') effective = original * (1 - dval / 100);
-  else if (dtype === 'flat') effective = Math.max(0, original - dval);
+    return Math.min(bestPrice, candidatePrice);
+  }, original);
 
   return { effectivePrice: effective, hasDiscount: effective < original };
 }
@@ -175,6 +199,7 @@ const summaryGroups = computed<SummaryGroup[]>(() => {
         pricePerHour: null,
         discountedPricePerHour: null,
         hasDiscount: false,
+        hasMixedDiscountPricing: false,
         subtotal: null,
         ranges: []
       };
@@ -188,15 +213,33 @@ const summaryGroups = computed<SummaryGroup[]>(() => {
       group.totalHours = group.slots.length;
       const priceNum = parseFloat(group.court.price_per_hour);
       group.pricePerHour = isNaN(priceNum) ? null : priceNum;
-      const promoEvents = props.hub?.active_events?.filter((e) => e.event_type === 'promo') ?? [];
-      const { effectivePrice, hasDiscount } = getEffectivePricePerHour(group.court, group.dateKey, promoEvents);
-      group.hasDiscount = hasDiscount;
-      group.discountedPricePerHour = isNaN(priceNum) ? null : effectivePrice;
-      group.subtotal =
-        group.discountedPricePerHour !== null
-          ? group.discountedPricePerHour * group.totalHours
-          : null;
       group.ranges = mergeContiguousSlots(group.slots);
+
+      const slotPrices = group.slots.map((slot) =>
+        getEffectivePricePerHour(
+          group.court,
+          slot.slotStart,
+          new Date(slot.slotStart.getTime() + 3_600_000),
+          props.promoEvents ?? []
+        )
+      );
+
+      const uniqueEffectivePrices = [...new Set(
+        slotPrices.map((price) => price.effectivePrice.toFixed(2))
+      )];
+
+      group.hasDiscount = slotPrices.some((price) => price.hasDiscount);
+      group.hasMixedDiscountPricing =
+        group.hasDiscount && uniqueEffectivePrices.length > 1;
+      group.discountedPricePerHour =
+        !isNaN(priceNum) && group.hasDiscount && !group.hasMixedDiscountPricing
+          ? Number(uniqueEffectivePrices[0])
+          : null;
+      group.subtotal =
+        !isNaN(priceNum)
+          ? slotPrices.reduce((sum, price) => sum + price.effectivePrice, 0)
+          : null;
+
       return group;
     })
     .sort((a, b) =>
@@ -544,6 +587,11 @@ function scrollToSchedule() {
               <template v-else>
                 {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }}
               </template>
+              <template
+                v-if="!appliedVoucherPreview && group.hasMixedDiscountPricing"
+              >
+                · <span class="font-semibold text-[#b8860b]">Mixed promo pricing</span>
+              </template>
               <template v-if="!appliedVoucherPreview && group.hasDiscount && group.discountedPricePerHour !== null">
                 × <span class="line-through">₱{{ formatPriceInt(group.pricePerHour!) }}/hr</span>
                 <span class="ml-1 font-semibold text-[#b8860b]">₱{{ formatPriceInt(group.discountedPricePerHour) }}/hr</span>
@@ -793,6 +841,11 @@ function scrollToSchedule() {
               </template>
               <template v-else>
                 {{ group.totalHours }} hr{{ group.totalHours !== 1 ? 's' : '' }}
+              </template>
+              <template
+                v-if="!appliedVoucherPreview && group.hasMixedDiscountPricing"
+              >
+                · <span class="font-semibold text-[#b8860b]">Mixed promo pricing</span>
               </template>
               <template v-if="!appliedVoucherPreview && group.hasDiscount && group.discountedPricePerHour !== null">
                 × <span class="line-through">₱{{ formatPriceInt(group.pricePerHour!) }}/hr</span>

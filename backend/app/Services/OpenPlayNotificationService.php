@@ -32,18 +32,22 @@ class OpenPlayNotificationService
     {
         $recipientEmail = $participant->user?->email ?? $participant->guest_email;
 
-        if (! $recipientEmail) {
-            return;
+        $owner = $session->booking->court->hub->owner;
+
+        if ($recipientEmail) {
+            $isFreeOrOnSite = (float) $session->price_per_player === 0.0
+                || $participant->payment_method === 'pay_on_site';
+
+            $mail = $isFreeOrOnSite
+                ? new OpenPlayJoinConfirmation($participant, $session)
+                : new OpenPlayPaymentPending($participant, $session);
+
+            Mail::to($recipientEmail)->queue($mail);
         }
 
-        $isFreeOrOnSite = (float) $session->price_per_player === 0.0
-            || $participant->payment_method === 'pay_on_site';
-
-        $mail = $isFreeOrOnSite
-            ? new OpenPlayJoinConfirmation($participant, $session)
-            : new OpenPlayPaymentPending($participant, $session);
-
-        Mail::to($recipientEmail)->queue($mail);
+        if ($owner) {
+            $this->sendActivityNotification($owner, $participant, $session, 'open_play_participant_joined');
+        }
     }
 
     /**
@@ -105,10 +109,16 @@ class OpenPlayNotificationService
      */
     public function notifyParticipantCancelled(OpenPlayParticipant $participant, OpenPlaySession $session, string $cancelledBy): void
     {
+        $owner = $session->booking->court->hub->owner;
+
         if ($participant->user_id && $participant->user) {
             $this->sendActivityNotification($participant->user, $participant, $session, 'open_play_participant_cancelled');
         } elseif ($participant->guest_email) {
             Mail::to($participant->guest_email)->queue(new OpenPlayParticipantCancelled($participant, $session));
+        }
+
+        if ($cancelledBy === 'user' && $owner) {
+            $this->sendActivityNotification($owner, $participant, $session, 'open_play_participant_cancelled_by_customer');
         }
     }
 

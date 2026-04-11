@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\HubTimezone;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,10 +18,8 @@ class HubEvent extends Model
         'title',
         'description',
         'event_type',
-        'date_from',
-        'date_to',
-        'time_from',
-        'time_to',
+        'start_time',
+        'end_time',
         'discount_type',
         'discount_value',
         'voucher_code',
@@ -36,8 +36,8 @@ class HubEvent extends Model
     protected function casts(): array
     {
         return [
-            'date_from'       => 'date',
-            'date_to'         => 'date',
+            'start_time'      => 'datetime',
+            'end_time'        => 'datetime',
             'affected_courts' => 'array',
             'court_discounts' => 'array',
             'is_active'       => 'boolean',
@@ -53,6 +53,21 @@ class HubEvent extends Model
     public function hub(): BelongsTo
     {
         return $this->belongsTo(Hub::class);
+    }
+
+    public function startsAtInTimezone(?string $timezone = null): Carbon
+    {
+        return $this->start_time->copy()->setTimezone(HubTimezone::resolve($timezone ?? $this->hub?->timezone));
+    }
+
+    public function endsAtInTimezone(?string $timezone = null): Carbon
+    {
+        return $this->end_time->copy()->setTimezone(HubTimezone::resolve($timezone ?? $this->hub?->timezone));
+    }
+
+    public function overlapsWindow(Carbon $startTime, Carbon $endTime): bool
+    {
+        return $this->start_time->lt($endTime) && $this->end_time->gt($startTime);
     }
 
     /**

@@ -439,10 +439,8 @@ it('owner cannot update a session into a closure event', function () {
     HubEvent::factory()->closure()->create([
         'hub_id' => $hub->id,
         'title' => 'Maintenance',
-        'date_from' => $date->toDateString(),
-        'date_to' => $date->toDateString(),
-        'time_from' => '17:00:00',
-        'time_to' => '20:00:00',
+        'start_time' => $date->copy()->setHour(17)->setMinute(0)->setSecond(0)->utc(),
+        'end_time' => $date->copy()->setHour(20)->setMinute(0)->setSecond(0)->utc(),
         'affected_courts' => [$court->id],
         'is_active' => true,
     ]);

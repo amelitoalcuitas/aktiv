@@ -11,14 +11,17 @@ const USER_OPEN_PLAY_TYPES: NotificationActivityType[] = [
   'open_play_participant_rejected',
   'open_play_participant_cancelled',
   'open_play_session_cancelled',
-  'open_play_session_started'
+  'open_play_session_started',
+  'open_play_session_updated'
 ];
 
 const OWNER_BOOKING_TYPES: NotificationActivityType[] = [
   'booking_created',
   'receipt_uploaded',
   'booking_cancelled_by_guest',
-  'open_play_receipt_uploaded'
+  'open_play_receipt_uploaded',
+  'open_play_participant_joined',
+  'open_play_participant_cancelled_by_customer'
 ];
 
 interface NotificationNavigationTarget {

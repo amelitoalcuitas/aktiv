@@ -7,10 +7,11 @@ definePageMeta({ middleware: 'owner-hub', layout: 'dashboard-hub' });
 const route = useRoute();
 const { fetchEvents, createEvent, updateEvent, deleteEvent, toggleEvent } =
   useHubEvents();
-const { fetchCourts } = useHubs();
+const { fetchCourts, fetchHub } = useHubs();
 const toast = useToast();
 
 const hubId = computed(() => String(route.params.id));
+const hubTimezone = ref<string | null>(null);
 
 const manageTabs = computed(() => [
   {
@@ -54,8 +55,17 @@ const events = ref<HubEvent[]>([]);
 const eventsLoading = ref(false);
 
 onMounted(async () => {
-  await Promise.all([loadEvents(), loadCourts()]);
+  await Promise.all([loadHub(), loadEvents(), loadCourts()]);
 });
+
+async function loadHub() {
+  try {
+    const hub = await fetchHub(hubId.value);
+    hubTimezone.value = hub.timezone;
+  } catch {
+    hubTimezone.value = null;
+  }
+}
 
 async function loadEvents() {
   eventsLoading.value = true;
@@ -125,10 +135,10 @@ const form = reactive({
   title: '',
   description: '',
   event_type: 'announcement' as EventType,
-  date_from: '',
-  date_to: '',
-  time_from: '',
-  time_to: '',
+  start_date: '',
+  end_date: '',
+  start_hour: 8,
+  end_hour: 9,
   discount_type: 'percent' as DiscountType,
   discount_value: '' as string,
   voucher_code: '',
@@ -219,8 +229,8 @@ const formErrors = reactive({
   title: '',
   description: '',
   event_type: '',
-  date_from: '',
-  date_to: '',
+  start_time: '',
+  end_time: '',
   discount_type: '',
   discount_value: '',
   voucher_code: '',
@@ -234,8 +244,8 @@ function clearFormErrors() {
   formErrors.title = '';
   formErrors.description = '';
   formErrors.event_type = '';
-  formErrors.date_from = '';
-  formErrors.date_to = '';
+  formErrors.start_time = '';
+  formErrors.end_time = '';
   formErrors.discount_type = '';
   formErrors.discount_value = '';
   formErrors.voucher_code = '';
@@ -256,16 +266,20 @@ function validateForm(): boolean {
     formErrors.event_type = 'Event type is required.';
     valid = false;
   }
-  if (!form.date_from) {
-    formErrors.date_from = 'Start date is required.';
+  if (!form.start_date) {
+    formErrors.start_time = 'Start date is required.';
     valid = false;
   }
-  if (!form.date_to) {
-    formErrors.date_to = 'End date is required.';
+  if (!form.end_date) {
+    formErrors.end_time = 'End date is required.';
     valid = false;
   }
-  if (form.date_from && form.date_to && form.date_to < form.date_from) {
-    formErrors.date_to = 'End date must be on or after start date.';
+  if (form.start_date && form.end_date && form.end_date < form.start_date) {
+    formErrors.end_time = 'End date must be on or after start date.';
+    valid = false;
+  }
+  if (form.start_date && form.end_date && form.end_date === form.start_date && form.end_hour <= form.start_hour) {
+    formErrors.end_time = 'End time must be after start time.';
     valid = false;
   }
   if (showDiscountFields.value && form.court_discounts.length === 0) {
@@ -327,10 +341,10 @@ function openAdd() {
     title: '',
     description: '',
     event_type: 'announcement',
-    date_from: today,
-    date_to: today,
-    time_from: '',
-    time_to: '',
+    start_date: today,
+    end_date: today,
+    start_hour: 8,
+    end_hour: 9,
     discount_type: 'percent',
     discount_value: '',
     voucher_code: generateVoucherCode(),
@@ -349,14 +363,29 @@ function openAdd() {
 function openEdit(event: HubEvent) {
   editingEvent.value = event;
   clearFormErrors();
+  const timezone = hubTimezone.value;
   Object.assign(form, {
     title: event.title ?? '',
     description: event.description ?? '',
     event_type: event.event_type,
-    date_from: event.date_from,
-    date_to: event.date_to,
-    time_from: event.time_from ?? '',
-    time_to: event.time_to ?? '',
+    start_date: getDateKeyInTimezone(event.start_time, timezone),
+    end_date: getDateKeyInTimezone(event.end_time, timezone),
+    start_hour: Number(
+      formatInHubTimezone(
+        event.start_time,
+        { hour: '2-digit', hour12: false },
+        'en-US',
+        timezone
+      )
+    ),
+    end_hour: Number(
+      formatInHubTimezone(
+        event.end_time,
+        { hour: '2-digit', hour12: false },
+        'en-US',
+        timezone
+      )
+    ),
     discount_type: event.discount_type ?? 'percent',
     discount_value: event.discount_value ?? '',
     voucher_code: event.voucher_code ?? '',
@@ -384,14 +413,23 @@ async function submitForm() {
 
   formLoading.value = true;
   try {
+    const startTime = buildHubIsoFromDateAndTime(
+      new Date(`${form.start_date}T00:00:00`),
+      `${String(form.start_hour).padStart(2, '0')}:00`,
+      hubTimezone.value
+    );
+    const endTime = buildHubIsoFromDateAndTime(
+      new Date(`${form.end_date}T00:00:00`),
+      `${String(form.end_hour).padStart(2, '0')}:00`,
+      hubTimezone.value
+    );
+
     const payload = {
       title: form.title.trim(),
       description: form.description.trim() || null,
       event_type: form.event_type,
-      date_from: form.date_from,
-      date_to: form.date_to,
-      time_from: form.time_from || null,
-      time_to: form.time_to || null,
+      start_time: startTime,
+      end_time: endTime,
       discount_type:
         showDiscountFields.value && !form.court_discounts.length
           ? form.discount_type
@@ -450,8 +488,8 @@ async function submitForm() {
     const errors = err?.data?.errors ?? {};
     formErrors.title = errors.title?.[0] ?? formErrors.title;
     formErrors.description = errors.description?.[0] ?? formErrors.description;
-    formErrors.date_from = errors.date_from?.[0] ?? formErrors.date_from;
-    formErrors.date_to = errors.date_to?.[0] ?? formErrors.date_to;
+    formErrors.start_time = errors.start_time?.[0] ?? formErrors.start_time;
+    formErrors.end_time = errors.end_time?.[0] ?? formErrors.end_time;
     formErrors.discount_type =
       errors.discount_type?.[0] ?? formErrors.discount_type;
     formErrors.discount_value =
@@ -488,6 +526,15 @@ watch(
 
     if (eventType === 'voucher') {
       form.court_discounts = [];
+    }
+  }
+);
+
+watch(
+  () => form.start_hour,
+  () => {
+    if (form.end_date === form.start_date && form.end_hour <= form.start_hour) {
+      form.end_hour = form.start_hour + 1;
     }
   }
 );
@@ -558,17 +605,40 @@ async function handleToggle(event: HubEvent) {
 // ── Date picker bridges ────────────────────────────────────────────────────────
 
 const dateFromObj = computed({
-  get: () => toDateObj(form.date_from),
+  get: () => toDateObj(form.start_date),
   set: (d: Date) => {
-    form.date_from = toDateStr(d);
+    form.start_date = toDateStr(d);
   }
 });
 
 const dateToObj = computed({
-  get: () => toDateObj(form.date_to),
+  get: () => toDateObj(form.end_date),
   set: (d: Date) => {
-    form.date_to = toDateStr(d);
+    form.end_date = toDateStr(d);
   }
+});
+
+function formatHourLabel(hour: number): string {
+  if (hour === 0) return '12:00 AM';
+  if (hour < 12) return `${hour}:00 AM`;
+  if (hour === 12) return '12:00 PM';
+  return `${hour - 12}:00 PM`;
+}
+
+const startHourOptions = computed(() =>
+  Array.from({ length: 23 }, (_, index) => ({
+    label: formatHourLabel(index),
+    value: index
+  }))
+);
+
+const endHourOptions = computed(() => {
+  const minHour = form.end_date === form.start_date ? form.start_hour + 1 : 1;
+
+  return Array.from({ length: 24 - minHour }, (_, index) => ({
+    label: formatHourLabel(minHour + index),
+    value: minHour + index
+  }));
 });
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -590,6 +660,25 @@ const EVENT_TYPE_LABELS: Record<EventType, string> = {
 function formatDateRange(from: string, to: string): string {
   if (from === to) return from;
   return `${from} → ${to}`;
+}
+
+function formatEventDateRange(event: HubEvent): string {
+  return formatDateRange(
+    getDateKeyInTimezone(event.start_time, hubTimezone.value),
+    getDateKeyInTimezone(event.end_time, hubTimezone.value)
+  );
+}
+
+function formatEventTimeRange(event: HubEvent): string {
+  return `${formatInHubTimezone(event.start_time, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-PH', hubTimezone.value)} - ${formatInHubTimezone(event.end_time, {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  }, 'en-PH', hubTimezone.value)}`;
 }
 
 function formatDiscount(event: HubEvent): string {
@@ -747,7 +836,7 @@ function eventDisplayTitle(event: HubEvent): string {
                 {{ formatVoucherLimits(event) }}
               </p>
               <p class="text-xs text-[#94a3b8]">
-                {{ formatDateRange(event.date_from, event.date_to) }}
+                {{ formatEventDateRange(event) }} · {{ formatEventTimeRange(event) }}
               </p>
             </div>
             <div class="flex shrink-0 flex-col items-end gap-2">
@@ -818,7 +907,10 @@ function eventDisplayTitle(event: HubEvent): string {
               </p>
             </div>
             <div class="text-[#64748b]">
-              {{ formatDateRange(event.date_from, event.date_to) }}
+              {{ formatEventDateRange(event) }}
+              <div class="text-xs text-[#94a3b8]">
+                {{ formatEventTimeRange(event) }}
+              </div>
             </div>
             <div class="text-[#64748b]">{{ formatDiscount(event) }}</div>
             <div class="flex items-center gap-2">
@@ -947,7 +1039,7 @@ function eventDisplayTitle(event: HubEvent): string {
             <UFormField
               label="Start Date"
               required
-              :error="formErrors.date_from || undefined"
+              :error="formErrors.start_time || undefined"
             >
               <AppDatePicker
                 v-model="dateFromObj"
@@ -964,7 +1056,7 @@ function eventDisplayTitle(event: HubEvent): string {
             <UFormField
               label="End Date"
               required
-              :error="formErrors.date_to || undefined"
+              :error="formErrors.end_time || undefined"
             >
               <AppDatePicker
                 v-model="dateToObj"
@@ -981,11 +1073,19 @@ function eventDisplayTitle(event: HubEvent): string {
           </div>
 
           <div class="grid grid-cols-2 gap-3">
-            <UFormField label="Start Time (optional)">
-              <UInput v-model="form.time_from" type="time" class="w-full" />
+            <UFormField label="Start" required>
+              <USelect
+                v-model="form.start_hour"
+                :items="startHourOptions"
+                class="w-full"
+              />
             </UFormField>
-            <UFormField label="End Time (optional)">
-              <UInput v-model="form.time_to" type="time" class="w-full" />
+            <UFormField label="End" required>
+              <USelect
+                v-model="form.end_hour"
+                :items="endHourOptions"
+                class="w-full"
+              />
             </UFormField>
           </div>
 

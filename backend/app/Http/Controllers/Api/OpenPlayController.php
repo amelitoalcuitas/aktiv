@@ -245,6 +245,11 @@ class OpenPlayController extends Controller
 
         $session->recalculateStatus();
 
+        $session->loadMissing('booking.court.hub.owner');
+        $participant->setRelation('openPlaySession', $session);
+        $participant->loadMissing('user');
+        $this->openPlayNotifications->notifyParticipantCancelled($participant, $session, 'user');
+
         return response()->json(['message' => "You've left the session."]);
     }
 

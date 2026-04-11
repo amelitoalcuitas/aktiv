@@ -41,10 +41,8 @@ class UpdateHubEventRequest extends FormRequest
                 'max:500',
             ]),
             'event_type'       => ['sometimes', 'in:closure,promo,announcement,voucher'],
-            'date_from'        => ['sometimes', 'date_format:Y-m-d'],
-            'date_to'          => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:date_from'],
-            'time_from'        => ['nullable', 'date_format:H:i'],
-            'time_to'          => ['nullable', 'date_format:H:i', 'after:time_from'],
+            'start_time'       => ['sometimes', 'date'],
+            'end_time'         => ['sometimes', 'date', 'after:start_time'],
             'discount_type'              => array_filter(['nullable', $isPromoWithoutCourtDiscounts || $isVoucher ? 'required' : null, 'in:percent,flat']),
             'discount_value'             => array_filter(['nullable', $isPromoWithoutCourtDiscounts || $isVoucher ? 'required' : null, 'numeric', 'min:0']),
             'voucher_code'               => array_filter([
@@ -91,6 +89,8 @@ class UpdateHubEventRequest extends FormRequest
         $voucherCode = $this->input('voucher_code');
 
         $this->merge([
+            'start_time' => $this->input('start_time', $this->route('event')?->start_time?->toIso8601String()),
+            'end_time' => $this->input('end_time', $this->route('event')?->end_time?->toIso8601String()),
             'voucher_code' => is_string($voucherCode) ? strtoupper(trim($voucherCode)) : $voucherCode,
             'show_announcement' => $eventType === 'voucher' ? $showAnnouncement : true,
             'limit_total_uses' => $eventType === 'voucher'

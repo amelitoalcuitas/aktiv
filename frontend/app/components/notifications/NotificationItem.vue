@@ -12,7 +12,8 @@ const emit = defineEmits<{
     itemId: string | undefined,
     bookingId: string | undefined,
     hubId: string | undefined,
-    activityType: NotificationActivityType
+    activityType: NotificationActivityType,
+    sessionId: string | undefined
   ];
 }>();
 
@@ -80,7 +81,8 @@ function handleClick() {
     props.notification.data.item_id,
     props.notification.data.booking_id,
     props.notification.data.hub_id,
-    props.notification.activity_type
+    props.notification.activity_type,
+    props.notification.data.session_id
   );
 }
 </script>

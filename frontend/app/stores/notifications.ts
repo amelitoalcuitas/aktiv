@@ -99,7 +99,8 @@ export const useNotificationStore = defineStore('notifications', () => {
                 activityType: payload.activity_type,
                 hubId: payload.data.hub_id,
                 itemId: payload.data.item_id,
-                bookingId: payload.data.booking_id
+                bookingId: payload.data.booking_id,
+                sessionId: payload.data.session_id
               });
               navigateTo(destination);
             }

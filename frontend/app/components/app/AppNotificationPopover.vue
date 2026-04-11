@@ -22,10 +22,11 @@ async function handleOpenBooking(
   itemId: string | undefined,
   bookingId: string | undefined,
   hubId: string | undefined,
-  activityType: import('~/types/notification').NotificationActivityType
+  activityType: import('~/types/notification').NotificationActivityType,
+  sessionId: string | undefined
 ) {
   emit('close');
-  await openBookingFromNotification(itemId, bookingId, hubId, activityType);
+  await openBookingFromNotification(itemId, bookingId, hubId, activityType, sessionId);
 }
 </script>
 

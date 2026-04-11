@@ -60,6 +60,7 @@ const hubData = ref<Hub | null>(null);
 const isCreateOpen = ref(false);
 const isManageOpen = ref(false);
 const selectedSessionId = ref<string | null>(null);
+const highlightedSessionId = ref<string | null>(null);
 
 async function loadSessions() {
   sessionsLoading.value = true;
@@ -90,9 +91,35 @@ async function loadHubContext() {
   }
 }
 
+function scrollToSession(id: string) {
+  nextTick(() => {
+    setTimeout(() => {
+      const el = document.getElementById(`session-${id}`);
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      highlightedSessionId.value = id;
+      setTimeout(() => {
+        highlightedSessionId.value = null;
+      }, 5000);
+    }, 80);
+  });
+}
+
 onMounted(async () => {
   await Promise.all([loadSessions(), loadHubContext()]);
+  const sessionId = Array.isArray(route.query.sessionId)
+    ? route.query.sessionId[0]
+    : route.query.sessionId;
+  if (sessionId) scrollToSession(sessionId);
 });
+
+watch(
+  () => route.query.sessionId,
+  (sessionId) => {
+    const id = Array.isArray(sessionId) ? sessionId[0] : sessionId;
+    if (id) scrollToSession(id);
+  }
+);;
 
 function openManage(sessionId: string) {
   selectedSessionId.value = sessionId;
@@ -221,9 +248,13 @@ onUnmounted(() => {
       <div v-else class="space-y-4">
         <UCard
           v-for="session in sessions"
+          :id="`session-${session.id}`"
           :key="session.id"
           :class="[
-            'rounded-2xl border border-[#dbe4ef] bg-white',
+            'rounded-2xl border bg-white transition-all duration-500',
+            highlightedSessionId === session.id
+              ? 'border-[#004e89] ring-2 ring-[#004e89]/30'
+              : 'border-[#dbe4ef]',
             isCancelledSession(session) ? 'opacity-80' : ''
           ]"
           :ui="{ root: 'ring-0', body: 'p-5' }"

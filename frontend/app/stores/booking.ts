@@ -45,8 +45,11 @@ export const useUserBookingStore = defineStore('userBooking', () => {
         'open_play_participant_confirmed',
         'open_play_participant_rejected',
         'open_play_participant_cancelled',
+        'open_play_participant_joined',
+        'open_play_participant_cancelled_by_customer',
         'open_play_session_cancelled',
-        'open_play_session_started'
+        'open_play_session_started',
+        'open_play_session_updated'
       ];
       if (bookingTypes.includes(payload.activity_type)) {
         refresh();

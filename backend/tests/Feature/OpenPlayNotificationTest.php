@@ -21,6 +21,7 @@ use App\Services\OpenPlayNotificationService;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use App\Notifications\OpenPlayActivityNotification;
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -123,6 +124,37 @@ it('sends join confirmation email to registered user on free session join', func
     Mail::assertQueued(OpenPlayJoinConfirmation::class, fn ($mail) => $mail->hasTo($player->email));
 });
 
+it('notifies owner in-app and email when a registered player joins open play', function () {
+    Mail::fake();
+    Notification::fake();
+    Event::fake([NotificationBroadcast::class, BookingSlotUpdated::class]);
+
+    $owner  = makeNotifOwner();
+    $hub    = makeNotifHub($owner);
+    $court  = makeNotifCourt($hub);
+    $player = makeNotifPlayer();
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub.owner');
+
+    $participant = makeNotifParticipant($session, $player, ['payment_status' => 'pending_payment']);
+    $participant->load('user');
+    $participant->setRelation('openPlaySession', $session);
+
+    app(OpenPlayNotificationService::class)->notifyParticipantJoined($participant, $session);
+
+    Mail::assertQueued(OpenPlayPaymentPending::class, fn ($mail) => $mail->hasTo($player->email));
+    Notification::assertSentTo(
+        $owner,
+        OpenPlayActivityNotification::class,
+        function (OpenPlayActivityNotification $notification, array $channels) {
+            return in_array('database', $channels, true)
+                && in_array('mail', $channels, true);
+        }
+    );
+    Event::assertDispatched(BookingSlotUpdated::class);
+});
+
 it('sends payment pending email to registered user on paid digital_bank join', function () {
     Mail::fake();
 
@@ -202,6 +234,34 @@ it('includes the guest tracking link in open play guest payment pending emails',
             && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}")
             && str_contains($mail->render(), 'Awaiting Receipt');
     });
+});
+
+it('notifies owner in-app and email when a guest joins open play', function () {
+    Mail::fake();
+    Notification::fake();
+    Event::fake([NotificationBroadcast::class, BookingSlotUpdated::class]);
+
+    $owner = makeNotifOwner();
+    $hub   = makeNotifHub($owner);
+    $court = makeNotifCourt($hub);
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub.owner');
+
+    $participant = makeNotifGuestParticipant($session);
+    $participant->setRelation('openPlaySession', $session);
+
+    app(OpenPlayNotificationService::class)->notifyParticipantJoined($participant, $session);
+
+    Mail::assertQueued(OpenPlayPaymentPending::class, fn ($mail) => $mail->hasTo('guest@example.com'));
+    Notification::assertSentTo(
+        $owner,
+        OpenPlayActivityNotification::class,
+        function (OpenPlayActivityNotification $notification, array $channels) {
+            return in_array('database', $channels, true)
+                && in_array('mail', $channels, true);
+        }
+    );
 });
 
 // ── notifyReceiptUploaded ─────────────────────────────────────────
@@ -394,6 +454,36 @@ it('sends in-app notification to registered user when owner cancels them', funct
         ->and($player->notifications()->first()->data['session_id'])->toBe($session->id);
 });
 
+it('notifies owner in-app and email when a registered participant cancels their own join', function () {
+    Mail::fake();
+    Notification::fake();
+    Event::fake([NotificationBroadcast::class, BookingSlotUpdated::class]);
+
+    $owner  = makeNotifOwner();
+    $hub    = makeNotifHub($owner);
+    $court  = makeNotifCourt($hub);
+    $player = makeNotifPlayer();
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub.owner');
+
+    $participant = makeNotifParticipant($session, $player, ['payment_status' => 'cancelled', 'cancelled_by' => 'user']);
+    $participant->load('user');
+    $participant->setRelation('openPlaySession', $session);
+
+    app(OpenPlayNotificationService::class)->notifyParticipantCancelled($participant, $session, 'user');
+
+    Notification::assertSentTo(
+        $owner,
+        OpenPlayActivityNotification::class,
+        function (OpenPlayActivityNotification $notification, array $channels) {
+            return in_array('database', $channels, true)
+                && in_array('mail', $channels, true);
+        }
+    );
+    Event::assertDispatched(BookingSlotUpdated::class);
+});
+
 it('sends direct email to guest when they are cancelled', function () {
     Mail::fake();
 
@@ -440,6 +530,63 @@ it('includes the guest tracking link in open play guest cancellation emails', fu
             && str_contains($mail->render(), "/open-play/track/{$participant->guest_tracking_token}")
             && str_contains($mail->render(), 'Join Expired');
     });
+});
+
+it('notifies owner in-app and email when a guest cancels their own join', function () {
+    Mail::fake();
+    Notification::fake();
+    Event::fake([NotificationBroadcast::class, BookingSlotUpdated::class]);
+
+    $owner = makeNotifOwner();
+    $hub   = makeNotifHub($owner);
+    $court = makeNotifCourt($hub);
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub.owner');
+
+    $participant = makeNotifGuestParticipant($session, [
+        'payment_status' => 'cancelled',
+        'cancelled_by' => 'user',
+    ]);
+    $participant->setRelation('openPlaySession', $session);
+
+    app(OpenPlayNotificationService::class)->notifyParticipantCancelled($participant, $session, 'user');
+
+    Mail::assertQueued(OpenPlayParticipantCancelled::class, fn ($mail) => $mail->hasTo('guest@example.com'));
+    Notification::assertSentTo(
+        $owner,
+        OpenPlayActivityNotification::class,
+        function (OpenPlayActivityNotification $notification, array $channels) {
+            return in_array('database', $channels, true)
+                && in_array('mail', $channels, true);
+        }
+    );
+});
+
+it('respects owner notification preferences for owner-facing open play activity notifications', function () {
+    Mail::fake();
+    Notification::fake();
+
+    $owner = User::factory()->create([
+        'role' => 'owner',
+        'email_notifications_enabled' => false,
+        'inapp_notifications_enabled' => false,
+    ]);
+    $hub = makeNotifHub($owner);
+    $court = makeNotifCourt($hub);
+    $player = makeNotifPlayer();
+
+    $session = makeNotifSession($court);
+    $session->load('booking.court.hub.owner');
+
+    $participant = makeNotifParticipant($session, $player);
+    $participant->load('user');
+    $participant->setRelation('openPlaySession', $session);
+
+    app(OpenPlayNotificationService::class)->notifyParticipantJoined($participant, $session);
+
+    Mail::assertQueued(OpenPlayPaymentPending::class, fn ($mail) => $mail->hasTo($player->email));
+    Notification::assertNothingSentTo($owner);
 });
 
 // ── notifySessionCancelled ────────────────────────────────────────

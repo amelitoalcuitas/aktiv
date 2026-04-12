@@ -42,7 +42,7 @@ async function handleSubmit(payload: HubFormPayload) {
       landmark: payload.landmark,
       lat: payload.lat,
       lng: payload.lng,
-      cover_image: payload.coverImage,
+      cover_image: payload.bannerImage,
       gallery_images: payload.galleryImages,
       contact_numbers: payload.contact_numbers,
       websites: payload.websites,

@@ -110,7 +110,7 @@ class OwnerBookingController extends Controller
         $closureEvent = $this->findClosureEvent($hub, $court, $startTime, $endTime);
         if ($closureEvent) {
             return response()->json([
-                'message' => "This court is unavailable: {$closureEvent->title}",
+                'message' => "Court {$court->name} is unavailable because of the closure event \"{$closureEvent->title}\".",
             ], 422);
         }
 
@@ -263,7 +263,7 @@ class OwnerBookingController extends Controller
         $closureEvent = $this->findClosureEvent($hub, $court, $startTime, $endTime);
         if ($closureEvent) {
             return response()->json([
-                'message' => "This court is unavailable: {$closureEvent->title}",
+                'message' => "Court {$court->name} is unavailable because of the closure event \"{$closureEvent->title}\".",
             ], 422);
         }
 

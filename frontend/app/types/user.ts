@@ -83,6 +83,15 @@ export interface User {
   has_password: boolean;
 }
 
+export interface VisitedHub {
+  id: string;
+  username: string | null;
+  name: string;
+  city: string;
+  cover_image_url: string | null;
+  visit_count: number;
+}
+
 export interface PublicUser {
   id: string;
   is_private?: boolean;

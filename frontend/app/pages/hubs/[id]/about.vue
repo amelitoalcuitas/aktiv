@@ -252,20 +252,30 @@ const currentDayVoucherAnnouncementEvents = computed(() =>
   )
 );
 
+const currentDayBannerEventIds = computed(() =>
+  new Set(currentDayBannerEvents.value.map((event) => event.id))
+);
+
+const nonDuplicateSelectedDateEvents = computed(() =>
+  selectedDateEvents.value.filter(
+    (event) => !currentDayBannerEventIds.value.has(event.id)
+  )
+);
+
 const selectedClosureEvents = computed(() =>
-  selectedDateEvents.value.filter((e) => e.event_type === 'closure')
+  nonDuplicateSelectedDateEvents.value.filter((e) => e.event_type === 'closure')
 );
 
 const selectedAnnouncementEvents = computed(() =>
-  selectedDateEvents.value.filter((e) => e.event_type === 'announcement')
+  nonDuplicateSelectedDateEvents.value.filter((e) => e.event_type === 'announcement')
 );
 
 const selectedPromoEvents = computed(() =>
-  selectedDateEvents.value.filter((e) => e.event_type === 'promo')
+  nonDuplicateSelectedDateEvents.value.filter((e) => e.event_type === 'promo')
 );
 
 const selectedVoucherAnnouncementEvents = computed(() =>
-  selectedDateEvents.value.filter(
+  nonDuplicateSelectedDateEvents.value.filter(
     (e) => e.event_type === 'voucher' && e.show_announcement
   )
 );

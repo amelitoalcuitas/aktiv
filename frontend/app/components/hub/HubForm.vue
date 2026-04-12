@@ -26,7 +26,7 @@ export interface HubFormPayload {
   lng: number;
   contact_numbers: HubContactNumber[];
   websites: HubWebsite[];
-  coverImage: File | null;
+  bannerImage: File | null;
   galleryImages: File[];
   removeGalleryImageIds: number[];
   is_active: boolean;
@@ -63,7 +63,7 @@ const props = withDefaults(
     loading?: boolean;
     submitLabel?: string;
     initialData?: InitialData;
-    existingCoverUrl?: string;
+    existingBannerUrl?: string;
     existingGallery?: GalleryImage[];
   }>(),
   {
@@ -150,9 +150,12 @@ const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => {
   return { label, value };
 });
 
-const coverImage = ref<File | null>(null);
-const coverPreview = ref('');
-const currentCoverUrl = ref(props.existingCoverUrl ?? '');
+const bannerFileInput = ref<HTMLInputElement | null>(null);
+const bannerImage = ref<File | null>(null);
+const bannerPreview = ref('');
+const currentBannerUrl = ref(props.existingBannerUrl ?? '');
+const bannerCropperOpen = ref(false);
+const bannerCropSrc = ref('');
 const removeGalleryImageIds = ref<number[]>([]);
 const newGalleryImages = ref<File[]>([]);
 
@@ -212,9 +215,9 @@ watch(
 );
 
 watch(
-  () => props.existingCoverUrl,
+  () => props.existingBannerUrl,
   (url) => {
-    currentCoverUrl.value = url ?? '';
+    currentBannerUrl.value = url ?? '';
   }
 );
 
@@ -394,28 +397,64 @@ const websiteErrors = computed(() =>
   form.websites.map((_, index) => websiteError(index))
 );
 
-function onCoverImageChange(event: Event) {
+function revokeBannerCropSrc() {
+  if (bannerCropSrc.value) {
+    URL.revokeObjectURL(bannerCropSrc.value);
+    bannerCropSrc.value = '';
+  }
+}
+
+function revokeBannerPreview() {
+  if (bannerPreview.value) {
+    URL.revokeObjectURL(bannerPreview.value);
+    bannerPreview.value = '';
+  }
+}
+
+function openBannerCropper(event: Event) {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0] ?? null;
 
   if (file && file.size > HUB_IMAGE_MAX_BYTES) {
     toast.add({
-      title: `Cover image must be ${HUB_IMAGE_MAX_SIZE_MB}MB or smaller.`,
+      title: `Banner image must be ${HUB_IMAGE_MAX_SIZE_MB}MB or smaller.`,
       color: 'error'
     });
     input.value = '';
     return;
   }
 
-  coverImage.value = file;
-  if (coverPreview.value) {
-    URL.revokeObjectURL(coverPreview.value);
-    coverPreview.value = '';
+  if (file) {
+    revokeBannerCropSrc();
+    bannerCropSrc.value = URL.createObjectURL(file);
+    bannerCropperOpen.value = true;
   }
 
-  if (file) {
-    coverPreview.value = URL.createObjectURL(file);
-  }
+  input.value = '';
+}
+
+function onBannerCropConfirm(blob: Blob) {
+  revokeBannerPreview();
+
+  const file = new File([blob], 'banner.jpg', { type: 'image/jpeg' });
+  bannerImage.value = file;
+  bannerPreview.value = URL.createObjectURL(file);
+  currentBannerUrl.value = '';
+
+  revokeBannerCropSrc();
+  bannerCropperOpen.value = false;
+}
+
+function onBannerCropCancel() {
+  revokeBannerCropSrc();
+  bannerCropperOpen.value = false;
+}
+
+function clearBannerImage() {
+  revokeBannerPreview();
+  bannerImage.value = null;
+  currentBannerUrl.value = '';
+  if (bannerFileInput.value) bannerFileInput.value.value = '';
 }
 
 function onGalleryFilesUpdate(value: File | File[] | null) {
@@ -525,7 +564,7 @@ function handleSubmit() {
     lng: parsed.data.lng as number,
     contact_numbers: parsed.data.contact_numbers ?? [],
     websites: parsed.data.websites ?? [],
-    coverImage: coverImage.value,
+    bannerImage: bannerImage.value,
     galleryImages: newGalleryImages.value,
     removeGalleryImageIds: removeGalleryImageIds.value,
     is_active: parsed.data.is_active,
@@ -550,9 +589,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   footerObserver?.disconnect();
-  if (coverPreview.value) {
-    URL.revokeObjectURL(coverPreview.value);
-  }
+  revokeBannerPreview();
+  revokeBannerCropSrc();
 });
 </script>
 
@@ -954,19 +992,77 @@ onUnmounted(() => {
         class="mb-6"
       />
 
-      <!-- Cover Image -->
+      <!-- Banner Image -->
       <UFormField
-        label="Cover Image (optional)"
+        label="Banner Image (optional)"
         :error="fieldError('cover_image')"
         class="mb-5"
       >
-        <AppImageUploader
-          v-model="coverImage"
-          :preview-url="currentCoverUrl || null"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          :max-mb="HUB_IMAGE_MAX_SIZE_MB"
-          @clear="coverImage = null; currentCoverUrl = ''"
-        />
+        <div class="space-y-3">
+          <div
+            class="relative overflow-hidden rounded-xl border-2 border-solid border-[var(--aktiv-border)] bg-[var(--aktiv-background)]"
+          >
+            <img
+              v-if="bannerPreview || currentBannerUrl"
+              :src="bannerPreview || currentBannerUrl"
+              alt="Hub banner preview"
+              class="w-full object-contain"
+            />
+            <div
+              v-else
+              class="flex min-h-[180px] flex-col items-center justify-center px-6 py-8 text-center"
+            >
+              <UIcon
+                name="i-heroicons-photo"
+                class="mx-auto h-7 w-7 text-[var(--aktiv-muted,#64748b)]"
+              />
+              <p class="mt-2 text-sm font-medium text-[var(--aktiv-ink,#0f1728)]">
+                Click to upload a banner image
+              </p>
+              <p class="mt-0.5 text-xs text-[var(--aktiv-muted,#64748b)]">
+                JPG, PNG, WebP, GIF · max {{ HUB_IMAGE_MAX_SIZE_MB }} MB
+              </p>
+            </div>
+
+            <button
+              v-if="bannerPreview || currentBannerUrl"
+              type="button"
+              class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full border border-[var(--aktiv-border,#dbe4ef)] bg-white shadow-sm transition-colors hover:bg-red-50"
+              @click="clearBannerImage"
+            >
+              <UIcon name="i-heroicons-x-mark" class="h-4 w-4 text-[#0f1728]" />
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <UButton
+              type="button"
+              color="neutral"
+              variant="outline"
+              icon="i-heroicons-camera"
+              @click="bannerFileInput?.click()"
+            >
+              {{ bannerPreview || currentBannerUrl ? 'Change banner' : 'Upload banner' }}
+            </UButton>
+            <UButton
+              v-if="bannerPreview || currentBannerUrl"
+              type="button"
+              color="neutral"
+              variant="ghost"
+              @click="clearBannerImage"
+            >
+              Remove banner
+            </UButton>
+          </div>
+
+          <input
+            ref="bannerFileInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            class="sr-only"
+            @change="openBannerCropper"
+          />
+        </div>
       </UFormField>
 
       <!-- Gallery Images -->
@@ -1058,4 +1154,17 @@ onUnmounted(() => {
       </div>
     </Transition>
   </form>
+
+  <AppImageCropperModal
+    v-model:open="bannerCropperOpen"
+    :src="bannerCropSrc"
+    :aspect-ratio="16 / 5"
+    stencil-shape="rectangle"
+    @confirm="onBannerCropConfirm"
+    @update:open="
+      (value) => {
+        if (!value) onBannerCropCancel();
+      }
+    "
+  />
 </template>

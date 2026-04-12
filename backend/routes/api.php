@@ -95,6 +95,7 @@ Route::post('/guest-open-play/{token}/cancel', [GuestOpenPlayTrackingController:
 // Public user profiles
 Route::get('/users/resolve/{username}', [UserController::class, 'resolveUsername'])->name('api.users.resolve');
 Route::get('/users/{user}', [UserController::class, 'show'])->name('api.users.show');
+Route::get('/users/{user}/most-visited-hubs', [UserController::class, 'mostVisitedHubs'])->name('api.users.most-visited-hubs');
 
 // Authenticated routes (any logged-in user)
 Route::middleware('auth:sanctum')->group(function (): void {
@@ -105,6 +106,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/hubs/{hub}/open-play/{session}/leave', [OpenPlayController::class, 'leave'])->name('api.hubs.open-play.leave');
 
     // User bookings
+    Route::get('/user/most-visited-hubs', [UserBookingController::class, 'mostVisitedHubs'])->name('api.user.most-visited-hubs');
     Route::get('/user/bookings', [UserBookingController::class, 'index'])->name('api.user.bookings.index');
     Route::get('/user/bookings/page-of', [UserBookingController::class, 'pageOf'])->name('api.user.bookings.page-of');
     Route::get('/user/pending-review', [UserBookingController::class, 'pendingReview'])->name('api.user.pending-review');

@@ -129,9 +129,9 @@ const name = computed(() => {
           />
         </div>
 
-        <!-- Change banner button (own profile, editing mode) -->
+        <!-- Change banner button (own profile) -->
         <button
-          v-if="isOwn && editing"
+          v-if="isOwn"
           type="button"
           class="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-md bg-black/50 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-black/70 transition"
           @click="bannerInput?.click()"
@@ -159,7 +159,7 @@ const name = computed(() => {
             :premium="profile.is_premium"
           />
           <button
-            v-if="isOwn && editing"
+            v-if="isOwn"
             type="button"
             class="absolute bottom-1 right-1 flex h-8 w-8 items-center justify-center rounded-full bg-[var(--aktiv-primary)] text-white shadow hover:bg-[var(--aktiv-primary-hover)] transition"
             @click="avatarInput?.click()"

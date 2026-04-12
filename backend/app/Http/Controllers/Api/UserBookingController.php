@@ -7,12 +7,14 @@ use App\Http\Resources\MyBookingItemResource;
 use App\Http\Resources\UserBookingResource;
 use App\Models\Booking;
 use App\Models\BookingReviewSkip;
+use App\Models\Hub;
 use App\Models\OpenPlayParticipant;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class UserBookingController extends Controller
 {
@@ -108,6 +110,41 @@ class UserBookingController extends Controller
         ]);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * Return the authenticated user's top 5 most-visited hubs,
+     * ranked by the number of confirmed or completed bookings.
+     */
+    public function mostVisitedHubs(Request $request): JsonResponse
+    {
+        $userId = $request->user()->id;
+
+        $rows = DB::table('bookings')
+            ->select('courts.hub_id', DB::raw('COUNT(*) as visit_count'))
+            ->join('courts', 'courts.id', '=', 'bookings.court_id')
+            ->where('bookings.booked_by', $userId)
+            ->whereIn('bookings.status', ['confirmed', 'completed'])
+            ->groupBy('courts.hub_id')
+            ->orderByDesc('visit_count')
+            ->limit(3)
+            ->get();
+
+        $hubs = Hub::query()
+            ->whereIn('id', $rows->pluck('hub_id'))
+            ->get(['id', 'name', 'username', 'city', 'cover_image_url'])
+            ->keyBy('id');
+
+        $data = $rows->map(fn ($row) => [
+            'id'              => $row->hub_id,
+            'name'            => $hubs[$row->hub_id]->name,
+            'username'        => $hubs[$row->hub_id]->username,
+            'city'            => $hubs[$row->hub_id]->city,
+            'cover_image_url' => $hubs[$row->hub_id]->cover_image_url,
+            'visit_count'     => $row->visit_count,
+        ]);
+
+        return response()->json(['data' => $data]);
     }
 
     /**

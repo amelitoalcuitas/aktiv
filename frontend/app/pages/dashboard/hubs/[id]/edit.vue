@@ -150,38 +150,71 @@ const HOUR_OPTIONS = Array.from({ length: 24 }, (_, h) => {
   return { label, value };
 });
 
-// ── Cover image ───────────────────────────────────────────────────────────────
-const coverFileInput = ref<HTMLInputElement | null>(null);
-const pendingCoverFile = ref<File | null>(null);
-const coverPreviewUrl = ref('');
-const currentCoverUrl = ref('');
-const showCoverOverlay = ref(false);
+// ── Banner image ──────────────────────────────────────────────────────────────
+const bannerFileInput = ref<HTMLInputElement | null>(null);
+const pendingBannerFile = ref<File | null>(null);
+const bannerPreviewUrl = ref('');
+const currentBannerUrl = ref('');
+const showBannerOverlay = ref(false);
+const bannerCropperOpen = ref(false);
+const bannerCropSrc = ref('');
 
-function onCoverInputChange(e: Event) {
+function revokeBannerPreviewUrl() {
+  if (bannerPreviewUrl.value) {
+    URL.revokeObjectURL(bannerPreviewUrl.value);
+    bannerPreviewUrl.value = '';
+  }
+}
+
+function revokeBannerCropSrc() {
+  if (bannerCropSrc.value) {
+    URL.revokeObjectURL(bannerCropSrc.value);
+    bannerCropSrc.value = '';
+  }
+}
+
+function onBannerInputChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0] ?? null;
   if (!file) return;
   if (file.size > HUB_IMAGE_MAX_BYTES) {
     toast.add({
-      title: `Cover image must be ${HUB_IMAGE_MAX_SIZE_MB}MB or smaller.`,
+      title: `Banner image must be ${HUB_IMAGE_MAX_SIZE_MB}MB or smaller.`,
       color: 'error'
     });
     return;
   }
-  if (coverPreviewUrl.value) URL.revokeObjectURL(coverPreviewUrl.value);
-  pendingCoverFile.value = file;
-  coverPreviewUrl.value = URL.createObjectURL(file);
-  if (coverFileInput.value) coverFileInput.value.value = '';
+
+  revokeBannerCropSrc();
+  bannerCropSrc.value = URL.createObjectURL(file);
+  bannerCropperOpen.value = true;
+  if (bannerFileInput.value) bannerFileInput.value.value = '';
 }
 
-function clearCover() {
-  if (coverPreviewUrl.value) URL.revokeObjectURL(coverPreviewUrl.value);
-  pendingCoverFile.value = null;
-  coverPreviewUrl.value = '';
-  currentCoverUrl.value = '';
+function onBannerCropConfirm(blob: Blob) {
+  revokeBannerPreviewUrl();
+
+  const file = new File([blob], 'banner.jpg', { type: 'image/jpeg' });
+  pendingBannerFile.value = file;
+  bannerPreviewUrl.value = URL.createObjectURL(file);
+  currentBannerUrl.value = '';
+
+  revokeBannerCropSrc();
+  bannerCropperOpen.value = false;
 }
 
-const displayCover = computed(
-  () => coverPreviewUrl.value || currentCoverUrl.value
+function onBannerCropCancel() {
+  revokeBannerCropSrc();
+  bannerCropperOpen.value = false;
+}
+
+function clearBanner() {
+  revokeBannerPreviewUrl();
+  pendingBannerFile.value = null;
+  currentBannerUrl.value = '';
+}
+
+const displayBanner = computed(
+  () => bannerPreviewUrl.value || currentBannerUrl.value
 );
 
 // ── Gallery ───────────────────────────────────────────────────────────────────
@@ -228,12 +261,9 @@ function populateForm(hub: Hub) {
     url: w.url
   }));
   form.is_active = hub.is_active ?? true;
-  currentCoverUrl.value = hub.cover_image_url ?? '';
-  pendingCoverFile.value = null;
-  if (coverPreviewUrl.value) {
-    URL.revokeObjectURL(coverPreviewUrl.value);
-    coverPreviewUrl.value = '';
-  }
+  currentBannerUrl.value = hub.cover_image_url ?? '';
+  pendingBannerFile.value = null;
+  revokeBannerPreviewUrl();
   removeGalleryImageIds.value = [];
   newGalleryImages.value = [];
 
@@ -421,7 +451,7 @@ async function handleSubmit() {
       landmark: parsed.data.landmark ?? null,
       lat: parsed.data.lat as number,
       lng: parsed.data.lng as number,
-      cover_image: pendingCoverFile.value,
+      cover_image: pendingBannerFile.value,
       gallery_images: newGalleryImages.value,
       remove_gallery_image_ids: removeGalleryImageIds.value,
       contact_numbers: parsed.data.contact_numbers ?? [],
@@ -482,8 +512,8 @@ function formSnapshot() {
     websites: form.websites,
     is_active: form.is_active,
     operating_hours: operatingHours.value,
-    hasPendingCover: !!pendingCoverFile.value,
-    removedCover: !currentCoverUrl.value && !pendingCoverFile.value,
+    hasPendingBanner: !!pendingBannerFile.value,
+    removedBanner: !currentBannerUrl.value && !pendingBannerFile.value,
     removeGalleryImageIds: removeGalleryImageIds.value,
     newGalleryCount: newGalleryImages.value.length
   });
@@ -527,7 +557,8 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('beforeunload', onBeforeUnload);
   footerObserver?.disconnect();
-  if (coverPreviewUrl.value) URL.revokeObjectURL(coverPreviewUrl.value);
+  revokeBannerPreviewUrl();
+  revokeBannerCropSrc();
 });
 </script>
 
@@ -547,15 +578,15 @@ onUnmounted(() => {
     </div>
 
     <form v-else @submit.prevent="handleSubmit">
-      <!-- ── Hero / Cover Image ─────────────────────────────────────────────── -->
+      <!-- ── Hero / Banner Image ────────────────────────────────────────────── -->
       <section
         class="relative isolate overflow-hidden border-b border-[var(--aktiv-border)] group"
-        @mouseenter="showCoverOverlay = true"
-        @mouseleave="showCoverOverlay = false"
+        @mouseenter="showBannerOverlay = true"
+        @mouseleave="showBannerOverlay = false"
       >
         <img
-          v-if="displayCover"
-          :src="displayCover"
+          v-if="displayBanner"
+          :src="displayBanner"
           :alt="form.name"
           class="h-[168px] w-full object-cover sm:h-[260px]"
         />
@@ -583,21 +614,21 @@ onUnmounted(() => {
         <!-- Edit overlay (buttons centred) -->
         <div
           class="absolute inset-0 flex items-center justify-center gap-3 bg-black/40 transition-opacity duration-200"
-          :class="showCoverOverlay ? 'opacity-100' : 'opacity-0'"
+          :class="showBannerOverlay ? 'opacity-100' : 'opacity-0'"
         >
           <button
             type="button"
             class="flex items-center gap-2 rounded-lg bg-white/90 px-3 py-2 text-sm font-medium text-[var(--aktiv-ink)] shadow hover:bg-white"
-            @click="coverFileInput?.click()"
+            @click="bannerFileInput?.click()"
           >
             <UIcon name="i-heroicons-camera" class="h-4 w-4" />
-            Change cover
+            Change banner
           </button>
           <button
-            v-if="displayCover"
+            v-if="displayBanner"
             type="button"
             class="flex items-center gap-2 rounded-lg bg-white/90 px-3 py-2 text-sm font-medium text-red-600 shadow hover:bg-white"
-            @click="clearCover"
+            @click="clearBanner"
           >
             <UIcon name="i-heroicons-trash" class="h-4 w-4" />
             Remove
@@ -605,11 +636,11 @@ onUnmounted(() => {
         </div>
 
         <input
-          ref="coverFileInput"
+          ref="bannerFileInput"
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
           class="sr-only"
-          @change="onCoverInputChange"
+          @change="onBannerInputChange"
         />
 
         <!-- Hub name editable overlay (bottom-left, mirrors HubProfileHeader) -->
@@ -1218,6 +1249,19 @@ onUnmounted(() => {
         </div>
       </Transition>
     </form>
+
+    <AppImageCropperModal
+      v-model:open="bannerCropperOpen"
+      :src="bannerCropSrc"
+      :aspect-ratio="16 / 5"
+      stencil-shape="rectangle"
+      @confirm="onBannerCropConfirm"
+      @update:open="
+        (value) => {
+          if (!value) onBannerCropCancel();
+        }
+      "
+    />
 
     <!-- Delete Confirm Modal -->
     <AppModal

@@ -460,7 +460,10 @@ it('owner cannot update a session into a closure event', function () {
             'guests_can_join' => false,
         ])
         ->assertUnprocessable()
-        ->assertJsonPath('message', 'This court is unavailable: Maintenance');
+        ->assertJsonPath('message', sprintf(
+            'Court %s is unavailable because of the closure event "Maintenance".',
+            $court->name
+        ));
 });
 
 it('owner cannot reduce max players below active reserved participants', function () {

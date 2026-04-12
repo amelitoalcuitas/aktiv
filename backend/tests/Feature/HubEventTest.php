@@ -413,6 +413,7 @@ it('blocks booking when a closure event covers the slot', function () {
 
     HubEvent::factory()->closure()->create([
         'hub_id'    => $hub->id,
+        'title'     => 'Maintenance',
         ...eventWindow(
             now('Asia/Manila')->subDay()->toDateString(),
             now('Asia/Manila')->addDays(2)->toDateString()
@@ -431,7 +432,10 @@ it('blocks booking when a closure event covers the slot', function () {
             'payment_method' => 'pay_on_site',
         ])
         ->assertUnprocessable()
-        ->assertJsonPath('message', fn ($msg) => str_contains($msg, 'unavailable'));
+        ->assertJsonPath('message', sprintf(
+            'Court %s is unavailable because of the closure event "Maintenance".',
+            $court->name
+        ));
 });
 
 it('allows booking when closure event is inactive', function () {

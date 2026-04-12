@@ -114,7 +114,7 @@ class GuestBookingController extends Controller
         $closureEvent = $this->discounts->findClosureEvent($hub, $court, $startTime, $endTime);
         if ($closureEvent) {
             return response()->json([
-                'message' => "This court is unavailable: {$closureEvent->title}",
+                'message' => "Court {$court->name} is unavailable because of the closure event \"{$closureEvent->title}\".",
             ], 422);
         }
 

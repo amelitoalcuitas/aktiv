@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\ImageManager;
+use RuntimeException;
 
 class ImageUploadService
 {
@@ -26,7 +28,7 @@ class ImageUploadService
         $avatarImage = $manager->read($file->getRealPath());
         $avatarImage->cover(400, 400);
         $avatarPath = 'avatars/'.(string) str()->uuid().'.jpg';
-        Storage::disk('s3')->put($avatarPath, $avatarImage->toJpeg(85)->toString(), [
+        $this->putOrFail($avatarPath, $avatarImage->toJpeg(85)->toString(), [
             'visibility' => 'public',
             'ContentType' => 'image/jpeg',
         ]);
@@ -34,7 +36,7 @@ class ImageUploadService
         $thumbImage = $manager->read($file->getRealPath());
         $thumbImage->cover(80, 80);
         $thumbPath = 'avatars/thumbs/'.(string) str()->uuid().'.jpg';
-        Storage::disk('s3')->put($thumbPath, $thumbImage->toJpeg(85)->toString(), [
+        $this->putOrFail($thumbPath, $thumbImage->toJpeg(85)->toString(), [
             'visibility' => 'public',
             'ContentType' => 'image/jpeg',
         ]);
@@ -72,7 +74,7 @@ class ImageUploadService
 
         $path = trim($folder, '/').'/'.(string) str()->uuid().'.jpg';
 
-        Storage::disk('s3')->put($path, $encoded->toString(), [
+        $this->putOrFail($path, $encoded->toString(), [
             'visibility' => 'public',
             'ContentType' => 'image/jpeg',
         ]);
@@ -81,5 +83,25 @@ class ImageUploadService
             'path' => $path,
             'url' => Storage::disk('s3')->url($path),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     */
+    private function putOrFail(string $path, string $contents, array $options): void
+    {
+        $stored = Storage::disk('s3')->put($path, $contents, $options);
+
+        if ($stored !== true) {
+            Log::error('Image upload failed while writing to object storage.', [
+                'disk' => 's3',
+                'path' => $path,
+                'bucket' => config('filesystems.disks.s3.bucket'),
+                'endpoint' => config('filesystems.disks.s3.endpoint'),
+                'url' => config('filesystems.disks.s3.url'),
+            ]);
+
+            throw new RuntimeException("Failed to upload image to object storage at [{$path}].");
+        }
     }
 }

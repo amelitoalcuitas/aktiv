@@ -355,6 +355,7 @@ async function onToggleHeart() {
         <div class="space-y-4">
           <ProfileVisitedHubs
             v-if="publicPrivacy.show_visited_hubs"
+            :user-id="userId"
             :hidden="false"
           />
           <ProfileStatsCard

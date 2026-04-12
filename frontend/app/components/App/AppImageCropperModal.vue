@@ -51,22 +51,31 @@ function onConfirm() {
   <UModal
     :open="open"
     :dismissible="false"
-    :ui="{ content: 'max-w-xl' }"
+    :ui="{ content: 'max-w-4xl' }"
     @update:open="emit('update:open', $event)"
   >
     <template #content>
-      <div class="flex flex-col gap-4 p-4">
+      <div class="flex max-h-[90vh] flex-col gap-4 p-4 sm:p-5">
         <h3 class="text-base font-bold text-[var(--aktiv-ink)]">Crop Image</h3>
 
-        <div class="overflow-hidden rounded-lg bg-black" style="max-height: 60vh;">
+        <div
+          class="overflow-hidden rounded-lg bg-black"
+          style="height: min(68vh, 760px); min-height: 360px;"
+        >
           <Cropper
             ref="cropperRef"
             :src="src"
             :stencil-component="stencilComponent"
             :stencil-props="stencilProps"
-            class="max-h-[60vh]"
+            :transitions="false"
+            image-restriction="fit-area"
+            class="h-full w-full"
           />
         </div>
+
+        <p class="text-sm text-[var(--aktiv-muted)]">
+          Tip: Use your mouse wheel on desktop, or pinch with two fingers on mobile, to zoom in and out.
+        </p>
 
         <div class="flex justify-end gap-2">
           <UButton variant="outline" color="neutral" :disabled="saving" @click="onCancel">

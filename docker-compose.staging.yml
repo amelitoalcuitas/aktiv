@@ -47,6 +47,9 @@ services:
     ports: !reset
       - "9005:9000"
       - "9006:9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
 
   # ─── Workers & Scheduler ──────────────────────────────────────────────────
   queue:
